@@ -1,0 +1,214 @@
+version: 2.1
+
+defaults:
+- &defaults
+  docker:
+  - image: circleci/openjdk:8-jdk
+
+- &restore-cache
+  restore_cache:
+    keys:
+    - dependencies-{{ checksum "build.sbt" }}
+    - dependencies
+
+- &save-cache
+  save_cache:
+    key: dependencies-{{ checksum "build.sbt" }}
+    paths:
+    - /home/circleci/.ivy2
+    - /home/circleci/.sbt
+
+- &add-github-host-ssh-key
+  run:
+    name: Configure git credentials
+    command: |
+      echo 'Adding the github host SSH key...'
+      mkdir -p -m 0700 ~/.ssh/
+      ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+
+- &configure-git-credentials
+  run:
+    name: Configure git credentials
+    command: |
+      git config user.name ovo-comms-circleci
+      git config user.email "hello.comms@ovoenergy.com"
+
+
+executors:
+  docker-executor:
+    docker:
+    - image: circleci/openjdk:8-jdk
+    environment:
+      JAVA_OPTS: "-Xmx1g -XX:MaxMetaspaceSize=1g -XX:MetaspaceSize=1g -XX:+CMSClassUnloadingEnabled"
+      DEFAULT_AWS_REGION: "eu-west-1"
+      AWS_REGION: "eu-west-1"
+     
+
+jobs:
+  build:
+
+    executor: docker-executor
+
+    steps:
+
+    - checkout
+
+    - *restore-cache
+
+    - run:
+        command: sbt update
+        no_output_timeout: 20m
+
+    - *save-cache
+
+    - run:
+        command: sbt headerCheck
+
+    - run:
+        command: sbt scalafmtCheck
+
+    - run:
+        command: sbt test:scalafmtCheck
+
+    - run:
+        command: sbt it:scalafmtCheck
+
+    - run:
+        command: sbt test:compile
+        no_output_timeout: 20m
+
+    - persist_to_workspace:
+        root: .
+        paths:
+        - project/target
+        - project/project/target
+        - target
+        - auth/target
+        - common/target
+        - s3/target
+
+  unit_test:
+
+    executor: docker-executor
+
+    steps:
+
+    - checkout
+
+    - *restore-cache
+
+    - attach_workspace:
+        at: .
+
+    - run:
+        command: sbt test
+        no_output_timeout: 20m
+
+    - store_test_results:
+        path: common/target/test-reports
+
+    - store_test_results:
+        path: auth/target/test-reports
+
+
+    - store_artifacts:
+        path: target/unit-test.log
+        destination: logs/unit-test.log
+
+  integration_test:
+
+    executor: docker-executor
+
+    steps:
+
+    - checkout
+
+    - *restore-cache
+
+    - attach_workspace:
+        at: .
+
+    - run:
+        command: sbt it:test
+        no_output_timeout: 20m
+
+    - store_test_results:
+        path: common/target/test-reports
+
+    - store_test_results:
+        path: auth/target/test-reports
+
+    - store_artifacts:
+        path: target/it-test.log
+        destination: logs/it-test.log
+
+  tag:
+
+    executor: docker-executor
+
+    steps:
+
+    - checkout
+
+    - attach_workspace:
+        at: .
+
+    - *add-github-host-ssh-key
+
+    - *configure-git-credentials
+
+    - run:
+        command: "build/tag.sh"
+
+    # Update the workspace to make sure the git tags are available to the
+    # downstream jobs
+    - persist_to_workspace:
+        root: .
+        paths:
+        - .git
+
+  release:
+
+    executor: docker-executor
+
+    steps:
+
+    - checkout
+
+    - *restore-cache
+
+    - attach_workspace:
+        at: .
+
+    - run:
+        command: "sbt releaseEarly"
+        no_output_timeout: 20m
+
+workflows:
+
+  build_test_release:
+    jobs:
+    - build
+
+    - unit_test:
+        requires:
+        - build
+
+    - integration_test:
+        requires:
+        - build
+
+    - tag:
+        requires:
+        - build
+        - unit_test
+        - integration_test
+        filters:
+          branches:
+            only: master
+
+    - release:
+        requires:
+        - tag
+
+
