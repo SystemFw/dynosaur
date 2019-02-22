@@ -112,4 +112,26 @@ object headers extends HttpCodecs {
     def renderValue(writer: Writer): writer.type = writer << sessionToken
   }
 
+  object `X-Amz-Target` extends HeaderKey.Singleton {
+    type HeaderT = `X-Amz-Target`
+
+    val name: CaseInsensitiveString = "X-Amz-Target".ci
+
+    def matchHeader(header: Header): Option[`X-Amz-Target`] =
+      header match {
+        case h: `X-Amz-Target` => h.some
+        case Raw(n, _) if n == name =>
+          header.parsed.asInstanceOf[`X-Amz-Target`].some
+        case _ => None
+      }
+
+    def parse(s: String): ParseResult[`X-Amz-Target`] =
+      `X-Amz-Target`(s).asRight
+  }
+
+  final case class `X-Amz-Target`(target: String) extends Header.Parsed {
+    def key: `X-Amz-Target`.type = `X-Amz-Target`
+
+    def renderValue(writer: Writer): writer.type = writer << target
+  }
 }

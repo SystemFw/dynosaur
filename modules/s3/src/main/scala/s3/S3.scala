@@ -22,7 +22,6 @@ import model._
 import common._
 import common.model._
 import cats.implicits._
-import cats.data.EitherT
 import cats.effect.{Sync, Resource, ConcurrentEffect, ExitCase}
 import cats.effect.implicits._
 import java.nio.ByteBuffer
