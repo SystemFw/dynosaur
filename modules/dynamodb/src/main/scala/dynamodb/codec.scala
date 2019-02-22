@@ -17,7 +17,6 @@
 package com.ovoenergy.comms.aws
 package dynamodb
 
-import cats.data.Chain
 import cats.implicits._
 
 import io.circe._
@@ -39,6 +38,9 @@ object codec {
       override def apply(key: String): Option[AttributeName] =
         Some(AttributeName(key))
     }
+
+  implicit lazy val encodeAttributeValueM: Encoder[AttributeValue.M] =
+    encodeAttributeValue.contramap(identity)
 
   implicit lazy val encodeAttributeValue: Encoder[AttributeValue] =
     Encoder.instance {
@@ -65,7 +67,14 @@ object codec {
         json"""{"M": ${values}}"""
     }
 
-  implicit def decodeAttributeValue: Decoder[AttributeValue] = {
+  implicit lazy val decodeAttributeValueM: Decoder[AttributeValue.M] =
+    Decoder.instance { hc =>
+      for {
+        xs <- hc.get[Map[AttributeName, AttributeValue]]("M")
+      } yield AttributeValue.M(xs)
+    }
+
+  implicit lazy val decodeAttributeValue: Decoder[AttributeValue] = {
 
     val decodeNULL: Decoder[AttributeValue] =
       Decoder[Boolean]
@@ -130,13 +139,47 @@ object codec {
       } yield AttributeValue.L(xs)
     }
 
-    val decodeM: Decoder[AttributeValue] = Decoder.instance { hc =>
-      for {
-        xs <- hc.get[Map[AttributeName, AttributeValue]]("M")
-      } yield AttributeValue.M(xs)
-    }
+    val decodeM: Decoder[AttributeValue] =
+      decodeAttributeValueM.widen[AttributeValue]
 
     decodeNULL <+> decodeBOOL <+> decodeS <+> decodeSS <+> decodeN <+> decodeNS <+> decodeB <+> decodeBS <+> decodeL <+> decodeM
   }
+
+  implicit val decodePutItemResponse: Decoder[PutItemResponse] =
+    Decoder.instance { hc =>
+      for {
+        attributes <- hc
+          .get[Option[Map[AttributeName, AttributeValue]]]("Attributes")
+      } yield PutItemResponse(attributes.map(AttributeValue.M))
+    }
+
+  implicit val encodeReturnValues: Encoder[ReturnValues] =
+    Encoder[String].contramap {
+      case ReturnValues.None => "NONE"
+      case ReturnValues.AllOld => "ALL_OLD"
+      case ReturnValues.AllNew => "ALL_NEW"
+      case ReturnValues.UpdatedOld => "UPDATED_OLD"
+      case ReturnValues.UpdatedNew => "UPDATED_NEW"
+    }
+
+  implicit lazy val encodeTableName: Encoder[TableName] =
+    Encoder[String].contramap(_.value)
+
+  implicit lazy val encodePutItemRequest: Encoder[PutItemRequest] =
+    Encoder.instance { request =>
+      Json.obj(
+        "Item" -> request.item.asJson.withObject(jso =>
+          jso("M").getOrElse(Json.Null)),
+        "ReturnValues" -> request.returnValues.asJson,
+        "TableName" -> request.tableName.asJson,
+      )
+    }
+
+  implicit val decodeDynamoDbError: Decoder[DynamoDbError] =
+    Decoder.instance { hc =>
+      for {
+        message <- hc.get[String]("message")
+      } yield DynamoDbError(message)
+    }
 
 }

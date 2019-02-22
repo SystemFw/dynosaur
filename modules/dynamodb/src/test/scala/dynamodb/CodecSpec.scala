@@ -103,5 +103,15 @@ class CodecSpec extends UnitSpec {
         (attributeValue: AttributeValue).asJson
           .as[AttributeValue] shouldBe Right(attributeValue)
     }
+
+    "decode any PutItemResponse" in forAll { response: PutItemResponse =>
+      val json = json"""{"Attributes": ${response.attributes.map(_.values)}}"""
+
+      json.as[PutItemResponse] shouldBe Right(response)
+    }
+
+    "encode any PutItemRequest" in forAll { request: PutItemRequest =>
+      request.asJson
+    }
   }
 }

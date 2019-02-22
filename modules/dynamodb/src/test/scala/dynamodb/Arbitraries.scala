@@ -17,15 +17,11 @@
 package com.ovoenergy.comms.aws
 package dynamodb
 
-import cats.data.Chain
-
 import org.scalacheck._
 import org.scalacheck.Gen._
 import org.scalacheck.Arbitrary._
 
 import scodec.bits._
-
-import common._
 import model._
 
 trait Generators {
@@ -196,6 +192,34 @@ trait Arbitraries {
 
   implicit lazy val arbAttributeValue: Arbitrary[AttributeValue] = Arbitrary(
     genAttributeValue()
+  )
+
+  implicit lazy val arbTableName: Arbitrary[TableName] = Arbitrary(
+    genNonEmptyString.map(TableName(_))
+  )
+
+  implicit lazy val arbReturnValues: Arbitrary[ReturnValues] = Arbitrary(
+    oneOf(
+      ReturnValues.None,
+      ReturnValues.AllOld,
+      ReturnValues.AllNew,
+      ReturnValues.UpdatedOld,
+      ReturnValues.UpdatedNew
+    )
+  )
+
+  implicit lazy val arbPutItemRequest: Arbitrary[PutItemRequest] = Arbitrary(
+    for {
+      tableName <- arbitrary[TableName]
+      item <- arbitrary[AttributeValue.M]
+      returnValues <- arbitrary[ReturnValues]
+    } yield PutItemRequest(tableName, item, returnValues)
+  )
+
+  implicit lazy val arbPutItemResponse: Arbitrary[PutItemResponse] = Arbitrary(
+    for {
+      attributes <- arbitrary[Option[AttributeValue.M]]
+    } yield PutItemResponse(attributes)
   )
 }
 

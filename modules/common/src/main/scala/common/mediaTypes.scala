@@ -17,8 +17,6 @@
 package com.ovoenergy.comms.aws
 package common
 
-import java.time._
-
 import org.http4s.MediaType
 
 object mediaTypes {

@@ -17,8 +17,6 @@
 package com.ovoenergy.comms.aws
 package dynamodb
 
-import org.http4s.Status
-import cats.data.Chain
 import scodec.bits._
 
 object model {
@@ -41,27 +39,6 @@ object model {
     case class NS(values: Set[String]) extends AttributeValue
     case class BS(values: Set[ByteVector]) extends AttributeValue
   }
-
-  /*
-
-ReturnValues
-Use ReturnValues if you want to get the item attributes as they appeared before they were updated with the PutItem request. For PutItem, the valid values are:
-
-NONE - If ReturnValues is not specified, or if its value is NONE, then nothing is returned. (This setting is the default for ReturnValues.)
-
-ALL_OLD - If PutItem overwrote an attribute name-value pair, then the content of the old item is returned.
-
-Note
-
-The ReturnValues parameter is used by several DynamoDB operations; however, PutItem does not recognize any values other than NONE or ALL_OLD.
-
-Type: String
-
-Valid Values: NONE | ALL_OLD | UPDATED_OLD | ALL_NEW | UPDATED_NEW
-
-Required: No
-
-   */
 
   sealed trait ReturnValues
   object ReturnValues {
@@ -91,45 +68,7 @@ Required: No
   case class PutItemResponse(attributes: Option[AttributeValue.M])
 
   // TODO Model all the DynamoDb errors
-  case class DynamoDbError(
-      status: Status,
-      message: String,
-      retriable: Boolean = false)
+  case class DynamoDbError(message: String, retriable: Boolean = false)
       extends Exception(message)
-
-  /*
-
-    TODO Model Capacity
-
-    case class CapacityUnits(value: Double)
-    case class Capacity(total: CapacityUnits, read: CapacityUnits, write: CapacityUnits)
-
-     "ConsumedCapacity": {
-      "CapacityUnits": number,
-      "GlobalSecondaryIndexes": {
-         "string" : {
-            "CapacityUnits": number,
-            "ReadCapacityUnits": number,
-            "WriteCapacityUnits": number
-         }
-      },
-      "LocalSecondaryIndexes": {
-         "string" : {
-            "CapacityUnits": number,
-            "ReadCapacityUnits": number,
-            "WriteCapacityUnits": number
-         }
-      },
-      "ReadCapacityUnits": number,
-      "Table": {
-         "CapacityUnits": number,
-         "ReadCapacityUnits": number,
-         "WriteCapacityUnits": number
-      },
-      "TableName": "string",
-      "WriteCapacityUnits": number
-   },
-
- */
 
 }
