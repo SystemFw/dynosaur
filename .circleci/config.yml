@@ -83,9 +83,10 @@ jobs:
         - project/target
         - project/project/target
         - target
-        - auth/target
-        - common/target
-        - s3/target
+        - modules/auth/target
+        - modules/common/target
+        - modules/dynamodb/target
+        - modules/s3/target
 
   unit_test:
 
@@ -105,12 +106,17 @@ jobs:
         no_output_timeout: 20m
 
     - store_test_results:
-        path: common/target/test-reports
+        path: modules/auth/target/test-reports
 
     - store_test_results:
-        path: auth/target/test-reports
+        path: modules/common/target/test-reports
 
+    - store_test_results:
+        path: modules/dynamodb/target/test-reports
 
+    - store_test_results:
+        path: modules/s3/target/test-reports
+        
     - store_artifacts:
         path: target/unit-test.log
         destination: logs/unit-test.log
@@ -133,10 +139,16 @@ jobs:
         no_output_timeout: 20m
 
     - store_test_results:
-        path: common/target/test-reports
+        path: modules/auth/target/test-reports
 
     - store_test_results:
-        path: auth/target/test-reports
+        path: modules/common/target/test-reports
+
+    - store_test_results:
+        path: modules/dynamodb/target/test-reports
+
+    - store_test_results:
+        path: modules/s3/target/test-reports
 
     - store_artifacts:
         path: target/it-test.log
