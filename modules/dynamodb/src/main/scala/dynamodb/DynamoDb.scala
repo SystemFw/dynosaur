@@ -51,7 +51,6 @@ trait DynamoDb[F[_]] {
     putItem(PutItemRequest(tableName, item, returnValues))
 
   def putItem(request: PutItemRequest): F[PutItemResponse]
-
 }
 
 object DynamoDb {

@@ -178,7 +178,7 @@ object codec {
   implicit val decodeDynamoDbError: Decoder[DynamoDbError] =
     Decoder.instance { hc =>
       for {
-        message <- hc.get[String]("message")
+        message <- hc.get[String]("Message")
       } yield DynamoDbError(message)
     }
 
