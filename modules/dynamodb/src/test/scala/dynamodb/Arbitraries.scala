@@ -160,6 +160,9 @@ object Generators extends Generators
 trait Arbitraries {
   import Generators._
 
+  implicit lazy val arbAttributeName: Arbitrary[AttributeName] =
+    Arbitrary(genAttributeName)
+
   implicit lazy val arbAttributeValueNULL: Arbitrary[AttributeValue.NULL.type] =
     Arbitrary(genAttributeValueNULL)
 
@@ -221,6 +224,20 @@ trait Arbitraries {
       attributes <- arbitrary[Option[AttributeValue.M]]
     } yield PutItemResponse(attributes)
   )
+
+  implicit lazy val arbGetItemRequest: Arbitrary[GetItemRequest] = Arbitrary(
+    for {
+      tableName <- arbitrary[TableName]
+      key <- arbitrary[AttributeValue.M]
+    } yield GetItemRequest(tableName, key)
+  )
+
+  implicit lazy val arbGetItemResponse: Arbitrary[GetItemResponse] = Arbitrary(
+    for {
+      item <- arbitrary[Option[AttributeValue.M]]
+    } yield GetItemResponse(item)
+  )
+
 }
 
 object Arbitraries extends Arbitraries

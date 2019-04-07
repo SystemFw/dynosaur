@@ -113,5 +113,15 @@ class CodecSpec extends UnitSpec {
     "encode any PutItemRequest" in forAll { request: PutItemRequest =>
       request.asJson
     }
+
+    "decode any GetItemResponse" in forAll { response: GetItemResponse =>
+      val json = json"""{"Item": ${response.item.map(_.values)}}"""
+
+      json.as[GetItemResponse] shouldBe Right(response)
+    }
+
+    "encode any GetItemRequest" in forAll { request: GetItemRequest =>
+      request.asJson
+    }
   }
 }

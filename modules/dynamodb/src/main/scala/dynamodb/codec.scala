@@ -39,6 +39,21 @@ object codec {
         Some(AttributeName(key))
     }
 
+  implicit val attributeNameEncoder: Encoder[AttributeName] =
+    Encoder.encodeString.contramap(_.value)
+
+  implicit val attributeNameDecoder: Decoder[AttributeName] =
+    Decoder.decodeString.map(AttributeName.apply)
+
+  implicit val conditionExpressionEncoder: Encoder[ConditionExpression] =
+    Encoder.encodeString.contramap(_.value)
+
+  implicit val projectionExpressionEncoder: Encoder[ProjectionExpression] =
+    Encoder.encodeString.contramap(_.value)
+
+  implicit val updateExpressionEncoder: Encoder[UpdateExpression] =
+    Encoder.encodeString.contramap(_.value)
+
   implicit lazy val encodeAttributeValueM: Encoder[AttributeValue.M] =
     encodeAttributeValue.contramap(identity)
 
@@ -145,15 +160,7 @@ object codec {
     decodeNULL <+> decodeBOOL <+> decodeS <+> decodeSS <+> decodeN <+> decodeNS <+> decodeB <+> decodeBS <+> decodeL <+> decodeM
   }
 
-  implicit val decodePutItemResponse: Decoder[PutItemResponse] =
-    Decoder.instance { hc =>
-      for {
-        attributes <- hc
-          .get[Option[Map[AttributeName, AttributeValue]]]("Attributes")
-      } yield PutItemResponse(attributes.map(AttributeValue.M))
-    }
-
-  implicit val encodeReturnValues: Encoder[ReturnValues] =
+  implicit lazy val encodeReturnValues: Encoder[ReturnValues] =
     Encoder[String].contramap {
       case ReturnValues.None => "NONE"
       case ReturnValues.AllOld => "ALL_OLD"
@@ -175,9 +182,102 @@ object codec {
       )
     }
 
-  implicit val decodeDynamoDbError: Decoder[DynamoDbError] =
+  implicit lazy val decodePutItemResponse: Decoder[PutItemResponse] =
     Decoder.instance { hc =>
       for {
+        attributes <- hc
+          .get[Option[Map[AttributeName, AttributeValue]]]("Attributes")
+      } yield PutItemResponse(attributes.map(AttributeValue.M))
+    }
+
+  implicit lazy val encodeGetItemRequest: Encoder[GetItemRequest] =
+    Encoder.instance { request =>
+      val jsMap: Map[String, Json] = Map(
+        "TableName" -> request.tableName.asJson,
+        "Key" -> request.key.asJson.withObject(jso =>
+          jso("M").getOrElse(Json.Null)),
+        "ConsistentRead" -> request.consistent.asJson
+      ) ++
+        request.projectionExpression.map(x =>
+          "ProjectionExpression" -> x.asJson) ++
+        request.expressionAttributeNames.map(x =>
+          "ExpressionAttributeNames" -> x.asJson)
+
+      Json.obj(jsMap.toSeq: _*)
+
+    }
+
+  implicit lazy val decodeGetItemResponse: Decoder[GetItemResponse] =
+    Decoder.instance { hc =>
+      for {
+        item <- hc.get[Option[Map[AttributeName, AttributeValue]]]("Item")
+      } yield GetItemResponse(item.map(AttributeValue.M))
+    }
+
+  implicit lazy val encodeDeleteItemRequest: Encoder[DeleteItemRequest] =
+    Encoder.instance { request =>
+      val jsMap: Map[String, Json] = Map(
+        "TableName" -> request.tableName.asJson,
+        "Key" -> request.key.asJson.withObject(jso =>
+          jso("M").getOrElse(Json.Null)),
+        "ReturnValues" -> request.returnValues.asJson
+      ) ++
+        request.conditionExpression.map(x =>
+          "ConditionExpression" -> x.value.asJson) ++
+        request.expressionAttributeNames.map(x =>
+          "ExpressionAttributeNames" -> x.asJson) ++
+        request.expressionAttributeValues.map(x =>
+          "ExpressionAttributeValues" -> x.asJson)
+
+      Json.obj(jsMap.toSeq: _*)
+    }
+
+  implicit lazy val decodeDeleteItemResponse: Decoder[DeleteItemResponse] =
+    Decoder.instance { hc =>
+      for {
+        attributes <- hc
+          .get[Option[AttributeValue.M]]("Attributes")
+      } yield DeleteItemResponse(attributes)
+    }
+
+  implicit lazy val encodeUpdateItemRequest: Encoder[UpdateItemRequest] =
+    Encoder.instance { request =>
+      val jsMap: Map[String, Json] = Map(
+        "TableName" -> request.tableName.asJson,
+        "Key" -> request.key.asJson.withObject(jso =>
+          jso("M").getOrElse(Json.Null)),
+        "UpdateExpression" -> request.updateExpression.asJson,
+        "ReturnValues" -> request.returnValues.asJson
+      ) ++
+        request.conditionExpression.map(x =>
+          "ConditionExpression" -> x.value.asJson) ++
+        (if (request.expressionAttributeNames.isEmpty) {
+           Map.empty
+         } else {
+           Map("ExpressionAttributeNames" -> request.expressionAttributeNames.asJson)
+         }) ++
+        (if (request.expressionAttributeValues.isEmpty) {
+           Map.empty
+         } else {
+           Map(
+             "ExpressionAttributeValues" -> request.expressionAttributeValues.asJson)
+         })
+
+      Json.obj(jsMap.toSeq: _*)
+    }
+
+  implicit lazy val decodeUpdateItemResponse: Decoder[UpdateItemResponse] =
+    Decoder.instance { hc =>
+      for {
+        attributes <- hc
+          .get[Option[AttributeValue.M]]("Attributes")
+      } yield UpdateItemResponse(attributes)
+    }
+
+  implicit lazy val decodeDynamoDbError: Decoder[DynamoDbError] =
+    Decoder.instance { hc =>
+      for {
+        // FIXME The message could be lowercase as well
         message <- hc.get[String]("Message")
       } yield DynamoDbError(message)
     }

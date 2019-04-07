@@ -23,13 +23,13 @@ class DynamoDbSpec extends IntegrationSpec {
       withDynamoDb { dynamoDb =>
         for {
           now <- IO(Instant.now).map(_.toEpochMilli)
-          response <- dynamoDb.putItem(
-            TableName("comms-aws-test"), 
-            AttributeValue.M(Map(
+          response <- dynamoDb.putItem(PutItemRequest(
+            tableName = TableName("comms-aws-test"), 
+            item = AttributeValue.M(Map(
               AttributeName("id")->AttributeValue.S("test-1"),
               AttributeName("date")->AttributeValue.N(now.toString)   
             ))
-          )
+          ))
         } yield response
       }.futureValue shouldBe PutItemResponse(None)
     } 
@@ -48,16 +48,108 @@ class DynamoDbSpec extends IntegrationSpec {
             AttributeName("date")->AttributeValue.N(now.toString),
             AttributeName("value")->AttributeValue.S("I am the new one")
           ))
-          _ <- dynamoDb.putItem(
-            TableName("comms-aws-test"), 
-            oldItem
-          )
-          response <- dynamoDb.putItem(
-            TableName("comms-aws-test"), 
-            newItem,
-            ReturnValues.AllOld
-          )
+          _ <- dynamoDb.putItem(PutItemRequest(
+            tableName = TableName("comms-aws-test"), 
+            item = oldItem
+          ))
+          response <- dynamoDb.putItem(PutItemRequest(
+            tableName = TableName("comms-aws-test"), 
+            item = newItem,
+            returnValues = ReturnValues.AllOld
+          ))
         } yield response.attributes shouldBe Some(oldItem)
+      }.futureValue
+    }
+    
+    "get an item" in {
+      withDynamoDb { dynamoDb =>
+
+        for {
+          now <- IO(Instant.now).map(_.toEpochMilli)
+          item = AttributeValue.M(Map(
+            AttributeName("id")->AttributeValue.S("test-1"),
+            AttributeName("date")->AttributeValue.N(now.toString)   
+          ))
+          _ <- dynamoDb.putItem(PutItemRequest(
+            tableName = TableName("comms-aws-test"), 
+            item = item
+          ))
+          response <- dynamoDb.getItem(GetItemRequest(
+            tableName = TableName("comms-aws-test"), 
+            key = AttributeValue.M(Map(
+              AttributeName("id")->AttributeValue.S("test-1"),
+              AttributeName("date")->AttributeValue.N(now.toString)   
+            )),
+            consistent = true
+          ))
+        } yield response shouldBe GetItemResponse(Some(item))
+      }.futureValue
+    } 
+
+    "delete an item" in {
+      withDynamoDb { dynamoDb =>
+
+        for {
+          now <- IO(Instant.now).map(_.toEpochMilli)
+          item = AttributeValue.M(Map(
+            AttributeName("id")->AttributeValue.S("test-1"),
+            AttributeName("date")->AttributeValue.N(now.toString)   
+          ))
+          _ <- dynamoDb.putItem(PutItemRequest(
+            tableName = TableName("comms-aws-test"), 
+            item = item
+          ))
+          _ <- dynamoDb.deleteItem(DeleteItemRequest(
+            tableName = TableName("comms-aws-test"), 
+            key = item
+          ))
+          response <- dynamoDb.getItem(GetItemRequest(
+            tableName = TableName("comms-aws-test"), 
+            key = AttributeValue.M(Map(
+              AttributeName("id")->AttributeValue.S("test-1"),
+              AttributeName("date")->AttributeValue.N(now.toString)   
+            )),
+            consistent = true
+          ))
+        } yield response shouldBe GetItemResponse(None)
+      }.futureValue
+    } 
+
+    "update an item" in {
+      withDynamoDb { dynamoDb =>
+
+        for {
+          now <- IO(Instant.now).map(_.toEpochMilli)
+          key = AttributeValue.M(Map(
+            AttributeName("id")->AttributeValue.S("test-1"),
+            AttributeName("date")->AttributeValue.N(now.toString)   
+          ))
+          item = AttributeValue.M(key.values ++ Map(
+            AttributeName("value")->AttributeValue.S("1")  
+          ))
+          _ <- dynamoDb.putItem(PutItemRequest(
+            tableName = TableName("comms-aws-test"), 
+            item = item
+          ))
+          _ <- dynamoDb.updateItem(UpdateItemRequest(
+            tableName = TableName("comms-aws-test"), 
+            key = key,
+            updateExpression = UpdateExpression("SET #v = :newValue"),
+            expressionAttributeNames = Map(
+              "#v" -> AttributeName("value")
+            ),
+            expressionAttributeValues = Map(
+              ":newValue" -> AttributeValue.S("2")
+            )
+          ))
+          response <- dynamoDb.getItem(GetItemRequest(
+            tableName = TableName("comms-aws-test"), 
+            key = key,
+            consistent = true
+          ))
+        } yield response shouldBe GetItemResponse(Some(AttributeValue.M(key.values ++ Map(
+          AttributeName("value")->AttributeValue.S("2")  
+        ))))
       }.futureValue
     } 
   }

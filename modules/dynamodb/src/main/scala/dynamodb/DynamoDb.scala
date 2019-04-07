@@ -22,10 +22,10 @@ import scala.concurrent.ExecutionContext
 import cats.effect._
 import cats.implicits._
 
+import io.circe.{Encoder, Decoder}
 import io.circe.syntax._
 
-import org.http4s.Uri
-import org.http4s.EntityDecoder
+import org.http4s.{Service => _, _}
 import org.http4s.Method._
 import org.http4s.headers._
 import org.http4s.client.Client
@@ -44,13 +44,13 @@ import codec._
 
 trait DynamoDb[F[_]] {
 
-  def putItem(
-      tableName: TableName,
-      item: AttributeValue.M,
-      returnValues: ReturnValues = ReturnValues.None): F[PutItemResponse] =
-    putItem(PutItemRequest(tableName, item, returnValues))
-
   def putItem(request: PutItemRequest): F[PutItemResponse]
+
+  def getItem(request: GetItemRequest): F[GetItemResponse]
+
+  def deleteItem(request: DeleteItemRequest): F[DeleteItemResponse]
+
+  def updateItem(request: UpdateItemRequest): F[UpdateItemResponse]
 }
 
 object DynamoDb {
@@ -88,28 +88,42 @@ object DynamoDb {
           .raiseOrPure[F]
       }
 
-    implicit val decodePutItemResponseAsJson
-      : EntityDecoder[F, PutItemResponse] =
-      jsonOf[F, PutItemResponse]
-
-    implicit val decodeDynamoDbErrorAsJson: EntityDecoder[F, DynamoDbError] =
-      jsonOf[F, DynamoDbError]
-
     new DynamoDb[F] with Http4sClientDsl[F] {
-      override def putItem(request: PutItemRequest): F[PutItemResponse] = {
+
+      def exec[Req: Encoder, Res: Decoder](request: Req)(
+          implicit op: AwsOp[Req, Res]) = {
+
+        implicit val entityDecoder: EntityDecoder[F, Res] = jsonOf[F, Res]
+
+        implicit val entityEncoder: EntityEncoder[F, Req] = EntityEncoder
+          .encodeBy(`X-Amz-Target`(op.target))(jsonEncoderOf[F, Req].toEntity)
+          .withContentType(`Content-Type`(`application/x-amz-json-1.0`))
+
+        implicit val decodeDynamoDbErrorAsJson
+          : EntityDecoder[F, DynamoDbError] =
+          jsonOf[F, DynamoDbError]
+
         for {
           endpoint <- baseEndpoint
-          request <- POST(
-            request.asJson,
-            endpoint / "",
-            `X-Amz-Target`("DynamoDB_20120810.PutItem"),
-            `Content-Type`(`application/x-amz-json-1.0`))
-          result <- signedClient.expectOr[PutItemResponse](request) {
-            response =>
-              response.as[DynamoDbError].widen[Throwable]
+          request <- POST(request, endpoint / "")
+          result <- signedClient.expectOr[Res](request) { response =>
+            response.as[DynamoDbError].widen[Throwable]
           }
         } yield result
       }
+
+      def putItem(request: PutItemRequest) =
+        exec(request)
+
+      def getItem(request: GetItemRequest) =
+        exec(request)
+
+      def deleteItem(request: DeleteItemRequest) =
+        exec(request)
+
+      def updateItem(request: UpdateItemRequest) =
+        exec(request)
+
     }
   }
 
