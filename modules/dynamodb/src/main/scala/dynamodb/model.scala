@@ -43,8 +43,11 @@ object model {
 
     def m(values: (AttributeName, AttributeValue)*): AttributeValue =
       AttributeValue.M(values.toMap)
+    def m(values: Map[AttributeName, AttributeValue]): AttributeValue =
+      AttributeValue.M(values)
 
     def s(value: String): AttributeValue = AttributeValue.S(value)
+
     def ss(values: Set[String]): AttributeValue = AttributeValue.SS(values)
     def ss(values: String*): AttributeValue = AttributeValue.SS(values.toSet)
 
@@ -66,7 +69,8 @@ object model {
 
     def l(values: AttributeValue*): AttributeValue =
       AttributeValue.L(values.toList)
-
+    def l(values: List[AttributeValue]): AttributeValue =
+      AttributeValue.L(values.toList)
   }
 
   sealed trait ReturnValues
