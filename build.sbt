@@ -165,6 +165,7 @@ lazy val dynamodb = (project in file("modules/dynamodb"))
   .settings(
     name := "comms-aws-dynamodb",
   )
+  .settings(addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3"))
   .settings(inConfig(IntegrationTest)(Defaults.itSettings))
   .settings(automateHeaderSettings(IntegrationTest))
   .settings(

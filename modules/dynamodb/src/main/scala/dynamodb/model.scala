@@ -18,6 +18,7 @@ package com.ovoenergy.comms.aws
 package dynamodb
 
 import scodec.bits._
+import cats._
 
 object model {
 
@@ -41,6 +42,16 @@ object model {
 
     val `null`: AttributeValue = NULL
 
+    implicit val monoid: Monoid[AttributeValue.M] =
+      new Monoid[AttributeValue.M] {
+        def empty: AttributeValue.M =
+          M(Map.empty)
+        def combine(
+            x: AttributeValue.M,
+            y: AttributeValue.M): AttributeValue.M =
+          M(x.values ++ y.values)
+      }
+
     def m(values: (AttributeName, AttributeValue)*): AttributeValue =
       AttributeValue.M(values.toMap)
     def m(values: Map[AttributeName, AttributeValue]): AttributeValue =
@@ -51,7 +62,6 @@ object model {
     def ss(values: Set[String]): AttributeValue = AttributeValue.SS(values)
     def ss(values: String*): AttributeValue = AttributeValue.SS(values.toSet)
 
-    def n(value: String): AttributeValue = AttributeValue.N(value)
     def n(value: Int): AttributeValue = AttributeValue.N(value.toString)
     def n(value: Long): AttributeValue = AttributeValue.N(value.toString)
     def n(value: Double): AttributeValue = AttributeValue.N(value.toString)
