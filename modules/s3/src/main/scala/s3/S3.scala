@@ -244,12 +244,14 @@ object S3 {
         Sync[F]
           .fromEither(`Content-Length`.fromLong(content.contentLength))
           .map { contentLength =>
-            Headers(
-              contentLength,
-              `Content-Type`(content.mediaType, content.charset),
-            ).put(metadata.map {
-              case (k, v) => Raw(s"${`X-Amz-Meta-`}$k".ci, v)
-            }.toSeq: _*)
+            Headers
+              .of(
+                contentLength,
+                `Content-Type`(content.mediaType, content.charset),
+              )
+              .put(metadata.map {
+                case (k, v) => Raw(s"${`X-Amz-Meta-`}$k".ci, v)
+              }.toSeq: _*)
           }
 
       val extractContent: F[Array[Byte]] =
@@ -288,7 +290,7 @@ object S3 {
         .getOrElse(DecodeResult.failure[F, Etag](MalformedMessageBodyFailure(
           "ETag header must be present on the response")))
 
-      val metadata: Map[String, String] = response.headers.collect {
+      val metadata: Map[String, String] = response.headers.toList.collect {
         case h if h.name.value.toLowerCase.startsWith(`X-Amz-Meta-`) =>
           h.name.value.substring(`X-Amz-Meta-`.length) -> h.value
       }.toMap

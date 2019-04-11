@@ -227,7 +227,7 @@ object AwsSigner {
 
         val (canonicalHeaders, signedHeaders) = {
 
-          val grouped = request.headers.groupBy(_.name)
+          val grouped = request.headers.toList.groupBy(_.name)
           val combined = grouped.mapValues(_.map(h =>
             MultipleSpaceRegex.replaceAllIn(h.value, " ").trim).mkString(","))
 
@@ -237,7 +237,7 @@ object AwsSigner {
             .mkString("")
 
           val signed: String =
-            request.headers
+            request.headers.toList
               .map(_.name.value.toLowerCase)
               .toSeq
               .distinct
@@ -284,7 +284,7 @@ object AwsSigner {
           }
 
           val canonicalQueryString: String =
-            request.uri.query
+            request.uri.query.toList
               .sortBy(_._1)
               .map {
                 case (a, b) => s"${uriEncode(a)}=${uriEncode(b.getOrElse(""))}"
