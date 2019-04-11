@@ -20,56 +20,40 @@ import cats._, data._, implicits._
 
 object SchemaEx {
   sealed trait FreeAp[F[_], A] {
-    final def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[A] = ???
-    //   this match {
-    //     case FreeAp.Lift(fa) => f(fa)
-    //     case FreeAp.Pure(a) => a.pure[G]
-    //     case FreeAp.Map2(fa, fb, fab) =>
-    //       (fa.foldMap(f), fb.foldMap(f)).mapN(fab)
-    //   }
+    def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[A]
 
     final def analyze[M: Monoid](f: F ~> λ[α => M]): M =
       foldMap[Const[M, ?]](
         λ[F ~> Const[M, ?]](x => Const(f(x)))
       ).getConst
 
-    // def P = this match {
-    //   case FreeAp.Pure(a) => a.some
-    //   case _ => None
-    // }
-
-    // def L = this match {
-    //   case FreeAp.Lift(a) => a.some
-    //   case _ => None
-    // }
-
-    // def M = this match {
-    //   case FreeAp.Map2(fa, fb, f) => (fa, fb, f).some
-    //   case _ => None
-    // }
-
   }
   object FreeAp {
-    case class Lift[F[_], A](fa: F[A]) extends FreeAp[F, A]
-    case class One[F[_]]() extends FreeAp[F, Unit]
+
+    case class Lift[F[_], A](fa: F[A]) extends FreeAp[F, A] {
+      def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[A] = f(fa)
+    }
+    case class One[F[_]]() extends FreeAp[F, Unit] {
+      def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[Unit] =
+        ().pure[G]
+    }
     case class Zip[F[_], A, B](fa: FreeAp[F, A], fb: FreeAp[F, B])
-        extends FreeAp[F, (A, B)]
-    case class Map[F[_], A, B](fa: FreeAp[F, A], f: A => B) extends FreeAp[F, B]
-    // case class Pure[F[_], A](a: A) extends FreeAp[F, A]
-    // case class Ap[F[_], B, A](f: FreeAp[F, B => A], fa: FreeAp[F, B])
-    //     extends FreeAp[F, A]
-    // case class Map2[F[_], B, C, A](
-    //     fa: FreeAp[F, B],
-    //     fb: FreeAp[F, C],
-    //     f: (B, C) => A)
-    //     extends FreeAp[F, A]
+        extends FreeAp[F, (A, B)] {
+      def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[(A, B)] =
+        fa.foldMap(f) product fb.foldMap(f)
+    }
+    case class Map[F[_], A, B](fa: FreeAp[F, A], ff: A => B)
+        extends FreeAp[F, B] {
+      def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[B] =
+        fa.foldMap(f).map(ff)
+    }
 
     def lift[F[_], A](fa: F[A]): FreeAp[F, A] = Lift(fa)
 
     implicit final def freeApplicative[S[_]]: Applicative[FreeAp[S, ?]] =
       new Applicative[FreeAp[S, ?]] {
         def ap[A, B](f: FreeAp[S, A => B])(fa: FreeAp[S, A]): FreeAp[S, B] =
-          ???
+          Map(Zip(f, fa), (t: (A => B, A)) => t._1(t._2))
 
         def pure[A](a: A): FreeAp[S, A] = Map(One[S](), (_: Unit) => a)
       }
@@ -87,61 +71,6 @@ object SchemaEx {
       elemSchema: Schema[E],
       get: R => E): FreeAp[Props[R, ?], E] =
     FreeAp.lift(Props(name, elemSchema, get))
-
-  case class User(id: Int, name: String)
-  case class Role(capability: String, u: User)
-
-  def s: Schema[User] =
-    Rec(
-      (
-        props("id", Num, (_: User).id),
-        props("name", Str, (_: User).name)
-      ).mapN(User.apply)
-    )
-
-  def s2: Schema[Role] = Rec(
-    (
-      props("capability", Str, (_: Role).capability),
-      props("user", s, (_: Role).u)).mapN(Role.apply)
-  )
-
-  // def p[A](s: Schema[A]): String = s match {
-  //   case Rec(p) =>
-  //     import FreeAp._
-  //     def t[F[_], A](f: FreeAp[F, A]): String =
-  //       f match {
-  //         case Pure(a) => "pure\n"
-  //         case Lift(fa) => "lift\n"
-  //         case Map2(fa, fb, _) => t(fa) ++ "map2" ++ t(fb)
-  //       }
-  //     t(p)
-  // p match {
-  //   case FreeAp.Map2(npp, fb, f) =>
-  //     npp match {
-  //       case FreeAp.Lift(Props(a, sch, get)) =>
-  //         //FreeAp.Map2(FreeAp.Lift(Props("userId", sch, get)), fb, f)
-  //         "target"
-  //       case a =>
-  //         s"first arg not lift but $a"
-  //     }
-  //   case _ =>
-  //     "not map2"
-  // }
-  //   case _ => "not rec"
-  // }
-
-  def u = User(20, "joe")
-  def role = Role("admin", u)
-
-  def r = Encoder.fromSchema(s)(u)
-//   scala> SchemaEx.r
-// res1: com.ovoenergy.comms.aws.dynamodb.model.AttributeValue = M(Map(AttributeName(id) -> N(20), AttributeName(name) -> S(joe)))
-
-  def r2 = Encoder.fromSchema(s2)(role)
-//   scala> SchemaEx.r2
-// res2: com.ovoenergy.comms.aws.dynamodb.model.AttributeValue = M(Map(AttributeName(capability) -> S(admin), AttributeName(user) -> M(Map(AttributeName(id) -> N(20), AttributeName(name) -> S(joe)))))
-
-//  def r3 = p(s) //Encoder.fromSchema(p(s))(u)
 
   trait Encoder[A] {
     def apply(a: A): AttributeValue
@@ -170,6 +99,136 @@ object SchemaEx {
 
     }
   }
+
+  case class User(id: Int, name: String)
+  case class Role(capability: String, u: User)
+
+  def s: Schema[User] =
+    Rec(
+      (
+        props("id", Num, (_: User).id),
+        props("name", Str, (_: User).name)
+      ).mapN(User.apply)
+    )
+
+  def s2: Schema[Role] = Rec(
+    (
+      props("capability", Str, (_: Role).capability),
+      props("user", s, (_: Role).u)).mapN(Role.apply)
+  )
+
+  def u = User(20, "joe")
+  def role = Role("admin", u)
+
+  def r = Encoder.fromSchema(s)(u)
+//   scala> SchemaEx.r
+// res1: com.ovoenergy.comms.aws.dynamodb.model.AttributeValue = M(Map(AttributeName(id) -> N(20), AttributeName(name) -> S(joe)))
+
+  def r2 = Encoder.fromSchema(s2)(role)
+//   scala> SchemaEx.r2
+// res2: com.ovoenergy.comms.aws.dynamodb.model.AttributeValue = M(Map(AttributeName(capability) -> S(admin), AttributeName(user) -> M(Map(AttributeName(id) -> N(20), AttributeName(name) -> S(joe)))))
+
+//  def r3 = p(s) //Encoder.fromSchema(p(s))(u)
+
+  // def p[A](s: Schema[A]): String = s match {
+  //   case Rec(p) =>
+  //     import FreeAp._
+  //     def t[F[_], A](f: FreeAp[F, A]): String =
+  //       f match {
+  //         case Pure(a) => "pure\n"
+  //         case Lift(fa) => "lift\n"
+  //         case Map2(fa, fb, _) => t(fa) ++ "map2" ++ t(fb)
+  //       }
+  //     t(p)
+  // p match {
+  //   case FreeAp.Map2(npp, fb, f) =>
+  //     npp match {
+  //       case FreeAp.Lift(Props(a, sch, get)) =>
+  //         //FreeAp.Map2(FreeAp.Lift(Props("userId", sch, get)), fb, f)
+  //         "target"
+  //       case a =>
+  //         s"first arg not lift but $a"
+  //     }
+  //   case _ =>
+  //     "not map2"
+  // }
+  //   case _ => "not rec"
+  // }
+
+  import FreeAp._
+
+  // can use something from arrow probably
+  def x[A, C, B, D](f1: A => B, f2: C => D): ((A, C)) => (B, D) = {
+    case (a, b) => f1(a) -> f2(b)
+  }
+
+  // def norm[F[_], A]: FreeAp[F, A] => FreeAp[F, A] = e => {
+  //   norm1(e) match {
+  //     case Map(u, f) =>
+  //       norm2(u) match {
+  //         case Map(v, g) => Map(v, f compose g)
+  //       }
+  //   }
+  // }
+
+  def norm1[F[_], A]: FreeAp[F, A] => FreeAp[F, A] = {
+    case Lift(fa) => Map(Lift(fa), identity[A])
+    case Map(e, f) =>
+      norm1(e) match {
+        case Map(u, g) => Map(u, f compose g)
+        case _ => throw new Exception("Guaranteed to return Map")
+      }
+    case v: One[a] => Map(v, identity[A])
+    case v: Zip[F, a, b] =>
+      (norm1(v.fa), norm1(v.fb)) match {
+        case (Map(fa, f), Map(ga, g)) =>
+          Map(Zip(fa, ga), x(f, g))
+        case _ => throw new Exception("Guaranteed to return Map")
+      }
+  }
+
+  // def norm2[F[_], A]: FreeAp[F, A] => FreeAp[F, A] = {
+  //   case Lift(fa) => Map(Lift(fa), identity[A])
+  //   case v: One[a] => Map(v, identity[A])
+  //   case Zip()
+  // }
+  
+//  Lifting Operators and Laws, Ralf Hinze, 3.3
+  // norm :: Term ρ α → Term ρ α
+  // norm e = case norm1 e of Map f u → case norm2 u of Map g v → Map (f ·g) v
+  // ----
+  // norm1 :: Term ρ α → Term ρ α
+  // norm1 (Var n) = Map id (Var n) -- functor identity
+  // norm1 (Map f e) = -- functor composition
+  //  case norm1 e of Map g u → Map(f ·g) u
+  // norm1 Unit = Map id Unit -- functor identity
+  // norm1 (e1 :⋆ e2) = -- naturality of ⋆
+  //  case (norm1 e1,norm1 e2) of (Map f1 u1, Map f2 u2) → Map (f1 × f2) (u1 :⋆ u2)
+  // ----
+  // norm2 :: Term ρ α →Term ρ α
+  // norm2 (Var n) = Map id (Var n)
+  // norm2 Unit = = Map id Unit
+  // norm2 (Unit :⋆ e2) =
+  //   case norm2 e2 of Map f2 u2 → Map (const () △ f2) u2
+  // norm2 (e1 :⋆ Unit) =
+  //   case norm2 e1 of Map f1 u1 → Map (f1 △ const ()) u1
+  // norm2 (e1 :⋆ Var n) =
+  //   case norm2 e1 of Map f1 u1 → Map (f1 × id) (u1 :⋆ Var n)
+  // norm2 (e1 :⋆ (e2 :⋆ e3)) =
+  //   case norm2 ((e1 :⋆e2):⋆e3) of Map f u → Map (assocr·f) u
+  // ----
+  // id x = x
+  // (f ·g)x =f (g x)
+  // const x y = x
+  // flip f x y = f y x
+  // fst (x,y) = x
+  // snd (x,y) = y
+  // (f △ g) x = (f x, g x)
+  // (f × g) (x,y) = (f x, g y)
+  // assocl (x, (y,z)) = ((x,y),z)
+  // assocr ((x, y), z) = (x, (y, z))
+  // app (f,x) = f x
+  // curry f x y = f (x,y)
 }
 
 // res0: SchemaEx.Schema[SchemaEx.User] = Rec(
@@ -230,3 +289,25 @@ object SchemaEx {
 
 // pure f <*> ap(ap(pure(g), lift("id")), lift("name")))
 // res2: SchemaEx.Schema[SchemaEx.Role] = Rec(Ap(Pure(cats.SemigroupalArityFunctions$$Lambda$9990/123158537@6aa41ffa),Ap(Ap(Pure(cats.Apply$$Lambda$9989/779740805@477b16c),Lift(Props(capability,Str,SchemaEx$$$Lambda$10004/147226086@51b67605))),Lift(Props(user,Rec(Ap(Pure(cats.SemigroupalArityFunctions$$Lambda$9990/123158537@4817a59),Ap(Ap(Pure(cats.Apply$$Lambda$9989/779740805@477b16c),Lift(Props(id,Num,SchemaEx$$$Lambda$9986/1225130355@1d4ed21b))),Lift(Props(name,Str,SchemaEx$$$Lambda$9987/449885094@4bc52312))))),SchemaEx$$$Lambda$10005/1170347022@38cdec3f)))))
+// res6: SchemaEx.Schema[SchemaEx.User] =
+//   Rec(
+//     Map(
+//       Zip(
+//         Map(
+//           One(),
+//           SchemaEx$FreeAp$$anon$2$$Lambda$11898/432029629@7452c05d),
+//         Map(
+//           Zip(
+//             Map(
+//               Zip(
+//                 Map(
+//                   One(),
+//                   SchemaEx$FreeAp$$anon$2$$Lambda$11898/432029629@44e7ff40),
+//                 Lift(Props(id,Num,SchemaEx$$$Lambda$11894/147990481@7f3cb2a))
+//               ),SchemaEx$FreeAp$$anon$2$$Lambda$11899/40728788@7a10038b),
+//             Lift(Props(name,Str,SchemaEx$$$Lambda$11895/377591062@182274bc))
+//           )
+//             ,SchemaEx$FreeAp$$anon$2$$Lambda$11899/40728788@7a10038b)
+//       ),
+//       SchemaEx$FreeAp$$anon$2$$Lambda$11899/40728788@7a10038b)
+//   )
