@@ -71,29 +71,20 @@ object SchemaEx {
       ).mapN(User.apply)
     )
 
-  def ns = s match {
-    case Rec(p) => norm(p)
-  }
-
   def s2: Schema[Role] = Rec(
     (
       props("capability", Str, (_: Role).capability),
       props("user", s, (_: Role).u)).mapN(Role.apply)
   )
-  def ns2 = s2 match {
-    case Rec(p) => norm(p)
-  }
 
   def u = User(20, "joe")
   def role = Role("admin", u)
 
   def r = Encoder.fromSchema(s)(u)
-  //def nr = Encoder.fromSchema(ns)(u)
 //   scala> SchemaEx.r
 // res1: com.ovoenergy.comms.aws.dynamodb.model.AttributeValue = M(Map(AttributeName(id) -> N(20), AttributeName(name) -> S(joe)))
 
   def r2 = Encoder.fromSchema(s2)(role)
-  //   def r2 = Encoder.fromSchema(ns2)(role)
 //   scala> SchemaEx.r2
 // res2: com.ovoenergy.comms.aws.dynamodb.model.AttributeValue = M(Map(AttributeName(capability) -> S(admin), AttributeName(user) -> M(Map(AttributeName(id) -> N(20), AttributeName(name) -> S(joe)))))
 
@@ -135,6 +126,7 @@ object SchemaEx {
     def isOne: Boolean
     def isLift: Boolean
     def isZip: Boolean
+    def show: String
   }
   object FreeAp {
 
@@ -143,6 +135,8 @@ object SchemaEx {
       def isOne: Boolean = false
       def isLift: Boolean = true
       def isZip: Boolean = false
+
+      def show = s"Lift(..)"
     }
     case class One[F[_]]() extends FreeAp[F, Unit] {
       def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[Unit] =
@@ -150,6 +144,8 @@ object SchemaEx {
       def isOne: Boolean = true
       def isLift: Boolean = false
       def isZip: Boolean = false
+
+      def show = "One"
     }
     case class Zip[F[_], A, B](fa: FreeAp[F, A], fb: FreeAp[F, B])
         extends FreeAp[F, (A, B)] {
@@ -158,6 +154,7 @@ object SchemaEx {
       def isOne: Boolean = false
       def isLift: Boolean = false
       def isZip: Boolean = true
+      def show = s"Zip(${fa.show},${fb.show})"
     }
     case class Map[F[_], A, B](fa: FreeAp[F, A], ff: A => B)
         extends FreeAp[F, B] {
@@ -166,6 +163,8 @@ object SchemaEx {
       def isOne: Boolean = false
       def isLift: Boolean = false
       def isZip: Boolean = false
+
+      def show = s"Map(${fa.show}, λ)"
     }
 
     def lift[F[_], A](fa: F[A]): FreeAp[F, A] = Lift(fa)
@@ -251,7 +250,79 @@ object SchemaEx {
       }
 
   }
+  def a =
+    (
+      props("id", Num, (_: User).id),
+      props("name", Str, (_: User).name)
+    ).mapN(User.apply)
 
+  def b =
+    (
+      props("capability", Str, (_: Role).capability),
+      props("user", s, (_: Role).u)
+    ).mapN(Role.apply)
+
+  def c =
+    (
+      props("capability", Str, (_: Role).capability),
+      props("user", s, (_: Role).u)
+    ).tupled.map((Role.apply _).tupled)
+
+//   scala> b.show == c.show
+// res2: Boolean = false
+
+// scala> norm(b).show == norm(c).show
+// res3: Boolean = true
+
+//   {-# Language GADTs #-}
+
+// data FreeAp f a where
+//   Lift :: f a -> FreeAp f a
+//   Map :: (a -> b) -> FreeAp f a -> FreeAp f b
+//   Unit :: FreeAp f ()
+//   Product :: FreeAp f a -> FreeAp f b -> FreeAp f (a, b)
+
+// instance Functor (FreeAp f) where
+//   fmap f fa = Map f fa
+
+// instance Applicative (FreeAp f) where
+//   pure a = Map (\_ -> a) Unit
+//   fab <*> fa = Map (uncurry ($)) (Product fab fa)
+
+// norm :: FreeAp f a -> FreeAp f a
+// norm e = case norm1 e of
+//   Map f u ->
+//     case norm2 u of
+//       Map g v -> Map (f . g) v
+
+// norm1 :: FreeAp f a -> FreeAp f a
+// norm1 (Lift fa) = Map id (Lift fa)
+// norm1 (Map f e) =
+//  case norm1 e of
+//    (Map g u) ->  Map(f . g) u
+// norm1 Unit = Map id Unit
+// norm1 (Product e1 e2) =
+//   case (norm1 e1, norm1 e2) of
+//     (Map f1 u1, Map f2 u2) -> Map (f1 *** f2) (Product u1 u2)
+
+// norm2 :: FreeAp f a -> FreeAp f a
+// norm2 (Lift fa) = Map id (Lift fa)
+// norm2 Unit = Map id Unit
+// norm2 (Product Unit e2) =
+//   case norm2 e2 of
+//     Map f2 u2 ->  Map (\x -> ((), f2 x)) u2
+// norm2 (Product e1 Unit) =
+//   case norm2 e1 of
+//     Map f1 u1 ->  Map (\x -> (f1 x, ())) u1
+// norm2 (Product e1 (Lift fa)) =
+//   case norm2 e1 of
+//     Map f1 u1 ->  Map (f1 *** id) (Product u1 $ Lift fa)
+// norm2 (Product e1 (Product e2 e3)) =
+//   case norm2 (Product (Product e1  e2) e3) of
+//     Map f u -> Map (assocr . f) u
+
+// assocr ((x, y), z) = (x, (y, z))
+// (***) f g (x, y) = (f x, g y)
 //  def p = Zip(Lift(1.some), Lift(2.some))
 //  Lifting Operators and Laws, Ralf Hinze, 3.3
   // norm :: Term ρ α → Term ρ α
