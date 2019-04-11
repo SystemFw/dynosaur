@@ -19,51 +19,6 @@ import com.ovoenergy.comms.aws.dynamodb.model._
 import cats._, data._, implicits._
 
 object SchemaEx {
-  sealed trait FreeAp[F[_], A] {
-    def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[A]
-
-    final def analyze[M: Monoid](f: F ~> λ[α => M]): M =
-      foldMap[Const[M, ?]](
-        λ[F ~> Const[M, ?]](x => Const(f(x)))
-      ).getConst
-
-    def isOne: Boolean
-  }
-  object FreeAp {
-
-    case class Lift[F[_], A](fa: F[A]) extends FreeAp[F, A] {
-      def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[A] = f(fa)
-      def isOne: Boolean = false
-    }
-    case class One[F[_]]() extends FreeAp[F, Unit] {
-      def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[Unit] =
-        ().pure[G]
-      def isOne: Boolean = true
-    }
-    case class Zip[F[_], A, B](fa: FreeAp[F, A], fb: FreeAp[F, B])
-        extends FreeAp[F, (A, B)] {
-      def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[(A, B)] =
-        fa.foldMap(f) product fb.foldMap(f)
-      def isOne: Boolean = false
-    }
-    case class Map[F[_], A, B](fa: FreeAp[F, A], ff: A => B)
-        extends FreeAp[F, B] {
-      def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[B] =
-        fa.foldMap(f).map(ff)
-      def isOne: Boolean = false
-    }
-
-    def lift[F[_], A](fa: F[A]): FreeAp[F, A] = Lift(fa)
-
-    implicit final def freeApplicative[S[_]]: Applicative[FreeAp[S, ?]] =
-      new Applicative[FreeAp[S, ?]] {
-        def ap[A, B](f: FreeAp[S, A => B])(fa: FreeAp[S, A]): FreeAp[S, B] =
-          Map(Zip(f, fa), (t: (A => B, A)) => t._1(t._2))
-
-        def pure[A](a: A): FreeAp[S, A] = Map(One[S](), (_: Unit) => a)
-      }
-  }
-
   sealed trait Schema[A]
   case object Num extends Schema[Int]
   case object Str extends Schema[String]
@@ -116,20 +71,29 @@ object SchemaEx {
       ).mapN(User.apply)
     )
 
+  def ns = s match {
+    case Rec(p) => norm(p)
+  }
+
   def s2: Schema[Role] = Rec(
     (
       props("capability", Str, (_: Role).capability),
       props("user", s, (_: Role).u)).mapN(Role.apply)
   )
+  def ns2 = s2 match {
+    case Rec(p) => norm(p)
+  }
 
   def u = User(20, "joe")
   def role = Role("admin", u)
 
   def r = Encoder.fromSchema(s)(u)
+  //def nr = Encoder.fromSchema(ns)(u)
 //   scala> SchemaEx.r
 // res1: com.ovoenergy.comms.aws.dynamodb.model.AttributeValue = M(Map(AttributeName(id) -> N(20), AttributeName(name) -> S(joe)))
 
   def r2 = Encoder.fromSchema(s2)(role)
+  //   def r2 = Encoder.fromSchema(ns2)(role)
 //   scala> SchemaEx.r2
 // res2: com.ovoenergy.comms.aws.dynamodb.model.AttributeValue = M(Map(AttributeName(capability) -> S(admin), AttributeName(user) -> M(Map(AttributeName(id) -> N(20), AttributeName(name) -> S(joe)))))
 
@@ -160,6 +124,61 @@ object SchemaEx {
   //   case _ => "not rec"
   // }
 
+  sealed trait FreeAp[F[_], A] {
+    def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[A]
+
+    final def analyze[M: Monoid](f: F ~> λ[α => M]): M =
+      foldMap[Const[M, ?]](
+        λ[F ~> Const[M, ?]](x => Const(f(x)))
+      ).getConst
+
+    def isOne: Boolean
+    def isLift: Boolean
+    def isZip: Boolean
+  }
+  object FreeAp {
+
+    case class Lift[F[_], A](fa: F[A]) extends FreeAp[F, A] {
+      def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[A] = f(fa)
+      def isOne: Boolean = false
+      def isLift: Boolean = true
+      def isZip: Boolean = false
+    }
+    case class One[F[_]]() extends FreeAp[F, Unit] {
+      def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[Unit] =
+        ().pure[G]
+      def isOne: Boolean = true
+      def isLift: Boolean = false
+      def isZip: Boolean = false
+    }
+    case class Zip[F[_], A, B](fa: FreeAp[F, A], fb: FreeAp[F, B])
+        extends FreeAp[F, (A, B)] {
+      def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[(A, B)] =
+        fa.foldMap(f) product fb.foldMap(f)
+      def isOne: Boolean = false
+      def isLift: Boolean = false
+      def isZip: Boolean = true
+    }
+    case class Map[F[_], A, B](fa: FreeAp[F, A], ff: A => B)
+        extends FreeAp[F, B] {
+      def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[B] =
+        fa.foldMap(f).map(ff)
+      def isOne: Boolean = false
+      def isLift: Boolean = false
+      def isZip: Boolean = false
+    }
+
+    def lift[F[_], A](fa: F[A]): FreeAp[F, A] = Lift(fa)
+
+    implicit final def freeApplicative[S[_]]: Applicative[FreeAp[S, ?]] =
+      new Applicative[FreeAp[S, ?]] {
+        def ap[A, B](f: FreeAp[S, A => B])(fa: FreeAp[S, A]): FreeAp[S, B] =
+          Map(Zip(f, fa), (t: (A => B, A)) => t._1(t._2))
+
+        def pure[A](a: A): FreeAp[S, A] = Map(One[S](), (_: Unit) => a)
+      }
+  }
+
   import FreeAp._
 
   // can use something from arrow probably
@@ -167,17 +186,16 @@ object SchemaEx {
     case (a, b) => f1(a) -> f2(b)
   }
 
-  def delta[A, B, C](f: A => B, g: A => C): A => (B, C) =
-    x => f(x) -> g(x)
-
-  // def norm[F[_], A]: FreeAp[F, A] => FreeAp[F, A] = e => {
-  //   norm1(e) match {
-  //     case Map(u, f) =>
-  //       norm2(u) match {
-  //         case Map(v, g) => Map(v, f compose g)
-  //       }
-  //   }
-  // }
+  def norm[F[_], A]: FreeAp[F, A] => FreeAp[F, A] = e => {
+    norm1(e) match {
+      case Map(u, f) =>
+        norm2(u) match {
+          case Map(v, g) => Map(v, f compose g)
+          case _ => throw new Exception("Guaranteed to return Map")
+        }
+      case _ => throw new Exception("Guaranteed to return Map")
+    }
+  }
 
   def norm1[F[_], A]: FreeAp[F, A] => FreeAp[F, A] = {
     case Lift(fa) => Map(Lift(fa), identity[A])
@@ -200,10 +218,41 @@ object SchemaEx {
     case v: One[a] => Map(v, identity[A])
     case z: Zip[F, a, b] if z.fa.isOne =>
       norm2(z.fb) match {
-        case Map(u2, f2) => ??? //Map(u2, delta((x: a) => (), f2))
+        case m: Map[F, c, d] =>
+          Map(m.fa, (x: c) => ((), m.ff(x))).asInstanceOf[FreeAp[F, A]]
+        case _ => throw new Exception("Guaranteed to return Map")
       }
+    case z: Zip[F, a, b] if z.fb.isOne =>
+      norm2(z.fa) match {
+        case m: Map[F, c, d] =>
+          Map(m.fa, (x: c) => (m.ff(x), ())).asInstanceOf[FreeAp[F, A]]
+        case _ => throw new Exception("Guaranteed to return Map")
+      }
+    case z: Zip[F, a, b] if z.fb.isLift =>
+      norm2(z.fa) match {
+        case m: Map[F, c, d] =>
+          Map(Zip(m.fa, z.fb), x(m.ff, identity[b]))
+        case _ => throw new Exception("Guaranteed to return Map")
+      }
+    case z1: Zip[F, a, b] if z1.fb.isZip =>
+      z1.fb match {
+        case z2: Zip[F, c, d] =>
+          norm2(Zip(Zip(z1.fa, z2.fa), z2.fb)) match {
+            case m: Map[F, e, ((a, b), c)] =>
+              def fun: e => (a, (b, c)) = in => {
+                val ((x, y), z) = m.ff(in)
+                (x, (y, z))
+              }
+
+              Map(m.fa, fun)
+            case _ => throw new Exception("Guaranteed to return Map")
+          }
+        case _ => throw new Exception("Guaranteed to return Map")
+      }
+
   }
 
+//  def p = Zip(Lift(1.some), Lift(2.some))
 //  Lifting Operators and Laws, Ralf Hinze, 3.3
   // norm :: Term ρ α → Term ρ α
   // norm e = case norm1 e of Map f u → case norm2 u of Map g v → Map (f ·g) v
