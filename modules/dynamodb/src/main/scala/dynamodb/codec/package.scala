@@ -27,25 +27,30 @@ object SchemaEx {
         λ[F ~> Const[M, ?]](x => Const(f(x)))
       ).getConst
 
+    def isOne: Boolean
   }
   object FreeAp {
 
     case class Lift[F[_], A](fa: F[A]) extends FreeAp[F, A] {
       def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[A] = f(fa)
+      def isOne: Boolean = false
     }
     case class One[F[_]]() extends FreeAp[F, Unit] {
       def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[Unit] =
         ().pure[G]
+      def isOne: Boolean = true
     }
     case class Zip[F[_], A, B](fa: FreeAp[F, A], fb: FreeAp[F, B])
         extends FreeAp[F, (A, B)] {
       def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[(A, B)] =
         fa.foldMap(f) product fb.foldMap(f)
+      def isOne: Boolean = false
     }
     case class Map[F[_], A, B](fa: FreeAp[F, A], ff: A => B)
         extends FreeAp[F, B] {
       def foldMap[G[_]](f: F ~> G)(implicit G: Applicative[G]): G[B] =
         fa.foldMap(f).map(ff)
+      def isOne: Boolean = false
     }
 
     def lift[F[_], A](fa: F[A]): FreeAp[F, A] = Lift(fa)
@@ -162,6 +167,9 @@ object SchemaEx {
     case (a, b) => f1(a) -> f2(b)
   }
 
+  def delta[A, B, C](f: A => B, g: A => C): A => (B, C) =
+    x => f(x) -> g(x)
+
   // def norm[F[_], A]: FreeAp[F, A] => FreeAp[F, A] = e => {
   //   norm1(e) match {
   //     case Map(u, f) =>
@@ -187,12 +195,15 @@ object SchemaEx {
       }
   }
 
-  // def norm2[F[_], A]: FreeAp[F, A] => FreeAp[F, A] = {
-  //   case Lift(fa) => Map(Lift(fa), identity[A])
-  //   case v: One[a] => Map(v, identity[A])
-  //   case Zip()
-  // }
-  
+  def norm2[F[_], A]: FreeAp[F, A] => FreeAp[F, A] = {
+    case Lift(fa) => Map(Lift(fa), identity[A])
+    case v: One[a] => Map(v, identity[A])
+    case z: Zip[F, a, b] if z.fa.isOne =>
+      norm2(z.fb) match {
+        case Map(u2, f2) => ??? //Map(u2, delta((x: a) => (), f2))
+      }
+  }
+
 //  Lifting Operators and Laws, Ralf Hinze, 3.3
   // norm :: Term ρ α → Term ρ α
   // norm e = case norm1 e of Map f u → case norm2 u of Map g v → Map (f ·g) v
@@ -206,16 +217,16 @@ object SchemaEx {
   //  case (norm1 e1,norm1 e2) of (Map f1 u1, Map f2 u2) → Map (f1 × f2) (u1 :⋆ u2)
   // ----
   // norm2 :: Term ρ α →Term ρ α
-  // norm2 (Var n) = Map id (Var n)
-  // norm2 Unit = = Map id Unit
+  // norm2 (Var n) = Map id (Var n) -- functor identity
+  // norm2 Unit = = Map id Unit -- functor identity
   // norm2 (Unit :⋆ e2) =
-  //   case norm2 e2 of Map f2 u2 → Map (const () △ f2) u2
+  //   case norm2 e2 of Map f2 u2 → Map (const () △ f2) u2 -- left identity
   // norm2 (e1 :⋆ Unit) =
-  //   case norm2 e1 of Map f1 u1 → Map (f1 △ const ()) u1
+  //   case norm2 e1 of Map f1 u1 → Map (f1 △ const ()) u1 -- right identity
   // norm2 (e1 :⋆ Var n) =
   //   case norm2 e1 of Map f1 u1 → Map (f1 × id) (u1 :⋆ Var n)
   // norm2 (e1 :⋆ (e2 :⋆ e3)) =
-  //   case norm2 ((e1 :⋆e2):⋆e3) of Map f u → Map (assocr·f) u
+  //   case norm2 ((e1 :⋆e2):⋆e3) of Map f u → Map (assocr·f) u -- associativity
   // ----
   // id x = x
   // (f ·g)x =f (g x)
