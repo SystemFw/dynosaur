@@ -29,6 +29,7 @@ norm1 (Product e1 e2) =
   case (norm1 e1, norm1 e2) of
     (Map f1 u1, Map f2 u2) -> Map (f1 *** f2) (Product u1 u2)
 
+
 norm2 :: FreeAp f a -> FreeAp f a
 norm2 (Lift fa) = Map id (Lift fa)
 norm2 Unit = Map id Unit
@@ -38,14 +39,14 @@ norm2 (Product Unit e2) =
 norm2 (Product e1 Unit) = 
   case norm2 e1 of
     Map f1 u1 ->  Map (\x -> (f1 x, ())) u1
-norm2 (Product e1 (Lift fa)) =
-  case norm2 e1 of
-    Map f1 u1 ->  Map (f1 *** id) (Product u1 $ Lift fa)
-norm2 (Product e1 (Product e2 e3)) =
-  case norm2 (Product (Product e1  e2) e3) of
-    Map f u -> Map (assocr . f) u
+norm2 (Product (Lift fa) e2) =
+  case norm2 e2 of
+    Map f2 u2 ->  Map (id *** f2) (Product (Lift fa) u2)
+norm2 (Product (Product e1  e2) e3) =
+  case norm2  (Product e1 (Product e2 e3)) of
+    Map f u -> Map (assocl . f) u
 
-assocr ((x, y), z) = (x, (y, z))
+assocl (x, (y, z)) = ((x, y), z)
 (***) f g (x, y) = (f x, g y)
 
 instance Show (FreeAp f a) where
