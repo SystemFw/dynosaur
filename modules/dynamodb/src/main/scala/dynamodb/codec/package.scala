@@ -268,6 +268,8 @@ object SchemaEx {
       props("user", s, (_: Role).u)
     ).tupled.map((Role.apply _).tupled)
 
+  def d = (lift(1.some), lift(5.some), lift(6.some)).tupled
+
 //   scala> b.show == c.show
 // res2: Boolean = false
 
