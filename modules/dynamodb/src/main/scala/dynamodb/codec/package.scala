@@ -227,20 +227,20 @@ object SchemaEx {
           Map(m.fa, (x: c) => (m.ff(x), ())).asInstanceOf[FreeAp[F, A]]
         case _ => throw new Exception("Guaranteed to return Map")
       }
-    case z: Zip[F, a, b] if z.fb.isLift =>
-      norm2(z.fa) match {
+    case z: Zip[F, a, b] if z.fa.isLift =>
+      norm2(z.fb) match {
         case m: Map[F, c, d] =>
-          Map(Zip(m.fa, z.fb), x(m.ff, identity[b]))
+          Map(Zip(z.fa, m.fa), x(identity[a], m.ff))
         case _ => throw new Exception("Guaranteed to return Map")
       }
-    case z1: Zip[F, a, b] if z1.fb.isZip =>
-      z1.fb match {
+    case z1: Zip[F, a, b] if z1.fa.isZip =>
+      z1.fa match {
         case z2: Zip[F, c, d] =>
-          norm2(Zip(Zip(z1.fa, z2.fa), z2.fb)) match {
-            case m: Map[F, e, ((a, b), c)] =>
-              def fun: e => (a, (b, c)) = in => {
-                val ((x, y), z) = m.ff(in)
-                (x, (y, z))
+          norm2(Zip(z2.fa, Zip(z2.fb, z1.fb))) match {
+            case m: Map[F, e, (a, (b, c))] =>
+              def fun: e => ((a, b), c) = in => {
+                val (x, (y, z)) = m.ff(in)
+                ((x, y), z)
               }
 
               Map(m.fa, fun)
