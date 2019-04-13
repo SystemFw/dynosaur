@@ -73,6 +73,7 @@ lazy val root = (project in file("."))
         "-language:higherKinds",
         "-language:implicitConversions",
         "-language:postfixOps",
+        "-language:experimental.macros",
         "-unchecked",
         "-Xlint",
         "-Yno-adapted-args",

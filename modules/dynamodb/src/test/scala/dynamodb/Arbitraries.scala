@@ -216,7 +216,12 @@ trait Arbitraries {
       tableName <- arbitrary[TableName]
       item <- arbitrary[AttributeValue.M]
       returnValues <- arbitrary[ReturnValues]
-    } yield PutItemRequest(tableName, item, returnValues)
+    } yield
+      PutItemRequest(
+        tableName = tableName,
+        item = item,
+        returnValues = returnValues
+      )
   )
 
   implicit lazy val arbPutItemResponse: Arbitrary[PutItemResponse] = Arbitrary(

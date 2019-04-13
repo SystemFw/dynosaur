@@ -17,8 +17,12 @@
 package com.ovoenergy.comms.aws
 package dynamodb
 
+import scala.reflect.macros.whitebox
+
 import scodec.bits._
 import cats._, implicits._
+
+import cats.implicits._
 
 object model {
 
@@ -169,9 +173,96 @@ object model {
 
   case class UpdateExpression(value: String)
 
+  // TODO Macro to instantiate it from static string
+  case class ExpressionAlias private (value: String)
+
+  object ExpressionAlias {
+
+    class Macros(val c: whitebox.Context) {
+      import c.universe._
+
+      def literal(s: c.Expr[String]): Tree =
+        s.tree match {
+          case Literal(Constant(s: String)) =>
+            ExpressionAlias
+              .fromString(s)
+              .fold(
+                e => c.abort(c.enclosingPosition, e),
+                _ =>
+                  q"_root_.com.ovoenergy.comms.aws.dynamodb.model.ExpressionAlias.unsafeFromString($s)"
+              )
+          case _ =>
+            c.abort(
+              c.enclosingPosition,
+              s"This method uses a macro to verify that a String literal is a valid ExpressionAlias. Use ExpressionAlias.fromString if you have a dynamic String that you want to parse."
+            )
+        }
+    }
+
+    def apply(s: String): ExpressionAlias = macro ExpressionAlias.Macros.literal
+
+    def fromString(str: String): Either[String, ExpressionAlias] =
+      if (str.headOption.contains('#')) {
+        new ExpressionAlias(str).asRight
+      } else {
+        s"Valid expression alias must start with '#'. Invalid placeholder: '$str'".asLeft
+      }
+
+    def unsafeFromString(str: String): ExpressionAlias =
+      fromString(str).getOrElse(
+        throw new IllegalArgumentException(
+          s"$str is not a valid expression alias")
+      )
+  }
+
+  // TODO Macro to instantiate it from static string
+  case class ExpressionPlaceholder private (value: String)
+
+  object ExpressionPlaceholder {
+
+    class Macros(val c: whitebox.Context) {
+      import c.universe._
+
+      def literal(s: c.Expr[String]): Tree =
+        s.tree match {
+          case Literal(Constant(s: String)) =>
+            ExpressionPlaceholder
+              .fromString(s)
+              .fold(
+                e => c.abort(c.enclosingPosition, e),
+                _ =>
+                  q"_root_.com.ovoenergy.comms.aws.dynamodb.model.ExpressionPlaceholder.unsafeFromString($s)"
+              )
+          case _ =>
+            c.abort(
+              c.enclosingPosition,
+              s"This method uses a macro to verify that a String literal is a valid ExpressionPlaceholder. Use ExpressionPlaceholder.fromString if you have a dynamic String that you want to parse."
+            )
+        }
+    }
+
+    def apply(s: String): ExpressionPlaceholder =
+      macro ExpressionPlaceholder.Macros.literal
+
+    def fromString(str: String): Either[String, ExpressionPlaceholder] =
+      if (str.headOption.contains(':')) {
+        new ExpressionPlaceholder(str).asRight
+      } else {
+        s"Valid expression placeholdert must start with ':'. Invalid placeholder: '$str'".asLeft
+      }
+
+    def unsafeFromString(str: String): ExpressionPlaceholder =
+      fromString(str).fold(e => throw new IllegalArgumentException(e), identity)
+
+  }
+
   case class PutItemRequest(
       tableName: TableName,
       item: AttributeValue.M,
+      conditionExpression: Option[ConditionExpression] = None,
+      expressionAttributeNames: Map[ExpressionAlias, AttributeName] = Map.empty,
+      expressionAttributeValues: Map[ExpressionPlaceholder, AttributeValue] =
+        Map.empty,
       returnValues: ReturnValues = ReturnValues.None,
   )
 
@@ -182,7 +273,7 @@ object model {
       key: AttributeValue.M,
       consistent: Boolean = false,
       projectionExpression: Option[ProjectionExpression] = None,
-      expressionAttributeNames: Map[String, AttributeName] = Map.empty
+      expressionAttributeNames: Map[ExpressionAlias, AttributeName] = Map.empty
   )
 
   case class GetItemResponse(
@@ -193,8 +284,9 @@ object model {
       tableName: TableName,
       key: AttributeValue.M,
       conditionExpression: Option[ConditionExpression] = None,
-      expressionAttributeNames: Map[String, AttributeName] = Map.empty,
-      expressionAttributeValues: Map[String, AttributeValue] = Map.empty,
+      expressionAttributeNames: Map[ExpressionAlias, AttributeName] = Map.empty,
+      expressionAttributeValues: Map[ExpressionPlaceholder, AttributeValue] =
+        Map.empty,
       returnValues: ReturnValues = ReturnValues.None
   )
 
@@ -206,8 +298,9 @@ object model {
       tableName: TableName,
       key: AttributeValue.M,
       updateExpression: UpdateExpression,
-      expressionAttributeNames: Map[String, AttributeName] = Map.empty,
-      expressionAttributeValues: Map[String, AttributeValue] = Map.empty,
+      expressionAttributeNames: Map[ExpressionAlias, AttributeName] = Map.empty,
+      expressionAttributeValues: Map[ExpressionPlaceholder, AttributeValue] =
+        Map.empty,
       conditionExpression: Option[ConditionExpression] = None,
       returnValues: ReturnValues = ReturnValues.None
   )

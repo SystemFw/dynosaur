@@ -39,11 +39,47 @@ object codec {
         Some(AttributeName(key))
     }
 
+  implicit val expressionAliasKeyEncoder: KeyEncoder[ExpressionAlias] =
+    new KeyEncoder[ExpressionAlias] {
+      override def apply(an: ExpressionAlias): String = an.value
+    }
+
+  implicit val expressionAliasKeyDecoder: KeyDecoder[ExpressionAlias] =
+    new KeyDecoder[ExpressionAlias] {
+      override def apply(key: String): Option[ExpressionAlias] =
+        ExpressionAlias.fromString(key).toOption
+    }
+
+  implicit val expressionPlaceholderKeyEncoder
+    : KeyEncoder[ExpressionPlaceholder] =
+    new KeyEncoder[ExpressionPlaceholder] {
+      override def apply(an: ExpressionPlaceholder): String = an.value
+    }
+
+  implicit val expressionPlaceholderKeyDecoder
+    : KeyDecoder[ExpressionPlaceholder] =
+    new KeyDecoder[ExpressionPlaceholder] {
+      override def apply(key: String): Option[ExpressionPlaceholder] =
+        ExpressionPlaceholder.fromString(key).toOption
+    }
+
   implicit val attributeNameEncoder: Encoder[AttributeName] =
     Encoder.encodeString.contramap(_.value)
 
   implicit val attributeNameDecoder: Decoder[AttributeName] =
     Decoder.decodeString.map(AttributeName.apply)
+
+  implicit val expressionPlaceholderEncoder: Encoder[ExpressionPlaceholder] =
+    Encoder.encodeString.contramap(_.value)
+
+  implicit val expressionPlaceholderDecoder: Decoder[ExpressionPlaceholder] =
+    Decoder.decodeString.emap(ExpressionPlaceholder.fromString)
+
+  implicit val expressionAliasEncoder: Encoder[ExpressionAlias] =
+    Encoder.encodeString.contramap(_.value)
+
+  implicit val expressionAliasDecoder: Decoder[ExpressionAlias] =
+    Decoder.decodeString.emap(ExpressionAlias.fromString)
 
   implicit val conditionExpressionEncoder: Encoder[ConditionExpression] =
     Encoder.encodeString.contramap(_.value)
@@ -174,12 +210,19 @@ object codec {
 
   implicit lazy val encodePutItemRequest: Encoder[PutItemRequest] =
     Encoder.instance { request =>
-      Json.obj(
+      val jsMap: Map[String, Json] = Map(
         "Item" -> request.item.asJson.withObject(jso =>
           jso("M").getOrElse(Json.Null)),
         "ReturnValues" -> request.returnValues.asJson,
         "TableName" -> request.tableName.asJson,
-      )
+      ) ++ request.conditionExpression.map(x =>
+        "ConditionExpression" -> x.value.asJson) ++
+        request.expressionAttributeNames.map(x =>
+          "ExpressionAttributeNames" -> x.asJson) ++
+        request.expressionAttributeValues.map(x =>
+          "ExpressionAttributeValues" -> x.asJson)
+
+      Json.obj(jsMap.toSeq: _*)
     }
 
   implicit lazy val decodePutItemResponse: Decoder[PutItemResponse] =
