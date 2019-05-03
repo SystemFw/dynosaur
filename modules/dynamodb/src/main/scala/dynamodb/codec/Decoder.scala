@@ -63,12 +63,12 @@ object Decoder {
       cases
         .foldMapK {
           case Alt(id, schema, review, _) =>
-            v.values.get(AttributeName(id)).map { v =>
+            v.values.get(AttributeName(id)).map { v => () =>
               fromSchema(schema).read(v).map(review)
             }
         }
         .toRight(ParseError())
-        .flatten
+        .flatMap(doDecode => doDecode())
 
     s match {
       case Num => Decoder.instance(decodeInt)

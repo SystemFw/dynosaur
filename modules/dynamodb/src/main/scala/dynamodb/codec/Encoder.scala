@@ -44,13 +44,16 @@ object Encoder {
     def encodeSum[B](
         cases: List[Alt[B, C] forSome { type C }],
         v: B): AttributeValue =
-      cases.foldMapK {
-        case Alt(id, schema, _, preview) =>
-          preview(v).map { e =>
-            AttributeValue.M(
-              Map(AttributeName(id) -> fromSchema(schema).write(e)))
-          }
-      }.get // TODO need to figure out what to do here, it's the conceptual equivalent of an incomplete match, we could/should just make encoding return either as well, would also handle malformed data in the case serialisation has constraints
+      cases
+        .foldMapK {
+          case Alt(id, schema, _, preview) =>
+            preview(v).map { e => () =>
+              AttributeValue.M(
+                Map(AttributeName(id) -> fromSchema(schema).write(e)))
+            }
+        }
+        .map(doEncode => doEncode())
+        .get // TODO need to figure out what to do here, it's the conceptual equivalent of an incomplete match, we could/should just make encoding return either as well, would also handle malformed data in the case serialisation has constraints
 
     s match {
       case Num => Encoder.instance(encodeInt)
