@@ -59,8 +59,8 @@ object Schema {
       Ap.lift(Field(name, elemSchema, get))
   }
 
-  def alt[A, B](id: String, caseSchema: Schema[B])(review: B => A)(
-      preview: A => Option[B]): Alt[A, B] =
-    Alt(id, caseSchema, review, preview)
+  def alt[A, B](id: String, caseSchema: Schema[B], review: B => A)(
+      preview: PartialFunction[A, B]): Alt[A, B] =
+    Alt(id, caseSchema, review, preview.lift)
 
 }

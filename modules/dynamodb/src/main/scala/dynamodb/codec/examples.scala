@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-import com.ovoenergy.comms.aws.dynamodb.model._
-
 import cats._, implicits._
 
 import Schema._
@@ -59,14 +57,8 @@ object examples {
 
   val statusSchema: Schema[Status] = oneOf {
     List(
-      alt[Status, String]("error", str)(Error.apply) {
-        case Error(v) => v.some
-        case _ => None
-      },
-      alt[Status, Role]("auth", roleSchema)(Auth.apply) {
-        case Auth(v) => v.some
-        case _ => None
-      }
+      alt[Status, String]("error", str, Error(_)) { case Error(v) => v },
+      alt[Status, Role]("auth", roleSchema, Auth(_)) { case Auth(v) => v }
     )
   }
 
