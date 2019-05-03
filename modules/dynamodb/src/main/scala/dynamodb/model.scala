@@ -18,7 +18,7 @@ package com.ovoenergy.comms.aws
 package dynamodb
 
 import scodec.bits._
-import cats._
+import cats._, implicits._
 
 object model {
 
@@ -26,7 +26,68 @@ object model {
 
   case class AttributeName(value: String)
 
-  sealed trait AttributeValue
+  /**
+    * TODO
+    * 1) I think I like slightly more descriptive names for the cases of the ADT,
+    * even if they don't mirror the Dynamo spec 1-to-1, we could add the correspondence
+    * in the scaladoc.
+    *
+    * 2) We need to figure out what the hell to do with numbers in terms of the matchers.
+    *
+    * 3) Add a zipper, possibly reusing the one from circe, to get errors
+    */
+  sealed trait AttributeValue {
+    def `null`: Option[AttributeValue.NULL.type] = this match {
+      case AttributeValue.NULL => AttributeValue.NULL.some
+      case _ => None
+    }
+
+    def s: Option[AttributeValue.S] = this match {
+      case v @ AttributeValue.S(_) => v.some
+      case _ => None
+    }
+
+    def n: Option[AttributeValue.N] = this match {
+      case v @ AttributeValue.N(_) => v.some
+      case _ => None
+    }
+
+    def b: Option[AttributeValue.B] = this match {
+      case v @ AttributeValue.B(_) => v.some
+      case _ => None
+    }
+
+    def bool: Option[AttributeValue.BOOL] = this match {
+      case v @ AttributeValue.BOOL(_) => v.some
+      case _ => None
+    }
+
+    def m: Option[AttributeValue.M] = this match {
+      case v @ AttributeValue.M(_) => v.some
+      case _ => None
+    }
+
+    def l: Option[AttributeValue.L] = this match {
+      case v @ AttributeValue.L(_) => v.some
+      case _ => None
+    }
+
+    def ss: Option[AttributeValue.SS] = this match {
+      case v @ AttributeValue.SS(_) => v.some
+      case _ => None
+    }
+
+    def ns: Option[AttributeValue.NS] = this match {
+      case v @ AttributeValue.NS(_) => v.some
+      case _ => None
+    }
+
+    def bs: Option[AttributeValue.BS] = this match {
+      case v @ AttributeValue.BS(_) => v.some
+      case _ => None
+    }
+
+  }
   object AttributeValue {
     case object NULL extends AttributeValue
     case class S(value: String) extends AttributeValue
