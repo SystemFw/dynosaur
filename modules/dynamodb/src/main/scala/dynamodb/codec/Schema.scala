@@ -25,14 +25,17 @@ object Schema {
     case object Num extends Schema[Int]
     case object Str extends Schema[String]
     case class Rec[R](p: Ap[Field[R, ?], R]) extends Schema[R]
-    case class Sum[A](alt: List[Alt[A, B] forSome { type B }]) extends Schema[A]
+    case class Sum[A](alt: List[Alt[A]]) extends Schema[A]
 
     case class Field[R, E](name: String, elemSchema: Schema[E], get: R => E)
-    case class Alt[A, B](
-        id: String,
-        caseSchema: Schema[B],
-        review: B => A,
-        preview: A => Option[B])
+    trait Alt[A] {
+      type B
+      def id: String
+      def caseSchema: Schema[B]
+      def review: B => A
+      def preview: A => Option[B]
+    }
+
   }
 
   import structure._
@@ -40,7 +43,7 @@ object Schema {
   def str: Schema[String] = Str
   def num: Schema[Int] = Num
   def rec[R](p: Ap[Field[R, ?], R]): Schema[R] = Rec(p)
-  def oneOf[A](cases: List[Alt[A, B] forSome { type B }]): Schema[A] =
+  def oneOf[A](cases: List[Alt[A]]): Schema[A] =
     Sum(cases)
 
   def field[R, E](
@@ -59,8 +62,14 @@ object Schema {
       Ap.lift(Field(name, elemSchema, get))
   }
 
-  def alt[A, B](id: String, caseSchema: Schema[B], review: B => A)(
-      preview: PartialFunction[A, B]): Alt[A, B] =
-    Alt(id, caseSchema, review, preview.lift)
+  def alt[A, B_](id_ : String, caseSchema_ : Schema[B_], review_ : B_ => A)(
+      preview_ : PartialFunction[A, B_]): Alt[A] =
+    new Alt[A] {
+      type B = B_
+      def id = id_
+      def caseSchema = caseSchema_
+      def review = review_
+      def preview = preview_.lift
+    }
 
 }

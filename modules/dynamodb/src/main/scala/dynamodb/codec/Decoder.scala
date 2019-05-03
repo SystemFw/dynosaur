@@ -57,15 +57,12 @@ object Decoder {
     /**
       * Assumes a Map with a discriminator
       */
-    def decodeSum[B](
-        cases: List[Alt[B, C] forSome { type C }],
-        v: AttributeValue.M): Res[B] =
+    def decodeSum[B](cases: List[Alt[B]], v: AttributeValue.M): Res[B] =
       cases
-        .foldMapK {
-          case Alt(id, schema, review, _) =>
-            v.values.get(AttributeName(id)).map { v => () =>
-              fromSchema(schema).read(v).map(review)
-            }
+        .foldMapK { alt =>
+          v.values.get(AttributeName(alt.id)).map { v => () =>
+            fromSchema(alt.caseSchema).read(v).map(alt.review)
+          }
         }
         .toRight(ParseError())
         .flatMap(doDecode => doDecode())
