@@ -22,41 +22,90 @@ object SchemaEx {
   sealed trait Schema[A]
   case object Num extends Schema[Int]
   case object Str extends Schema[String]
-  case class Rec[R](p: FreeAp[Props[R, ?], R]) extends Schema[R]
+  case class Rec[R](p: FreeAp[Field[R, ?], R]) extends Schema[R]
 
-  case class Props[R, E](name: String, elemSchema: Schema[E], get: R => E)
+  case class Field[R, E](name: String, elemSchema: Schema[E], get: R => E)
 
-  def props[R, E](
+  def field[R, E](
       name: String,
       elemSchema: Schema[E],
-      get: R => E): FreeAp[Props[R, ?], E] =
-    FreeAp.lift(Props(name, elemSchema, get))
+      get: R => E): FreeAp[Field[R, ?], E] =
+    FreeAp.lift(Field(name, elemSchema, get))
 
   trait Encoder[A] {
-    def apply(a: A): AttributeValue
+    def write(a: A): AttributeValue
   }
   object Encoder {
     def instance[A](f: A => AttributeValue): Encoder[A] = new Encoder[A] {
-      def apply(a: A): AttributeValue = f(a)
+      def write(a: A): AttributeValue = f(a)
     }
 
     def fromSchema[A](s: Schema[A]): Encoder[A] = {
       def encodeInt: Int => AttributeValue = AttributeValue.n(_)
       def encodeString: String => AttributeValue = AttributeValue.s(_)
-      def encodeObject[R](ap: FreeAp[Props[R, ?], R], v: R): AttributeValue.M =
-        ap.analyze {
-          λ[Props[R, ?] ~> λ[a => AttributeValue.M]] { p =>
+      def encodeObject[R](
+          record: FreeAp[Field[R, ?], R],
+          v: R): AttributeValue.M =
+        record.analyze {
+          λ[Field[R, ?] ~> λ[a => AttributeValue.M]] { field =>
             AttributeValue.M(
-              Map(AttributeName(p.name) -> fromSchema(p.elemSchema)(p.get(v))))
+              Map(AttributeName(field.name) -> fromSchema(field.elemSchema)
+                .write(field.get(v))))
           }
         }
 
       s match {
         case Num => Encoder.instance(encodeInt)
         case Str => Encoder.instance(encodeString)
-        case Rec(p) => Encoder.instance(v => encodeObject(p, v): AttributeValue)
+        case Rec(rec) =>
+          Encoder.instance(v => encodeObject(rec, v): AttributeValue)
+      }
+    }
+  }
+
+  case class ParseError() extends Exception
+  trait Decoder[A] {
+    def read(v: AttributeValue): Either[ParseError, A]
+  }
+  object Decoder {
+    def instance[A](f: AttributeValue => Either[ParseError, A]): Decoder[A] =
+      new Decoder[A] {
+        def read(v: AttributeValue): Either[ParseError, A] = f(v)
       }
 
+    def fromSchema[A](s: Schema[A]): Decoder[A] = {
+      type Res[B] = Either[ParseError, B]
+
+      def decodeInt: AttributeValue => Res[Int] =
+        _.n.toRight(ParseError()).flatMap { v =>
+          Either.catchNonFatal(v.value.toInt).leftMap(_ => ParseError())
+        }
+
+      def decodeString: AttributeValue => Res[String] =
+        _.s.toRight(ParseError()).map(_.value)
+
+      def decodeObject[R](
+          record: FreeAp[Field[R, ?], R],
+          v: AttributeValue.M): Res[R] =
+        record.foldMap {
+          λ[Field[R, ?] ~> Res] { field =>
+            v.values
+              .get(AttributeName(field.name))
+              .toRight(ParseError())
+              .flatMap { v =>
+                fromSchema(field.elemSchema).read(v)
+              }
+          }
+        }
+
+      s match {
+        case Num => Decoder.instance(decodeInt)
+        case Str => Decoder.instance(decodeString)
+        case Rec(rec) =>
+          Decoder.instance { v =>
+            v.m.toRight(ParseError()).flatMap(decodeObject(rec, _))
+          }
+      }
     }
   }
 
@@ -66,25 +115,25 @@ object SchemaEx {
   def s: Schema[User] =
     Rec(
       (
-        props("id", Num, (_: User).id),
-        props("name", Str, (_: User).name)
+        field("id", Num, (_: User).id),
+        field("name", Str, (_: User).name)
       ).mapN(User.apply)
     )
 
   def s2: Schema[Role] = Rec(
     (
-      props("capability", Str, (_: Role).capability),
-      props("user", s, (_: Role).u)).mapN(Role.apply)
+      field("capability", Str, (_: Role).capability),
+      field("user", s, (_: Role).u)).mapN(Role.apply)
   )
 
   def u = User(20, "joe")
   def role = Role("admin", u)
 
-  def r = Encoder.fromSchema(s)(u)
+  def e = Encoder.fromSchema(s).write(u)
 //   scala> SchemaEx.r
 // res1: com.ovoenergy.comms.aws.dynamodb.model.AttributeValue = M(Map(AttributeName(id) -> N(20), AttributeName(name) -> S(joe)))
 
-  def r2 = Encoder.fromSchema(s2)(role)
+  def e2 = Encoder.fromSchema(s2).write(role)
 //   scala> SchemaEx.r2
 // res2: com.ovoenergy.comms.aws.dynamodb.model.AttributeValue = M(Map(AttributeName(capability) -> S(admin), AttributeName(user) -> M(Map(AttributeName(id) -> N(20), AttributeName(name) -> S(joe)))))
   // }
@@ -92,20 +141,20 @@ object SchemaEx {
   import FreeAp._
   def a =
     (
-      props("id", Num, (_: User).id),
-      props("name", Str, (_: User).name)
+      field("id", Num, (_: User).id),
+      field("name", Str, (_: User).name)
     ).mapN(User.apply)
 
   def b =
     (
-      props("capability", Str, (_: Role).capability),
-      props("user", s, (_: Role).u)
+      field("capability", Str, (_: Role).capability),
+      field("user", s, (_: Role).u)
     ).mapN(Role.apply)
 
   def c =
     (
-      props("capability", Str, (_: Role).capability),
-      props("user", s, (_: Role).u)
+      field("capability", Str, (_: Role).capability),
+      field("user", s, (_: Role).u)
     ).tupled.map((Role.apply _).tupled)
 
   def d = (lift(1.some), lift(5.some), lift(6.some)).tupled
