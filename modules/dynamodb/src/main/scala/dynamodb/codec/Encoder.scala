@@ -37,6 +37,10 @@ object Encoder {
               .write(field.get(v))))
         }
       }
+
+    /**
+      * Uses a Map with a discriminator
+      */
     def encodeSum[B](
         cases: List[Alt[B, C] forSome { type C }],
         v: B): AttributeValue =

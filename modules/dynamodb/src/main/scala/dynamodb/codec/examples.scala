@@ -72,4 +72,6 @@ object examples {
 
   val c = Encoder.fromSchema(statusSchema).write(Error("MyError"))
   val d = Encoder.fromSchema(statusSchema).write(Auth(role))
+  val e = Decoder.fromSchema(statusSchema).read(c)
+  val f = Decoder.fromSchema(statusSchema).read(d)
 }
