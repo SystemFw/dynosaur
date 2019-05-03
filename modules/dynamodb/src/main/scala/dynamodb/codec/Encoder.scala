@@ -15,7 +15,7 @@
  */
 
 import com.ovoenergy.comms.aws.dynamodb.model.{AttributeName, AttributeValue}
-import cats.~>
+import cats._, implicits._
 import Schema.structure._
 
 trait Encoder[A] {
@@ -37,12 +37,23 @@ object Encoder {
               .write(field.get(v))))
         }
       }
+    def encodeSum[B](
+        cases: List[Alt[B, C] forSome { type C }],
+        v: B): AttributeValue =
+      cases.foldMapK {
+        case Alt(id, schema, _, preview) =>
+          preview(v).map { e =>
+            AttributeValue.M(
+              Map(AttributeName(id) -> fromSchema(schema).write(e)))
+          }
+      }.get // TODO need to figure out what to do here, it's the conceptual equivalent of an incomplete match, we could/should just make encoding return either as well, would also handle malformed data in the case serialisation has constraints
 
     s match {
       case Num => Encoder.instance(encodeInt)
       case Str => Encoder.instance(encodeString)
       case Rec(rec) =>
         Encoder.instance(v => encodeObject(rec, v): AttributeValue)
+      case Sum(cases) => Encoder.instance(v => encodeSum(cases, v))
     }
   }
 }

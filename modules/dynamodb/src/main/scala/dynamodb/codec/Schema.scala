@@ -25,8 +25,14 @@ object Schema {
     case object Num extends Schema[Int]
     case object Str extends Schema[String]
     case class Rec[R](p: Ap[Field[R, ?], R]) extends Schema[R]
+    case class Sum[A](alt: List[Alt[A, B] forSome { type B }]) extends Schema[A]
 
     case class Field[R, E](name: String, elemSchema: Schema[E], get: R => E)
+    case class Alt[A, B](
+        id: String,
+        caseSchema: Schema[B],
+        review: B => A,
+        preview: A => Option[B])
   }
 
   import structure._
@@ -34,6 +40,8 @@ object Schema {
   def str: Schema[String] = Str
   def num: Schema[Int] = Num
   def rec[R](p: Ap[Field[R, ?], R]): Schema[R] = Rec(p)
+  def oneOf[A](cases: List[Alt[A, B] forSome { type B }]): Schema[A] =
+    Sum(cases)
 
   def field[R, E](
       name: String,
@@ -50,5 +58,9 @@ object Schema {
         get: R => E): Ap[Field[R, ?], E] =
       Ap.lift(Field(name, elemSchema, get))
   }
+
+  def alt[A, B](id: String, caseSchema: Schema[B])(review: B => A)(
+      preview: A => Option[B]): Alt[A, B] =
+    Alt(id, caseSchema, review, preview)
 
 }
