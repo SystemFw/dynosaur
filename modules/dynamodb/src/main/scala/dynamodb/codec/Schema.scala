@@ -46,12 +46,6 @@ object Schema {
   def oneOf[A](cases: List[Alt[A]]): Schema[A] =
     Sum(cases)
 
-  def field[R, E](
-      name: String,
-      elemSchema: Schema[E],
-      get: R => E): Ap[Field[R, ?], E] =
-    Ap.lift(Field(name, elemSchema, get))
-
   def field[R] = new FieldBuilder[R]
 
   class FieldBuilder[R] {
@@ -62,14 +56,16 @@ object Schema {
       Ap.lift(Field(name, elemSchema, get))
   }
 
-  def alt[A, B_](id_ : String, caseSchema_ : Schema[B_], review_ : B_ => A)(
-      preview_ : PartialFunction[A, B_]): Alt[A] =
-    new Alt[A] {
+  def alt[A] = new AltBuilder[A]
+
+  class AltBuilder[A] {
+    def apply[B_](id_ : String, caseSchema_ : Schema[B_])(review_ : B_ => A)(
+        preview_ : PartialFunction[A, B_]): Alt[A] = new Alt[A] {
       type B = B_
       def id = id_
       def caseSchema = caseSchema_
       def review = review_
       def preview = preview_.lift
     }
-
+  }
 }

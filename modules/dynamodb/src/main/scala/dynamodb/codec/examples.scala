@@ -29,16 +29,13 @@ object examples {
     ).mapN(User.apply)
   )
 
-  def roleSchema: Schema[Role] = {
-    def capability: Role => String = _.capability
-
+  def roleSchema: Schema[Role] =
     rec(
       (
-        field("capability", str, capability),
+        field[Role]("capability", str, _.capability),
         field[Role]("user", userSchema, _.u)
       ).mapN(Role.apply)
     )
-  }
 
   def role = Role("admin", User(20, "joe"))
 
@@ -57,8 +54,8 @@ object examples {
 
   val statusSchema: Schema[Status] = oneOf {
     List(
-      alt[Status, String]("error", str, Error(_)) { case Error(v) => v },
-      alt[Status, Role]("auth", roleSchema, Auth(_)) { case Auth(v) => v }
+      alt[Status]("error", str)(Error(_)) { case Error(v) => v },
+      alt[Status]("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
     )
   }
 
@@ -66,4 +63,19 @@ object examples {
   val d = Encoder.fromSchema(statusSchema).write(Auth(role))
   val e = Decoder.fromSchema(statusSchema).read(c)
   val f = Decoder.fromSchema(statusSchema).read(d)
+
+  val inference = {
+    // Cannot infer type of function
+    // field[Role]("capability", str, _.capability)
+    // alt[Status]("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
+
+    // can ascribe manually
+    field("capability", str, (_: Role).capability)
+    alt("auth", roleSchema)(Auth(_): Status) { case Auth(v) => v }
+
+    // the library helps you
+    field[Role]("capability", str, _.capability)
+    alt[Status]("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
+
+  }
 }
