@@ -17,20 +17,24 @@
 import com.ovoenergy.comms.aws.dynamodb.model._
 
 import cats._, implicits._
+import cats.free.FreeApplicative
 
 object SchemaEx {
+  type Ap[F[_], A] = FreeApplicative[F, A]
+  val Ap = FreeApplicative
+
   sealed trait Schema[A]
   case object Num extends Schema[Int]
   case object Str extends Schema[String]
-  case class Rec[R](p: FreeAp[Field[R, ?], R]) extends Schema[R]
+  case class Rec[R](p: Ap[Field[R, ?], R]) extends Schema[R]
 
   case class Field[R, E](name: String, elemSchema: Schema[E], get: R => E)
 
   def field[R, E](
       name: String,
       elemSchema: Schema[E],
-      get: R => E): FreeAp[Field[R, ?], E] =
-    FreeAp.lift(Field(name, elemSchema, get))
+      get: R => E): Ap[Field[R, ?], E] =
+    Ap.lift(Field(name, elemSchema, get))
 
   trait Encoder[A] {
     def write(a: A): AttributeValue
@@ -43,9 +47,7 @@ object SchemaEx {
     def fromSchema[A](s: Schema[A]): Encoder[A] = {
       def encodeInt: Int => AttributeValue = AttributeValue.n(_)
       def encodeString: String => AttributeValue = AttributeValue.s(_)
-      def encodeObject[R](
-          record: FreeAp[Field[R, ?], R],
-          v: R): AttributeValue.M =
+      def encodeObject[R](record: Ap[Field[R, ?], R], v: R): AttributeValue.M =
         record.analyze {
           λ[Field[R, ?] ~> λ[a => AttributeValue.M]] { field =>
             AttributeValue.M(
@@ -85,7 +87,7 @@ object SchemaEx {
         _.s.toRight(ParseError()).map(_.value)
 
       def decodeObject[R](
-          record: FreeAp[Field[R, ?], R],
+          record: Ap[Field[R, ?], R],
           v: AttributeValue.M): Res[R] =
         record.foldMap {
           λ[Field[R, ?] ~> Res] { field =>
@@ -102,8 +104,8 @@ object SchemaEx {
         case Num => Decoder.instance(decodeInt)
         case Str => Decoder.instance(decodeString)
         case Rec(rec) =>
-          Decoder.instance { v =>
-            v.m.toRight(ParseError()).flatMap(decodeObject(rec, _))
+          Decoder.instance {
+            _.m.toRight(ParseError()).flatMap(decodeObject(rec, _))
           }
       }
     }
@@ -138,7 +140,7 @@ object SchemaEx {
 // res2: com.ovoenergy.comms.aws.dynamodb.model.AttributeValue = M(Map(AttributeName(capability) -> S(admin), AttributeName(user) -> M(Map(AttributeName(id) -> N(20), AttributeName(name) -> S(joe)))))
   // }
 
-  import FreeAp._
+  import Ap._
   def a =
     (
       field("id", Num, (_: User).id),
