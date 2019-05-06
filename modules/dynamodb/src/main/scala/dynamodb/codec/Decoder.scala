@@ -16,6 +16,7 @@
 
 import com.ovoenergy.comms.aws.dynamodb.model.{AttributeName, AttributeValue}
 import cats._, implicits._
+import cats.data.Chain
 import Schema.structure._
 
 case class ReadError() extends Exception
@@ -54,7 +55,7 @@ object Decoder {
         }
       }
 
-    def decodeSum[B](cases: List[Alt[B]], v: AttributeValue.M): Res[B] =
+    def decodeSum[B](cases: Chain[Alt[B]], v: AttributeValue.M): Res[B] =
       cases
         .foldMapK { alt =>
           fromSchema(alt.caseSchema).read(v).map(alt.review).toOption

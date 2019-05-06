@@ -42,24 +42,25 @@ object examples {
   def role = Role("admin", User(20, "joe"))
 
   // Encodes ADTs using a discriminator
-  val statusSchema: Schema[Status] = oneOf(
-    tag[Status]("error", str)(Error(_)) { case Error(v) => v },
-    tag[Status]("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
-  )
+  val statusSchema: Schema[Status] = oneOf[Status] { alt =>
+    alt("error", str)(Error(_)) { case Error(v) => v } |+|
+      alt("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
+  }
 
   // encodes ADTs using an embedded "type" field
-  val untaggedStatus = oneOf(
-    alt[Status](
-      record[String] { field =>
-        field("type", str, _ => "error") *> field("body", str, x => x)
-      }
-    )(Error(_)) { case Error(v) => v },
-    alt[Status](
-      record[Role] { field =>
-        field("type", str, _ => "auth") *> field("body", roleSchema, x => x)
-      }
-    )(Auth(_)) { case Auth(v) => v }
-  )
+  val untaggedStatus = {
+    val error = record[String] { field =>
+      field("type", str, _ => "error") *> field("body", str, identity)
+    }
+    val auth = record[Role] { field =>
+      field("type", str, _ => "auth") *> field("body", roleSchema, identity)
+    }
+
+    oneOf[Status] { alt =>
+      alt.from(error)(Error(_)) { case Error(v) => v } |+|
+        alt.from(auth)(Auth(_)) { case Auth(v) => v }
+    }
+  }
 
   val a = roleSchema.write(role)
   val b = roleSchema.read(a)
@@ -77,13 +78,13 @@ object examples {
 
     // can ascribe manually
     field("capability", str, (_: Role).capability)
-    tag("auth", roleSchema)(Auth(_): Status) { case Auth(v) => v }
-    alt(roleSchema)(Auth(_): Status) { case Auth(v) => v }
+    alt("auth", roleSchema)(Auth(_): Status) { case Auth(v) => v }
+    alt.from(roleSchema)(Auth(_): Status) { case Auth(v) => v }
 
     // the library helps you
     field[Role]("capability", str, _.capability)
-    tag[Status]("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
-    alt[Status](roleSchema)(Auth(_)) { case Auth(v) => v }
+    alt[Status]("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
+    alt[Status].from(roleSchema)(Auth(_)) { case Auth(v) => v }
   }
 
   import com.ovoenergy.comms.aws.dynamodb.model.AttributeValue

@@ -16,6 +16,8 @@
 
 import com.ovoenergy.comms.aws.dynamodb.model.{AttributeName, AttributeValue}
 import cats._, implicits._
+import cats.data.Chain
+
 import Schema.structure._
 
 case class WriteError() extends Exception
@@ -46,7 +48,7 @@ object Encoder {
         }
         .widen[AttributeValue]
 
-    def encodeSum[C](cases: List[Alt[C]], v: C): Res =
+    def encodeSum[C](cases: Chain[Alt[C]], v: C): Res =
       cases
         .foldMapK { alt =>
           alt.preview(v).map { e =>

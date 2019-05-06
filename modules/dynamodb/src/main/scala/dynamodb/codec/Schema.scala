@@ -15,6 +15,7 @@
  */
 
 import cats.free.FreeApplicative
+import cats.data.Chain
 
 sealed trait Schema[A]
 object Schema {
@@ -25,7 +26,7 @@ object Schema {
     case object Num extends Schema[Int]
     case object Str extends Schema[String]
     case class Rec[R](p: Ap[Field[R, ?], R]) extends Schema[R]
-    case class Sum[A](alt: List[Alt[A]]) extends Schema[A]
+    case class Sum[A](alt: Chain[Alt[A]]) extends Schema[A]
 
     case class Field[R, E](name: String, elemSchema: Schema[E], get: R => E)
     trait Alt[A] {
@@ -44,14 +45,15 @@ object Schema {
 
   def fields[R](p: Ap[Field[R, ?], R]): Schema[R] = Rec(p)
   def record[R](b: FieldBuilder[R] => Ap[Field[R, ?], R]): Schema[R] =
-    fields(b(field[R]))
+    fields(b(field))
 
-  def alternatives[A](cases: List[Alt[A]]): Schema[A] =
+  def alternatives[A](cases: Chain[Alt[A]]): Schema[A] =
     Sum(cases)
-  def oneOf[A](cases: Alt[A]*): Schema[A] =
-    Sum(cases.toList)
+  def oneOf[A](b: AltBuilder[A] => Chain[Alt[A]]): Schema[A] =
+    alternatives(b(alt))
 
   def field[R] = new FieldBuilder[R]
+  def alt[A] = new AltBuilder[A]
 
   class FieldBuilder[R] {
     def apply[E](
@@ -61,27 +63,24 @@ object Schema {
       Ap.lift(Field(name, elemSchema, get))
   }
 
-  def alt[A] = new AltBuilder[A]
-
   class AltBuilder[A] {
-    def apply[B_](caseSchema_ : Schema[B_])(review_ : B_ => A)(
-        preview_ : PartialFunction[A, B_]): Alt[A] = new Alt[A] {
-      type B = B_
-      def caseSchema = caseSchema_
-      def review = review_
-      def preview = preview_.lift
-    }
-  }
-
-  def tag[A] = new TagBuilder[A]
-
-  class TagBuilder[A] {
     def apply[B](id: String, caseSchema: Schema[B])(review: B => A)(
-        preview: PartialFunction[A, B]): Alt[A] = {
+        preview: PartialFunction[A, B]): Chain[Alt[A]] = {
 
       val schema = record[B](_(id, caseSchema, identity))
 
-      alt(schema)(review)(preview)
+      from(schema)(review)(preview)
     }
+
+    def from[B_](caseSchema_ : Schema[B_])(review_ : B_ => A)(
+        preview_ : PartialFunction[A, B_]): Chain[Alt[A]] =
+      Chain.one {
+        new Alt[A] {
+          type B = B_
+          def caseSchema = caseSchema_
+          def review = review_
+          def preview = preview_.lift
+        }
+      }
   }
 }
