@@ -23,7 +23,6 @@ import cats.effect._
 import cats.implicits._
 
 import io.circe.{Encoder, Decoder}
-import io.circe.syntax._
 
 import org.http4s.{Service => _, _}
 import org.http4s.Method._

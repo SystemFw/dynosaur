@@ -42,8 +42,10 @@ object Schema {
   def str: Schema[String] = Str
   def num: Schema[Int] = Num
   def rec[R](p: Ap[Field[R, ?], R]): Schema[R] = Rec(p)
-  def oneOf[A](cases: List[Alt[A]]): Schema[A] =
+  def alternatives[A](cases: List[Alt[A]]): Schema[A] =
     Sum(cases)
+  def oneOf[A](cases: Alt[A]*): Schema[A] =
+    Sum(cases.toList)
 
   def field[R] = new FieldBuilder[R]
 
