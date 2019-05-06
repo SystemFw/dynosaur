@@ -61,6 +61,15 @@ object Schema {
         elemSchema: Schema[E],
         get: R => E): Ap[Field[R, ?], E] =
       Ap.lift(Field(name, elemSchema, get))
+
+    def id(name: String, elemSchema: Schema[R]): Ap[Field[R, ?], R] =
+      apply(name, elemSchema, identity)
+
+    def const[E](
+        name: String,
+        elemSchema: Schema[E],
+        e: E): Ap[Field[R, ?], E] =
+      Ap.lift(Field(name, elemSchema, _ => e))
   }
 
   class AltBuilder[A] {

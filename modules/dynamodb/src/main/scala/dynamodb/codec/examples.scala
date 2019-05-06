@@ -41,19 +41,24 @@ object examples {
 
   def role = Role("admin", User(20, "joe"))
 
-  // Encodes ADTs using a discriminator
-  val statusSchema: Schema[Status] = oneOf[Status] { alt =>
-    alt("error", str)(Error(_)) { case Error(v) => v } |+|
-      alt("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
+  // Encodes ADTs using a discriminator, written from scratch
+  val taggedStatus = {
+    val error = record[String](field => field.id("error", str))
+    val auth = record[Role](field => field.id("auth", roleSchema))
+
+    oneOf[Status] { alt =>
+      alt.from(error)(Error(_)) { case Error(v) => v } |+|
+        alt.from(auth)(Auth(_)) { case Auth(v) => v }
+    }
   }
 
-  // encodes ADTs using an embedded "type" field
+  // encodes ADTs using an embedded "type" field, written from scratch
   val untaggedStatus = {
     val error = record[String] { field =>
-      field("type", str, _ => "error") *> field("body", str, identity)
+      field.const("type", str, "error") *> field.id("body", str)
     }
     val auth = record[Role] { field =>
-      field("type", str, _ => "auth") *> field("body", roleSchema, identity)
+      field.const("type", str, "auth") *> field.id("body", roleSchema)
     }
 
     oneOf[Status] { alt =>
@@ -61,6 +66,37 @@ object examples {
         alt.from(auth)(Auth(_)) { case Auth(v) => v }
     }
   }
+
+  // Encodes ADTs using a discriminator, with helper
+  val statusSchema: Schema[Status] = oneOf[Status] { alt =>
+    alt("error", str)(Error(_)) { case Error(v) => v } |+|
+      alt("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
+  }
+
+  // combinator code to show that the above can be abstracted
+  val combinators = {
+    val error1 = record[String](field => field.id("error", str))
+    val auth1 = record[Role](field => field.id("auth", roleSchema))
+
+    val error2 = record[String] { field =>
+      field.const("type", str, "error") *> field.id("body", str)
+    }
+    val auth2 = record[Role] { field =>
+      field.const("type", str, "auth") *> field.id("body", roleSchema)
+    }
+
+    val _ = (error2, auth1) // to suppress unused warning
+
+    def choices(err: Schema[String], auth: Schema[Role]) = oneOf[Status] {
+      alt =>
+        alt("error", err)(Error(_)) { case Error(v) => v } |+|
+          alt("auth", auth)(Auth(_)) { case Auth(v) => v }
+    }
+
+    choices(error1, auth2)
+  }
+
+  // encodeds ADTs with embedded "type" field, with helper TODO
 
   val a = roleSchema.write(role)
   val b = roleSchema.read(a)
