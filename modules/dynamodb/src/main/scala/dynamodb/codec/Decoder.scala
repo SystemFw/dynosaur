@@ -18,27 +18,27 @@ import com.ovoenergy.comms.aws.dynamodb.model.{AttributeName, AttributeValue}
 import cats._, implicits._
 import Schema.structure._
 
-case class ParseError() extends Exception
+case class ReadError() extends Exception
 
 trait Decoder[A] {
-  def read(v: AttributeValue): Either[ParseError, A]
+  def read(v: AttributeValue): Either[ReadError, A]
 }
 object Decoder {
-  def instance[A](f: AttributeValue => Either[ParseError, A]): Decoder[A] =
+  def instance[A](f: AttributeValue => Either[ReadError, A]): Decoder[A] =
     new Decoder[A] {
-      def read(v: AttributeValue): Either[ParseError, A] = f(v)
+      def read(v: AttributeValue) = f(v)
     }
 
   def fromSchema[A](s: Schema[A]): Decoder[A] = {
-    type Res[B] = Either[ParseError, B]
+    type Res[B] = Either[ReadError, B]
 
     def decodeInt: AttributeValue => Res[Int] =
-      _.n.toRight(ParseError()).flatMap { v =>
-        Either.catchNonFatal(v.value.toInt).leftMap(_ => ParseError())
+      _.n.toRight(ReadError()).flatMap { v =>
+        Either.catchNonFatal(v.value.toInt).leftMap(_ => ReadError())
       }
 
     def decodeString: AttributeValue => Res[String] =
-      _.s.toRight(ParseError()).map(_.value)
+      _.s.toRight(ReadError()).map(_.value)
 
     def decodeObject[R](
         record: Ap[Field[R, ?], R],
@@ -47,7 +47,7 @@ object Decoder {
         λ[Field[R, ?] ~> Res] { field =>
           v.values
             .get(AttributeName(field.name))
-            .toRight(ParseError())
+            .toRight(ReadError())
             .flatMap { v =>
               fromSchema(field.elemSchema).read(v)
             }
@@ -64,7 +64,7 @@ object Decoder {
             fromSchema(alt.caseSchema).read(v).map(alt.review)
           }
         }
-        .toRight(ParseError())
+        .toRight(ReadError())
         .flatMap(doDecode => doDecode())
 
     s match {
@@ -72,11 +72,11 @@ object Decoder {
       case Str => Decoder.instance(decodeString)
       case Rec(rec) =>
         Decoder.instance {
-          _.m.toRight(ParseError()).flatMap(decodeObject(rec, _))
+          _.m.toRight(ReadError()).flatMap(decodeObject(rec, _))
         }
       case Sum(cases) =>
         Decoder.instance {
-          _.m.toRight(ParseError()).flatMap(decodeSum(cases, _))
+          _.m.toRight(ReadError()).flatMap(decodeSum(cases, _))
         }
     }
   }

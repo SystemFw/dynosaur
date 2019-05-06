@@ -18,45 +18,54 @@ import com.ovoenergy.comms.aws.dynamodb.model.{AttributeName, AttributeValue}
 import cats._, implicits._
 import Schema.structure._
 
+case class WriteError() extends Exception
+
 trait Encoder[A] {
-  def write(a: A): AttributeValue
+  def write(a: A): Either[WriteError, AttributeValue]
 }
 object Encoder {
-  def instance[A](f: A => AttributeValue): Encoder[A] = new Encoder[A] {
-    def write(a: A): AttributeValue = f(a)
-  }
+  def instance[A](f: A => Either[WriteError, AttributeValue]): Encoder[A] =
+    new Encoder[A] {
+      def write(a: A) = f(a)
+    }
 
   def fromSchema[A](s: Schema[A]): Encoder[A] = {
-    def encodeInt: Int => AttributeValue = AttributeValue.n(_)
-    def encodeString: String => AttributeValue = AttributeValue.s(_)
-    def encodeObject[R](record: Ap[Field[R, ?], R], v: R): AttributeValue.M =
-      record.analyze {
-        λ[Field[R, ?] ~> λ[a => AttributeValue.M]] { field =>
-          AttributeValue.M(
-            Map(AttributeName(field.name) -> fromSchema(field.elemSchema)
-              .write(field.get(v))))
+    type Res = Either[WriteError, AttributeValue]
+
+    def encodeInt: Int => Res = AttributeValue.n(_).asRight
+    def encodeString: String => Res = AttributeValue.s(_).asRight
+    def encodeObject[R](record: Ap[Field[R, ?], R], v: R): Res =
+      record
+        .analyze {
+          λ[Field[R, ?] ~> λ[a => Either[WriteError, AttributeValue.M]]] {
+            field =>
+              fromSchema(field.elemSchema).write(field.get(v)).map { av =>
+                AttributeValue.M(Map(AttributeName(field.name) -> av))
+              }
+          }
         }
-      }
+        .widen[AttributeValue]
 
     /**
       * Uses a Map with a discriminator
       */
-    def encodeSum[B](cases: List[Alt[B]], v: B): AttributeValue =
+    def encodeSum[B](cases: List[Alt[B]], v: B): Res =
       cases
         .foldMapK { alt =>
           alt.preview(v).map { e => () =>
-            AttributeValue.M(
-              Map(AttributeName(alt.id) -> fromSchema(alt.caseSchema).write(e)))
+            fromSchema(alt.caseSchema).write(e).map { av =>
+              AttributeValue.M(Map(AttributeName(alt.id) -> av))
+            }
           }
         }
         .map(doEncode => doEncode())
-        .get // TODO need to figure out what to do here, it's the conceptual equivalent of an incomplete match, we could/should just make encoding return either as well, would also handle malformed data in the case serialisation has constraints
+        .getOrElse(WriteError().asLeft)
 
     s match {
       case Num => Encoder.instance(encodeInt)
       case Str => Encoder.instance(encodeString)
       case Rec(rec) =>
-        Encoder.instance(v => encodeObject(rec, v): AttributeValue)
+        Encoder.instance(v => encodeObject(rec, v))
       case Sum(cases) => Encoder.instance(v => encodeSum(cases, v))
     }
   }

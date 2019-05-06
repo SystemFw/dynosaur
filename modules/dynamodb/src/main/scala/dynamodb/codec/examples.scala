@@ -39,7 +39,7 @@ object examples {
 
   def role = Role("admin", User(20, "joe"))
 
-  def a = Encoder.fromSchema(roleSchema).write(role)
+  def a = Encoder.fromSchema(roleSchema).write(role).toOption.get
   def b = Decoder.fromSchema(roleSchema).read(a)
 
 // scala> a
@@ -59,8 +59,8 @@ object examples {
     )
   }
 
-  val c = Encoder.fromSchema(statusSchema).write(Error("MyError"))
-  val d = Encoder.fromSchema(statusSchema).write(Auth(role))
+  val c = Encoder.fromSchema(statusSchema).write(Error("MyError")).toOption.get
+  val d = Encoder.fromSchema(statusSchema).write(Auth(role)).toOption.get
   val e = Decoder.fromSchema(statusSchema).read(c)
   val f = Decoder.fromSchema(statusSchema).read(d)
 
