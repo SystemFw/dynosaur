@@ -41,7 +41,11 @@ object Schema {
 
   def str: Schema[String] = Str
   def num: Schema[Int] = Num
-  def rec[R](p: Ap[Field[R, ?], R]): Schema[R] = Rec(p)
+
+  def fields[R](p: Ap[Field[R, ?], R]): Schema[R] = Rec(p)
+  def record[R](b: FieldBuilder[R] => Ap[Field[R, ?], R]): Schema[R] =
+    fields(b(field[R]))
+
   def alternatives[A](cases: List[Alt[A]]): Schema[A] =
     Sum(cases)
   def oneOf[A](cases: Alt[A]*): Schema[A] =
@@ -75,7 +79,7 @@ object Schema {
     def apply[B](id: String, caseSchema: Schema[B])(review: B => A)(
         preview: PartialFunction[A, B]): Alt[A] = {
 
-      val schema = rec[B](field(id, caseSchema, identity))
+      val schema = record[B](_(id, caseSchema, identity))
 
       alt(schema)(review)(preview)
     }

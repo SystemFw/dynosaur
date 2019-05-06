@@ -25,20 +25,19 @@ object examples {
   case class Error(s: String) extends Status
   case class Auth(r: Role) extends Status
 
-  def userSchema: Schema[User] = rec(
+  def userSchema: Schema[User] = record[User] { field =>
     (
-      field[User]("id", num, _.id),
-      field[User]("name", str, _.name)
+      field("id", num, _.id),
+      field("name", str, _.name)
     ).mapN(User.apply)
-  )
+  }
 
-  def roleSchema: Schema[Role] =
-    rec(
-      (
-        field[Role]("capability", str, _.capability),
-        field[Role]("user", userSchema, _.u)
-      ).mapN(Role.apply)
-    )
+  def roleSchema: Schema[Role] = record[Role] { field =>
+    (
+      field("capability", str, _.capability),
+      field("user", userSchema, _.u)
+    ).mapN(Role.apply)
+  }
 
   def role = Role("admin", User(20, "joe"))
 
@@ -51,16 +50,14 @@ object examples {
   // encodes ADTs using an embedded "type" field
   val untaggedStatus = oneOf(
     alt[Status](
-      rec(
-        field[String]("type", str, _ => "error") *>
-          field[String]("body", str, x => x)
-      )
+      record[String] { field =>
+        field("type", str, _ => "error") *> field("body", str, x => x)
+      }
     )(Error(_)) { case Error(v) => v },
     alt[Status](
-      rec(
-        field[Role]("type", str, _ => "auth") *>
-          field[Role]("body", roleSchema, x => x)
-      )
+      record[Role] { field =>
+        field("type", str, _ => "auth") *> field("body", roleSchema, x => x)
+      }
     )(Auth(_)) { case Auth(v) => v }
   )
 
