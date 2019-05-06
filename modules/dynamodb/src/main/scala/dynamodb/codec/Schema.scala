@@ -30,7 +30,6 @@ object Schema {
     case class Field[R, E](name: String, elemSchema: Schema[E], get: R => E)
     trait Alt[A] {
       type B
-      def id: String
       def caseSchema: Schema[B]
       def review: B => A
       def preview: A => Option[B]
@@ -59,13 +58,24 @@ object Schema {
   def alt[A] = new AltBuilder[A]
 
   class AltBuilder[A] {
-    def apply[B_](id_ : String, caseSchema_ : Schema[B_])(review_ : B_ => A)(
+    def apply[B_](caseSchema_ : Schema[B_])(review_ : B_ => A)(
         preview_ : PartialFunction[A, B_]): Alt[A] = new Alt[A] {
       type B = B_
-      def id = id_
       def caseSchema = caseSchema_
       def review = review_
       def preview = preview_.lift
+    }
+  }
+
+  def tag[A] = new TagBuilder[A]
+
+  class TagBuilder[A] {
+    def apply[B](id: String, caseSchema: Schema[B])(review: B => A)(
+        preview: PartialFunction[A, B]): Alt[A] = {
+
+      val schema = rec[B](field(id, caseSchema, identity))
+
+      alt(schema)(review)(preview)
     }
   }
 }

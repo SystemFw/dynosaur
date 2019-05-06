@@ -46,19 +46,13 @@ object Encoder {
         }
         .widen[AttributeValue]
 
-    /**
-      * Uses a Map with a discriminator
-      */
-    def encodeSum[B](cases: List[Alt[B]], v: B): Res =
+    def encodeSum[C](cases: List[Alt[C]], v: C): Res =
       cases
         .foldMapK { alt =>
-          alt.preview(v).map { e => () =>
-            fromSchema(alt.caseSchema).write(e).map { av =>
-              AttributeValue.M(Map(AttributeName(alt.id) -> av))
-            }
+          alt.preview(v).map { e =>
+            fromSchema(alt.caseSchema).write(e)
           }
         }
-        .map(doEncode => doEncode())
         .getOrElse(WriteError().asLeft)
 
     s match {

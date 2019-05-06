@@ -42,20 +42,15 @@ object examples {
   def a = Encoder.fromSchema(roleSchema).write(role).toOption.get
   def b = Decoder.fromSchema(roleSchema).read(a)
 
-// scala> a
-// res0: com.ovoenergy.comms.aws.dynamodb.model.AttributeValue = M(Map(AttributeName(capability) -> S(admin), AttributeName(user) -> M(Map(AttributeName(id) -> N(20), AttributeName(name) -> S(joe)))))
-
-// scala> b
-// res1: Either[ParseError,examples.Role] = Right(Role(admin,User(20,joe)))
-
   sealed trait Status
   case class Error(s: String) extends Status
   case class Auth(r: Role) extends Status
 
+  // Encodes ADTs using a discriminator
   val statusSchema: Schema[Status] = oneOf {
     List(
-      alt[Status]("error", str)(Error(_)) { case Error(v) => v },
-      alt[Status]("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
+      tag[Status]("error", str)(Error(_)) { case Error(v) => v },
+      tag[Status]("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
     )
   }
 
@@ -64,18 +59,41 @@ object examples {
   val e = Decoder.fromSchema(statusSchema).read(c)
   val f = Decoder.fromSchema(statusSchema).read(d)
 
+  // encodes ADTs using an embedded "type" field
+  val untaggedStatus = oneOf {
+    List(
+      alt[Status](
+        rec(
+          field[String]("type", str, _ => "error") *>
+            field[String]("body", str, x => x)
+        )
+      )(Error(_)) { case Error(v) => v },
+      alt[Status](
+        rec(
+          field[Role]("type", str, _ => "auth") *>
+            field[Role]("body", roleSchema, x => x)
+        )
+      )(Auth(_)) { case Auth(v) => v }
+    )
+  }
+
+  val g = Encoder.fromSchema(untaggedStatus).write(Auth(role)).toOption.get
+  val h = Decoder.fromSchema(untaggedStatus).read(g)
+
   val inference = {
     // Cannot infer type of function
     // field[Role]("capability", str, _.capability)
-    // alt[Status]("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
+    // tag[Status]("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
 
     // can ascribe manually
     field("capability", str, (_: Role).capability)
-    alt("auth", roleSchema)(Auth(_): Status) { case Auth(v) => v }
+    tag("auth", roleSchema)(Auth(_): Status) { case Auth(v) => v }
+    alt(roleSchema)(Auth(_): Status) { case Auth(v) => v }
 
     // the library helps you
     field[Role]("capability", str, _.capability)
-    alt[Status]("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
+    tag[Status]("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
+    alt[Status](roleSchema)(Auth(_)) { case Auth(v) => v }
 
   }
 }
