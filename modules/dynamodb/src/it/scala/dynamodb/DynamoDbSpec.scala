@@ -136,10 +136,10 @@ class DynamoDbSpec extends IntegrationSpec {
             key = key,
             updateExpression = UpdateExpression("SET #v = :newValue"),
             expressionAttributeNames = Map(
-              "#v" -> AttributeName("value")
+              ExpressionAlias("#v") -> AttributeName("value")
             ),
             expressionAttributeValues = Map(
-              ":newValue" -> AttributeValue.S("2")
+              ExpressionPlaceholder(":newValue") -> AttributeValue.S("2")
             )
           ))
           response <- dynamoDb.getItem(GetItemRequest(
