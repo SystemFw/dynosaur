@@ -1,25 +1,124 @@
-lazy val fs2Version = "1.0.4"
-lazy val catsEffectVersion = "0.10.1"
-lazy val catsVersion = "1.6.0"
-lazy val awsSdkVersion = "1.11.534"
-lazy val scalatestVersion = "3.0.5"
-lazy val scalacheckVersion = "1.14.0"
-lazy val slf4jVersion = "1.7.26"
-lazy val log4jVersion = "2.11.2"
-lazy val http4sVersion = "0.20.0"
-lazy val commsDockerkitVersion = "1.8.6"
-lazy val scalaXmlVersion = "1.1.1"
-lazy val circeVersion = "0.11.1"
-lazy val scodecBitsVersion = "1.1.9"
-
+lazy val root = (project in file("."))
+  .settings(
+    commonSettings,
+    consoleSettings,
+    compilerOptions,
+    releaseOptions,
+    dependencies,
+    scalafmtOnCompile := true,
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .configs(IntegrationTest)
+  .settings(
+    inConfig(IntegrationTest)(Defaults.itSettings),
+    automateHeaderSettings(IntegrationTest)
+  )
 
 lazy val IntegrationTest = config("it") extend Test
 
-lazy val noPublishSettings = Seq(
-  publish := {},
-  publishLocal := {},
-  publishArtifact := false
+lazy val commonSettings = Seq(
+  name := "dynosaur",
+  organization := "com.ovoenergy",
+  organizationName := "OVO Energy",
+  organizationHomepage := Some(url("https://ovoenergy.com")),
+  developers := List(
+    Developer("SystemFw", "Fabio Labella", "", url("https://github.com/SystemFw")),
+    Developer("filosganga", "Filippo De Luca","", url("https://github.com/filosganga")),
+  ),
+  startYear := Some(2019),
+  licenses := Seq("Apache-2.0" -> url("https://opensource.org/licenses/apache-2.0")),
+  scmInfo := Some(
+    ScmInfo(
+      url("https://github.com/ovotech/dynosaur"),
+      "scm:git:git@github.com:ovotech/dynosaur.git")
+  )
 )
+
+lazy val consoleSettings = Seq(
+  initialCommands := s"import dynosaur._",
+  scalacOptions in (Compile, console) -= "-Ywarn-unused-import"
+)
+
+lazy val compilerOptions = Seq(
+  scalaVersion := "2.12.8",
+  scalacOptions ++= Seq(
+    "-deprecation",
+    "-encoding",
+    "UTF-8",
+    "-feature",
+    "-language:existentials",
+    "-language:higherKinds",
+    "-language:implicitConversions",
+    "-language:postfixOps",
+    "-language:experimental.macros",
+    "-unchecked",
+    "-Xlint",
+    "-Yno-adapted-args",
+    "-Ywarn-dead-code",
+    "-Ywarn-numeric-widen",
+    "-Ywarn-value-discard",
+    "-Xfuture",
+    "-Ywarn-unused-import",
+    "-Ywarn-unused",
+    "-Ypartial-unification"
+  ),
+  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3")
+)
+
+def dep(org: String)(version: String)(modules: String*) =
+  Seq(modules: _*) map { name =>
+    org %% name % version
+  }
+
+lazy val dependencies = {
+  val commsAwsVersion = "0.2.15"
+val fs2Version = "1.0.4"
+ val catsEffectVersion = "0.10.1"
+ val catsVersion = "1.6.0"
+ val awsSdkVersion = "1.11.534"
+ val scalatestVersion = "3.0.5"
+ val scalacheckVersion = "1.14.0"
+ val slf4jVersion = "1.7.26"
+ val log4jVersion = "2.11.2"
+ val http4sVersion = "0.20.0"
+ val commsDockerkitVersion = "1.8.6"
+ val scalaXmlVersion = "1.1.1"
+ val circeVersion = "0.11.1"
+ val scodecBitsVersion = "1.1.9"
+
+ val deps = libraryDependencies ++= Seq(
+    "org.http4s" %% "http4s-core" % http4sVersion,
+    "org.http4s" %% "http4s-client" % http4sVersion,
+    "co.fs2" %% "fs2-core" % fs2Version,
+    "co.fs2" %% "fs2-io" % fs2Version,
+    "org.slf4j" % "slf4j-api" % slf4jVersion,
+    "org.http4s" %% "http4s-circe" % http4sVersion,
+    "org.scodec" %% "scodec-bits" % scodecBitsVersion,
+    "org.typelevel" %% "cats-free" % catsVersion,
+    "io.circe" %% "circe-core" % circeVersion,
+    "io.circe" %% "circe-generic" % circeVersion,
+    "io.circe" %% "circe-parser" % circeVersion,
+    "io.circe" %% "circe-literal" % circeVersion,
+   "org.http4s" %% "http4s-blaze-client" % http4sVersion % Optional,
+   "com.ovoenergy.comms" %% "comms-aws-common" % commsAwsVersion,
+   "com.ovoenergy.comms" %% "comms-aws-auth" % commsAwsVersion
+ )
+
+  val testDeps = libraryDependencies ++= Seq(
+    "org.scalatest" %% "scalatest" % scalatestVersion,
+    "org.scalacheck" %% "scalacheck" % scalacheckVersion,
+    "org.apache.logging.log4j" % "log4j-api" % log4jVersion,
+    "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4jVersion,
+    "com.ovoenergy" %% "comms-docker-testkit" % commsDockerkitVersion,
+    "org.http4s" %% "http4s-blaze-client" % http4sVersion,
+    "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion
+  ).map(_ % s"$Test,$IntegrationTest")
+
+  val ovoMaven = resolvers += Resolver.bintrayRepo("ovotech", "maven")
+
+  Seq(deps, testDeps, ovoMaven)
+}
+
 
 lazy val releaseOptions = Seq(
   releaseEarlyWith := BintrayPublisher,
@@ -32,153 +131,12 @@ lazy val releaseOptions = Seq(
     "aws",
     "cats",
     "cats-effect",
-    "http4s",
+    "dynamoDb",
     "fs2",
-    "scala",
+    "http4s",
+    "scala"
   ),
   version ~= (_.replace('+', '-')),
   dynver ~= (_.replace('+', '-'))
 )
 
-lazy val root = (project in file("."))
-  .aggregate(auth, common, dynamodb, s3)
-  .configs(IntegrationTest)
-  .settings(releaseOptions)
-  .settings(
-    name := "comms-aws",
-    inThisBuild(List(
-      organization := "com.ovoenergy.comms",
-      organizationName := "OVO Energy",
-      organizationHomepage := Some(url("https://ovoenergy.com")),
-      developers := List(
-        Developer("filosganga", "Filippo De Luca", "filippo.deluca@ovoenergy.com", url("https://github.com/filosganga")),
-        Developer("laurence-bird", "Laurence Bird", "laurence.bird@ovoenergy.com", url("https://github.com/laurence-bird")),
-        Developer("SystemFw", "Fabio Labella", "fabio.labella@ovoenergy.com", url("https://github.com/SystemFw")),
-        Developer("ZsoltBalvanyos", "Zsolt Balvanyos", "zsolt.balvanyos@ovoenergy.com", url("https://github.com/ZsoltBalvanyos")),
-      ),
-      startYear := Some(2018),
-      licenses := Seq("Apache-2.0" -> url("https://opensource.org/licenses/apache-2.0")),
-      scmInfo := Some(
-        ScmInfo(
-          url("https://github.com/ovotech/comms-aws"),
-          "scm:git:git@github.com:ovotech/comms-aws.git")
-      ),
-      scalaVersion := "2.12.8",
-      scalacOptions ++= Seq(
-        "-deprecation",
-        "-encoding",
-        "UTF-8",
-        "-feature",
-        "-language:existentials",
-        "-language:higherKinds",
-        "-language:implicitConversions",
-        "-language:postfixOps",
-        "-language:experimental.macros",
-        "-unchecked",
-        "-Xlint",
-        "-Yno-adapted-args",
-        "-Ywarn-dead-code",
-        "-Ywarn-numeric-widen",
-        "-Ywarn-value-discard",
-        "-Xfuture",
-        "-Ywarn-unused-import",
-        "-Ywarn-unused",
-        "-Ypartial-unification"
-      ),
-      resolvers ++= Seq(
-        Resolver.bintrayRepo("ovotech", "maven")
-      ),
-      libraryDependencies ++= Seq(
-        "org.http4s" %% "http4s-core" % http4sVersion,
-        "org.http4s" %% "http4s-client" % http4sVersion,
-        "co.fs2" %% "fs2-core" % fs2Version,
-        "co.fs2" %% "fs2-io" % fs2Version,
-        "org.slf4j" % "slf4j-api" % slf4jVersion,
-      ),
-      libraryDependencies ++= Seq(
-        "org.scalatest" %% "scalatest" % scalatestVersion,
-        "org.scalacheck" %% "scalacheck" % scalacheckVersion,
-        "org.apache.logging.log4j" % "log4j-api" % log4jVersion,
-        "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4jVersion,
-        "com.ovoenergy" %% "comms-docker-testkit" % commsDockerkitVersion,
-        "org.http4s" %% "http4s-blaze-client" % http4sVersion,
-      ).map(_ % s"$Test,$IntegrationTest"),
-      scalafmtOnCompile := true,
-    )),
-  )
-
-lazy val common = (project in file("modules/common"))
-  .enablePlugins(AutomateHeaderPlugin)
-  .configs(IntegrationTest)
-  .settings(releaseOptions)
-  .settings(
-    name := "comms-aws-common",
-  )
-  .settings(inConfig(IntegrationTest)(Defaults.itSettings))
-  .settings(automateHeaderSettings(IntegrationTest))
-  .settings(
-    libraryDependencies ++= Seq(
-      "com.amazonaws" % "aws-java-sdk-core" % awsSdkVersion % Optional,
-    )
-  )
-
-
-lazy val auth = (project in file("modules/auth"))
-  .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(common % s"$Compile->$Compile;$Test->$Test;$IntegrationTest->$IntegrationTest")
-  .configs(IntegrationTest)
-  .settings(releaseOptions)
-  .settings(
-    name := "comms-aws-auth",
-  )
-  .settings(inConfig(IntegrationTest)(Defaults.itSettings))
-  .settings(automateHeaderSettings(IntegrationTest))
-  .settings(
-    libraryDependencies ++= Seq(
-      "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion % s"$Test,$IntegrationTest",
-    )
-  )
-
-lazy val s3 = (project in file("modules/s3"))
-  .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(common % s"$Compile->$Compile;$Test->$Test;$IntegrationTest->$IntegrationTest", auth)
-  .configs(IntegrationTest)
-  .settings(releaseOptions)
-  .settings(
-    name := "comms-aws-s3",
-  )
-  .settings(inConfig(IntegrationTest)(Defaults.itSettings))
-  .settings(automateHeaderSettings(IntegrationTest))
-  .settings(
-    libraryDependencies ++= Seq(
-      "org.http4s" %% "http4s-scala-xml" % http4sVersion,
-      "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion,
-      "org.http4s" %% "http4s-blaze-client" % http4sVersion % Optional,
-      "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion % s"$Test,$IntegrationTest",
-    )
-  )
-
-lazy val dynamodb = (project in file("modules/dynamodb"))
-  .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(common % s"$Compile->$Compile;$Test->$Test;$IntegrationTest->$IntegrationTest", auth)
-  .configs(IntegrationTest)
-  .settings(releaseOptions)
-  .settings(
-    name := "comms-aws-dynamodb",
-  )
-  .settings(addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3"))
-  .settings(inConfig(IntegrationTest)(Defaults.itSettings))
-  .settings(automateHeaderSettings(IntegrationTest))
-  .settings(
-    libraryDependencies ++= Seq(
-      "org.http4s" %% "http4s-circe" % http4sVersion,
-      "org.scodec" %% "scodec-bits" % scodecBitsVersion,
-      "org.typelevel" %% "cats-free" % catsVersion,
-      "io.circe" %% "circe-core" % circeVersion,
-      "io.circe" %% "circe-generic" % circeVersion,
-      "io.circe" %% "circe-parser" % circeVersion,
-      "io.circe" %% "circe-literal" % circeVersion,
-      "org.http4s" %% "http4s-blaze-client" % http4sVersion % Optional,
-      "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion % s"$Test,$IntegrationTest",
-    )
-  )

@@ -1,16 +1,91 @@
-# Scala effectful AWS client
-NOTE:
-Although this repo is public, we are still treating it as a private repo in terms of governance: there are no stability guarantees, and the changes are entirely driven by the needs of our team.
+# Dynosaur
 
-The medium term plan is that several actual open source projects will be spawn out of comms-aws into separate libraries.
-We don't plan to make this a catch-all bucket to wrap all of the AWS SDK, but to use it as a testbed to produce high-quality, purely functional libraries for some of the AWS services.
+Dynosaur is a purely functional, native, non-blocking client for DynamoDb, based on cats-effect and fs2
 
-The libraries that we plan to support in the near to medium future are:
+## Design
 
-- A purely functional, non blocking, fs2-based DynamoDb client.
-- An interface for AWS signing (unclear for now if it will be native or wrap the Java client)
+### Data model
 
-The libraries that we might support, or might stay as semi-private in comms-aws are:
-- An S3 client
+Attribute value ADT
+scodec style codecs, with lots of explicit combinators
+potentially implicits and shapeless bindings, but behind an import, explicit combinators are preferred
 
-There are no further plans at the moment.
+### Low level api
+One to one mapping to the dynamo api, modelling the case classes to reflect the dynamo entities
+final tagless + http4s/circe
+
+### High level api
+Combinators for the common cases like retry on ThroughPutExceededException
+higher level api, exposing e.g. Stream for `scan`, default parameters when sensible, automatic retry and so on
+
+
+## Scope
+Operations we will support:
+  - BatchGetItem
+  - BatchWriteItem
+  - DeleteItem
+  - GetItem
+  - PutItem
+  - Query
+  - Scan
+  - TransactGetItems
+  - TransactWriteItems
+  - UpdateItem
+
+Operations we are not planning to write, but will accept a PR for:
+  - CreateBackup
+  - CreateGlobalTable
+  - CreateTable
+  - DeleteBackup
+  - DeleteTable
+  - DescribeBackup
+  - DescribeContinuousBackups
+  - DescribeGlobalTable
+  - DescribeGlobalTableSettings
+  - DescribeLimits
+  - DescribeTable
+  - DescribeTimeToLive
+  - ListBackups
+  - ListGlobalTables
+  - ListTables
+  - ListTagsOfResource
+  - RestoreTableFromBackup
+  - RestoreTableToPointInTime
+  - TagResource
+  - UntagResource
+  - UpdateContinuousBackups
+  - UpdateGlobalTable
+  - UpdateGlobalTableSettings
+  - UpdateTable
+  - UpdateTimeToLive
+
+Operations that we are not planning to support, typically because they depend on external infrastructure:
+  - DescribeStream
+  - GetShardIterator
+  - GetRecords
+  - ListStreams
+  - CreateCluster
+  - CreateParameterGroup
+  - CreateSubnetGroup
+  - DecreaseReplicationFactor
+  - DeleteCluster
+  - DeleteParameterGroup
+  - DeleteSubnetGroup
+  - DescribeClusters
+  - DescribeDefaultParameters
+  - DescribeEvents
+  - DescribeParameterGroups
+  - DescribeParameters
+  - DescribeSubnetGroups
+  - IncreaseReplicationFactor
+  - ListTags
+  - RebootNode
+  - TagResource
+  - UntagResource
+  - UpdateCluster
+  - UpdateParameterGroup
+  - UpdateSubnetGroup
+
+
+
+
