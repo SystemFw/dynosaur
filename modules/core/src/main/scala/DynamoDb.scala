@@ -39,7 +39,7 @@ import com.ovoenergy.comms.aws.common.headers._
 import com.ovoenergy.comms.aws.common.mediaTypes._
 
 import model._
-import codec._
+import codecs._
 
 trait DynamoDb[F[_]] {
 
@@ -52,7 +52,8 @@ trait DynamoDb[F[_]] {
   def updateItem(request: UpdateItemRequest): F[UpdateItemResponse]
 
   def batchWriteItems(
-      request: BatchWriteItemsRequest): F[BatchWriteItemsResponse]
+      request: BatchWriteItemsRequest
+  ): F[BatchWriteItemsResponse]
 }
 
 object DynamoDb {
@@ -61,17 +62,18 @@ object DynamoDb {
       credentialsProvider: CredentialsProvider[F],
       region: Region,
       endpoint: Option[Uri] = None,
-      ec: ExecutionContext = ExecutionContext.global)
-    : Resource[F, DynamoDb[F]] = {
-    BlazeClientBuilder[F](ec).resource.map(client =>
-      DynamoDb(client, credentialsProvider, region, endpoint))
+      ec: ExecutionContext = ExecutionContext.global
+  ): Resource[F, DynamoDb[F]] = {
+    BlazeClientBuilder[F](ec).resource
+      .map(client => DynamoDb(client, credentialsProvider, region, endpoint))
   }
 
   def apply[F[_]: Concurrent](
       client: Client[F],
       credentialsProvider: CredentialsProvider[F],
       region: Region,
-      endpoint: Option[Uri] = None) = {
+      endpoint: Option[Uri] = None
+  ) = {
 
     val signer = AwsSigner[F](credentialsProvider, region, Service.DynamoDb)
     val requestLogger: Client[F] => Client[F] =
@@ -92,8 +94,9 @@ object DynamoDb {
 
     new DynamoDb[F] with Http4sClientDsl[F] {
 
-      def exec[Req: Encoder, Res: Decoder](request: Req)(
-          implicit op: AwsOp[Req, Res]) = {
+      def exec[Req: Encoder, Res: Decoder](
+          request: Req
+      )(implicit op: AwsOp[Req, Res]) = {
 
         implicit val entityDecoder: EntityDecoder[F, Res] = jsonOf[F, Res]
 
@@ -102,7 +105,7 @@ object DynamoDb {
           .withContentType(`Content-Type`(`application/x-amz-json-1.0`))
 
         implicit val decodeDynamoDbErrorAsJson
-          : EntityDecoder[F, DynamoDbError] =
+            : EntityDecoder[F, DynamoDbError] =
           jsonOf[F, DynamoDbError]
 
         for {

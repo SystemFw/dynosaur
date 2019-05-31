@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import dynosaur._, codec._, codecs._
 import cats._, implicits._
 
 import Schema._
@@ -134,7 +135,6 @@ object examples {
   }
 
   implicit class PrettyPrinter(v: AttributeValue) {
-    import dynosaur.codec._
     import io.circe.syntax._
 
     def pp: String = v.asJson.spaces2

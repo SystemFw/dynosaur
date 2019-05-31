@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
-import dynosaur.model.{AttributeName, AttributeValue}
+package dynosaur
+package codec
+
 import cats._, implicits._
 import cats.data.Chain
+
+import model.{AttributeName, AttributeValue}
 import Schema.structure._
 
 case class ReadError() extends Exception
@@ -43,7 +47,8 @@ object Decoder {
 
     def decodeObject[R](
         record: Ap[Field[R, ?], R],
-        v: AttributeValue.M): Res[R] =
+        v: AttributeValue.M
+    ): Res[R] =
       record.foldMap {
         λ[Field[R, ?] ~> Res] { field =>
           v.values

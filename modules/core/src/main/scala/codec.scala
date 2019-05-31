@@ -21,13 +21,13 @@ import cats.implicits._
 import io.circe._
 import io.circe.syntax._
 import io.circe.literal._
-import io.circe.derivation._
-import io.circe.{Decoder, Encoder, ObjectEncoder, derivation}
+import io.circe.{Decoder, Encoder}
 
 import scodec.bits.ByteVector
 import model._
 
-object codec {
+// TODO move to dynosaur.lo.codec
+object codecs {
 
   implicit val attributeNameKeyEncoder: KeyEncoder[AttributeName] =
     new KeyEncoder[AttributeName] {
@@ -52,13 +52,13 @@ object codec {
     }
 
   implicit val expressionPlaceholderKeyEncoder
-    : KeyEncoder[ExpressionPlaceholder] =
+      : KeyEncoder[ExpressionPlaceholder] =
     new KeyEncoder[ExpressionPlaceholder] {
       override def apply(an: ExpressionPlaceholder): String = an.value
     }
 
   implicit val expressionPlaceholderKeyDecoder
-    : KeyDecoder[ExpressionPlaceholder] =
+      : KeyDecoder[ExpressionPlaceholder] =
     new KeyDecoder[ExpressionPlaceholder] {
       override def apply(key: String): Option[ExpressionPlaceholder] =
         ExpressionPlaceholder.fromString(key).toOption
@@ -176,16 +176,20 @@ object codec {
           str =>
             ByteVector
               .fromBase64(str)
-              .toRight(s"$str is not a valid base64"))
+              .toRight(s"$str is not a valid base64")
+        )
         .map(AttributeValue.B(_))
         .prepare(_.downField("B"))
         .widen[AttributeValue]
 
     val decodeBS: Decoder[AttributeValue] =
       Decoder[List[String]]
-        .emap(xs =>
-          xs.traverse(x =>
-            ByteVector.fromBase64(x).toRight(s"$x is not a valid base64")))
+        .emap(
+          xs =>
+            xs.traverse(
+              x => ByteVector.fromBase64(x).toRight(s"$x is not a valid base64")
+            )
+        )
         .map(_.toSet)
         .map(AttributeValue.BS(_))
         .prepare(_.downField("BS"))
@@ -220,13 +224,16 @@ object codec {
       val jsMap: Map[String, Json] = Map(
         "Item" -> extractM(request.item.asJson),
         "ReturnValues" -> request.returnValues.asJson,
-        "TableName" -> request.tableName.asJson,
-      ) ++ request.conditionExpression.map(x =>
-        "ConditionExpression" -> x.value.asJson) ++
-        request.expressionAttributeNames.map(x =>
-          "ExpressionAttributeNames" -> x.asJson) ++
-        request.expressionAttributeValues.map(x =>
-          "ExpressionAttributeValues" -> x.asJson)
+        "TableName" -> request.tableName.asJson
+      ) ++ request.conditionExpression.map(
+        x => "ConditionExpression" -> x.value.asJson
+      ) ++
+        request.expressionAttributeNames.map(
+          x => "ExpressionAttributeNames" -> x.asJson
+        ) ++
+        request.expressionAttributeValues.map(
+          x => "ExpressionAttributeValues" -> x.asJson
+        )
 
       Json.obj(jsMap.toSeq: _*)
     }
@@ -246,10 +253,12 @@ object codec {
         "Key" -> extractM(request.key.asJson),
         "ConsistentRead" -> request.consistent.asJson
       ) ++
-        request.projectionExpression.map(x =>
-          "ProjectionExpression" -> x.asJson) ++
-        request.expressionAttributeNames.map(x =>
-          "ExpressionAttributeNames" -> x.asJson)
+        request.projectionExpression.map(
+          x => "ProjectionExpression" -> x.asJson
+        ) ++
+        request.expressionAttributeNames.map(
+          x => "ExpressionAttributeNames" -> x.asJson
+        )
 
       Json.obj(jsMap.toSeq: _*)
 
@@ -269,12 +278,15 @@ object codec {
         "Key" -> extractM(request.key.asJson),
         "ReturnValues" -> request.returnValues.asJson
       ) ++
-        request.conditionExpression.map(x =>
-          "ConditionExpression" -> x.value.asJson) ++
-        request.expressionAttributeNames.map(x =>
-          "ExpressionAttributeNames" -> x.asJson) ++
-        request.expressionAttributeValues.map(x =>
-          "ExpressionAttributeValues" -> x.asJson)
+        request.conditionExpression.map(
+          x => "ConditionExpression" -> x.value.asJson
+        ) ++
+        request.expressionAttributeNames.map(
+          x => "ExpressionAttributeNames" -> x.asJson
+        ) ++
+        request.expressionAttributeValues.map(
+          x => "ExpressionAttributeValues" -> x.asJson
+        )
 
       Json.obj(jsMap.toSeq: _*)
     }
@@ -295,18 +307,22 @@ object codec {
         "UpdateExpression" -> request.updateExpression.asJson,
         "ReturnValues" -> request.returnValues.asJson
       ) ++
-        request.conditionExpression.map(x =>
-          "ConditionExpression" -> x.value.asJson) ++
+        request.conditionExpression.map(
+          x => "ConditionExpression" -> x.value.asJson
+        ) ++
         (if (request.expressionAttributeNames.isEmpty) {
            Map.empty
          } else {
-           Map("ExpressionAttributeNames" -> request.expressionAttributeNames.asJson)
+           Map(
+             "ExpressionAttributeNames" -> request.expressionAttributeNames.asJson
+           )
          }) ++
         (if (request.expressionAttributeValues.isEmpty) {
            Map.empty
          } else {
            Map(
-             "ExpressionAttributeValues" -> request.expressionAttributeValues.asJson)
+             "ExpressionAttributeValues" -> request.expressionAttributeValues.asJson
+           )
          })
 
       Json.obj(jsMap.toSeq: _*)
@@ -321,9 +337,9 @@ object codec {
     }
 
   implicit lazy val encodeBatchWriteItemsRequest
-    : Encoder[BatchWriteItemsRequest] = Encoder.instance { request =>
+      : Encoder[BatchWriteItemsRequest] = Encoder.instance { request =>
     implicit val encodeWriteRequest
-      : Encoder[BatchWriteItemsRequest.WriteRequest] = Encoder.instance {
+        : Encoder[BatchWriteItemsRequest.WriteRequest] = Encoder.instance {
       case BatchWriteItemsRequest.PutRequest(item) =>
         Json.obj("PutRequest" -> Json.obj("Item" -> extractM(item.asJson)))
       case BatchWriteItemsRequest.DeleteRequest(key) =>
@@ -334,25 +350,31 @@ object codec {
   }
 
   implicit lazy val decodeBatchWriteItemsRequest
-    : Decoder[BatchWriteItemsResponse] = Decoder.instance { hc =>
+      : Decoder[BatchWriteItemsResponse] = Decoder.instance { hc =>
     implicit val decodeWriteRequest
-      : Decoder[BatchWriteItemsRequest.WriteRequest] = {
+        : Decoder[BatchWriteItemsRequest.WriteRequest] = {
       val decodePut = Decoder.instance(
         _.downField("PutRequest")
           .downField("Item")
           .as[Map[AttributeName, AttributeValue]]
           .map(xs => AttributeValue.M(xs))
-          .map(item =>
-            BatchWriteItemsRequest
-              .PutRequest(item): BatchWriteItemsRequest.WriteRequest))
+          .map(
+            item =>
+              BatchWriteItemsRequest
+                .PutRequest(item): BatchWriteItemsRequest.WriteRequest
+          )
+      )
       val decodeDelete = Decoder.instance(
         _.downField("DeleteRequest")
           .downField("Key")
           .as[Map[AttributeName, AttributeValue]]
           .map(xs => AttributeValue.M(xs))
-          .map(key =>
-            BatchWriteItemsRequest
-              .DeleteRequest(key): BatchWriteItemsRequest.WriteRequest))
+          .map(
+            key =>
+              BatchWriteItemsRequest
+                .DeleteRequest(key): BatchWriteItemsRequest.WriteRequest
+          )
+      )
       decodePut <+> decodeDelete
     }
 
@@ -366,7 +388,6 @@ object codec {
   implicit lazy val decodeDynamoDbError: Decoder[DynamoDbError] =
     Decoder.instance { hc =>
       for {
-        tipe <- hc.get[String]("__type")
         message <- hc.get[String]("Message").orElse(hc.get[String]("message"))
       } yield DynamoDbError(message)
     }

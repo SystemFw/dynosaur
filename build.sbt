@@ -1,11 +1,18 @@
 lazy val root = (project in file("."))
+  .aggregate(core, macros)
   .settings(
-    commonSettings,
-    consoleSettings,
-    compilerOptions,
-    releaseOptions,
-    dependencies,
+    inThisBuild(
+      commonSettings ++ compilerOptions ++ releaseOptions ++ consoleSettings // TODO still triggers unused import in console
+    )
+  )
+
+lazy val core = (project in file("modules/core"))
+  .dependsOn(macros)
+  .settings(
+    name := "dynosaur-core",
     scalafmtOnCompile := true,
+    consoleSettings,
+    dependencies
   )
   .enablePlugins(AutomateHeaderPlugin)
   .configs(IntegrationTest)
@@ -14,29 +21,48 @@ lazy val root = (project in file("."))
     automateHeaderSettings(IntegrationTest)
   )
 
+lazy val macros = (project in file("modules/macros"))
+  .settings(
+    name := "dynosaur-macros",
+    consoleSettings,
+    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
+  )
+
 lazy val IntegrationTest = config("it") extend Test
 
 lazy val commonSettings = Seq(
-  name := "dynosaur",
   organization := "com.ovoenergy",
   organizationName := "OVO Energy",
   organizationHomepage := Some(url("https://ovoenergy.com")),
   developers := List(
-    Developer("SystemFw", "Fabio Labella", "", url("https://github.com/SystemFw")),
-    Developer("filosganga", "Filippo De Luca","", url("https://github.com/filosganga")),
+    Developer(
+      "SystemFw",
+      "Fabio Labella",
+      "",
+      url("https://github.com/SystemFw")
+    ),
+    Developer(
+      "filosganga",
+      "Filippo De Luca",
+      "",
+      url("https://github.com/filosganga")
+    )
   ),
   startYear := Some(2019),
-  licenses := Seq("Apache-2.0" -> url("https://opensource.org/licenses/apache-2.0")),
+  licenses := Seq(
+    "Apache-2.0" -> url("https://opensource.org/licenses/apache-2.0")
+  ),
   scmInfo := Some(
     ScmInfo(
       url("https://github.com/ovotech/dynosaur"),
-      "scm:git:git@github.com:ovotech/dynosaur.git")
+      "scm:git:git@github.com:ovotech/dynosaur.git"
+    )
   )
 )
 
 lazy val consoleSettings = Seq(
   initialCommands := s"import dynosaur._",
-  scalacOptions in (Compile, console) -= "-Ywarn-unused-import"
+  scalacOptions in (Compile, console) --= Seq("-Ywarn-unused-import", "-Ywarn-unused")
 )
 
 lazy val compilerOptions = Seq(
@@ -84,7 +110,6 @@ lazy val dependencies = {
   val commsDockerkitVersion = "1.8.6"
   val scalaXmlVersion = "1.1.1"
   val circeVersion = "0.11.1"
-  val circeDerivationVersion = "0.11.0-M1"
   val scodecBitsVersion = "1.1.9"
 
   val deps = libraryDependencies ++= Seq(
@@ -100,10 +125,10 @@ lazy val dependencies = {
     "io.circe" %% "circe-generic" % circeVersion,
     "io.circe" %% "circe-parser" % circeVersion,
     "io.circe" %% "circe-literal" % circeVersion,
-    "io.circe" %% "circe-derivation" % circeDerivationVersion,
     "org.http4s" %% "http4s-blaze-client" % http4sVersion % Optional,
     "com.ovoenergy.comms" %% "comms-aws-common" % commsAwsVersion,
-    "com.ovoenergy.comms" %% "comms-aws-auth" % commsAwsVersion
+    "com.ovoenergy.comms" %% "comms-aws-auth" % commsAwsVersion,
+    "org.scala-lang" % "scala-reflect" % scalaVersion.value
   )
 
   val testDeps = libraryDependencies ++= Seq(
@@ -120,7 +145,6 @@ lazy val dependencies = {
 
   Seq(deps, testDeps, ovoMaven)
 }
-
 
 lazy val releaseOptions = Seq(
   releaseEarlyWith := BintrayPublisher,
@@ -141,4 +165,3 @@ lazy val releaseOptions = Seq(
   version ~= (_.replace('+', '-')),
   dynver ~= (_.replace('+', '-'))
 )
-

@@ -22,7 +22,7 @@ import io.circe.literal._
 import com.ovoenergy.comms.aws.common._
 
 import model._
-import codec._
+import codecs._
 
 import Arbitraries._
 
