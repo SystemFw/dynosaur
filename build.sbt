@@ -72,21 +72,22 @@ def dep(org: String)(version: String)(modules: String*) =
 
 lazy val dependencies = {
   val commsAwsVersion = "0.2.15"
-val fs2Version = "1.0.4"
- val catsEffectVersion = "0.10.1"
- val catsVersion = "1.6.0"
- val awsSdkVersion = "1.11.534"
- val scalatestVersion = "3.0.5"
- val scalacheckVersion = "1.14.0"
- val slf4jVersion = "1.7.26"
- val log4jVersion = "2.11.2"
- val http4sVersion = "0.20.0"
- val commsDockerkitVersion = "1.8.6"
- val scalaXmlVersion = "1.1.1"
- val circeVersion = "0.11.1"
- val scodecBitsVersion = "1.1.9"
+  val fs2Version = "1.0.4"
+  val catsEffectVersion = "0.10.1"
+  val catsVersion = "1.6.0"
+  val awsSdkVersion = "1.11.534"
+  val scalatestVersion = "3.0.5"
+  val scalacheckVersion = "1.14.0"
+  val slf4jVersion = "1.7.26"
+  val log4jVersion = "2.11.2"
+  val http4sVersion = "0.20.0"
+  val commsDockerkitVersion = "1.8.6"
+  val scalaXmlVersion = "1.1.1"
+  val circeVersion = "0.11.1"
+  val circeDerivationVersion = "0.11.0-M1"
+  val scodecBitsVersion = "1.1.9"
 
- val deps = libraryDependencies ++= Seq(
+  val deps = libraryDependencies ++= Seq(
     "org.http4s" %% "http4s-core" % http4sVersion,
     "org.http4s" %% "http4s-client" % http4sVersion,
     "co.fs2" %% "fs2-core" % fs2Version,
@@ -99,10 +100,11 @@ val fs2Version = "1.0.4"
     "io.circe" %% "circe-generic" % circeVersion,
     "io.circe" %% "circe-parser" % circeVersion,
     "io.circe" %% "circe-literal" % circeVersion,
-   "org.http4s" %% "http4s-blaze-client" % http4sVersion % Optional,
-   "com.ovoenergy.comms" %% "comms-aws-common" % commsAwsVersion,
-   "com.ovoenergy.comms" %% "comms-aws-auth" % commsAwsVersion
- )
+    "io.circe" %% "circe-derivation" % circeDerivationVersion,
+    "org.http4s" %% "http4s-blaze-client" % http4sVersion % Optional,
+    "com.ovoenergy.comms" %% "comms-aws-common" % commsAwsVersion,
+    "com.ovoenergy.comms" %% "comms-aws-auth" % commsAwsVersion
+  )
 
   val testDeps = libraryDependencies ++= Seq(
     "org.scalatest" %% "scalatest" % scalatestVersion,
