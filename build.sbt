@@ -2,7 +2,7 @@ lazy val root = (project in file("."))
   .aggregate(core, macros)
   .settings(
     inThisBuild(
-      commonSettings ++ compilerOptions ++ releaseOptions ++ consoleSettings // TODO still triggers unused import in console
+      commonSettings ++ compilerOptions ++ releaseOptions ++ consoleSettings
     )
   )
 
@@ -11,7 +11,6 @@ lazy val core = (project in file("modules/core"))
   .settings(
     name := "dynosaur-core",
     scalafmtOnCompile := true,
-    consoleSettings,
     dependencies
   )
   .enablePlugins(AutomateHeaderPlugin)
@@ -24,7 +23,6 @@ lazy val core = (project in file("modules/core"))
 lazy val macros = (project in file("modules/macros"))
   .settings(
     name := "dynosaur-macros",
-    consoleSettings,
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
   )
 
@@ -62,7 +60,7 @@ lazy val commonSettings = Seq(
 
 lazy val consoleSettings = Seq(
   initialCommands := s"import dynosaur._",
-  scalacOptions in (Compile, console) --= Seq("-Ywarn-unused-import", "-Ywarn-unused")
+  scalacOptions in (Compile, console) --= Seq("-Ywarn-unused-import", "-Ywarn-unused", "-Xlint")
 )
 
 lazy val compilerOptions = Seq(
