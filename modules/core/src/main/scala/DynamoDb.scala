@@ -52,7 +52,8 @@ trait DynamoDb[F[_]] {
   def updateItem(request: UpdateItemRequest): F[UpdateItemResponse]
 
   def batchWriteItems(
-      request: BatchWriteItemsRequest): F[BatchWriteItemsResponse]
+      request: BatchWriteItemsRequest
+  ): F[BatchWriteItemsResponse]
 }
 
 object DynamoDb {

@@ -21,8 +21,7 @@ import cats.implicits._
 import io.circe._
 import io.circe.syntax._
 import io.circe.literal._
-import io.circe.derivation._
-import io.circe.{Decoder, Encoder, ObjectEncoder, derivation}
+import io.circe.{Decoder, Encoder}
 
 import scodec.bits.ByteVector
 import model._
@@ -338,9 +337,9 @@ object codecs {
     }
 
   implicit lazy val encodeBatchWriteItemsRequest
-    : Encoder[BatchWriteItemsRequest] = Encoder.instance { request =>
+      : Encoder[BatchWriteItemsRequest] = Encoder.instance { request =>
     implicit val encodeWriteRequest
-      : Encoder[BatchWriteItemsRequest.WriteRequest] = Encoder.instance {
+        : Encoder[BatchWriteItemsRequest.WriteRequest] = Encoder.instance {
       case BatchWriteItemsRequest.PutRequest(item) =>
         Json.obj("PutRequest" -> Json.obj("Item" -> extractM(item.asJson)))
       case BatchWriteItemsRequest.DeleteRequest(key) =>
@@ -351,25 +350,31 @@ object codecs {
   }
 
   implicit lazy val decodeBatchWriteItemsRequest
-    : Decoder[BatchWriteItemsResponse] = Decoder.instance { hc =>
+      : Decoder[BatchWriteItemsResponse] = Decoder.instance { hc =>
     implicit val decodeWriteRequest
-      : Decoder[BatchWriteItemsRequest.WriteRequest] = {
+        : Decoder[BatchWriteItemsRequest.WriteRequest] = {
       val decodePut = Decoder.instance(
         _.downField("PutRequest")
           .downField("Item")
           .as[Map[AttributeName, AttributeValue]]
           .map(xs => AttributeValue.M(xs))
-          .map(item =>
-            BatchWriteItemsRequest
-              .PutRequest(item): BatchWriteItemsRequest.WriteRequest))
+          .map(
+            item =>
+              BatchWriteItemsRequest
+                .PutRequest(item): BatchWriteItemsRequest.WriteRequest
+          )
+      )
       val decodeDelete = Decoder.instance(
         _.downField("DeleteRequest")
           .downField("Key")
           .as[Map[AttributeName, AttributeValue]]
           .map(xs => AttributeValue.M(xs))
-          .map(key =>
-            BatchWriteItemsRequest
-              .DeleteRequest(key): BatchWriteItemsRequest.WriteRequest))
+          .map(
+            key =>
+              BatchWriteItemsRequest
+                .DeleteRequest(key): BatchWriteItemsRequest.WriteRequest
+          )
+      )
       decodePut <+> decodeDelete
     }
 
@@ -383,7 +388,6 @@ object codecs {
   implicit lazy val decodeDynamoDbError: Decoder[DynamoDbError] =
     Decoder.instance { hc =>
       for {
-        tipe <- hc.get[String]("__type")
         message <- hc.get[String]("Message").orElse(hc.get[String]("message"))
       } yield DynamoDbError(message)
     }

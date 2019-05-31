@@ -321,9 +321,9 @@ object model {
   )
 
   case class BatchWriteItemsResponse(
-      unprocessedItems: Map[
-        TableName,
-        List[BatchWriteItemsRequest.WriteRequest]]
+      unprocessedItems: Map[TableName, List[
+        BatchWriteItemsRequest.WriteRequest
+      ]]
   )
 
   // TODO Model all the DynamoDb errors
@@ -354,7 +354,7 @@ object model {
       instance("DynamoDB_20120810.UpdateItem")
 
     implicit val batchWrite
-      : AwsOp[BatchWriteItemsRequest, BatchWriteItemsResponse] =
+        : AwsOp[BatchWriteItemsRequest, BatchWriteItemsResponse] =
       instance("DynamoDB_20120810.BatchWriteItem")
   }
 }
