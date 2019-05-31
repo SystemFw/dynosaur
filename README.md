@@ -2,13 +2,14 @@
 
 Dynosaur is a purely functional, native, non-blocking client for DynamoDb, based on cats-effect and fs2
 
+NOTE: Dynosaur right now is still in internal development, it will follow a proper OSS governance model once bootstrapped.
+
 ## Design
 
 ### Data model
 
 Attribute value ADT
-scodec style codecs, with lots of explicit combinators
-potentially implicits and shapeless bindings, but behind an import, explicit combinators are preferred
+codec model based on schema (Xenomorph style), potentially enabling schema derivation
 
 ### Low level api
 One to one mapping to the dynamo api, modelling the case classes to reflect the dynamo entities
