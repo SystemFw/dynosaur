@@ -36,7 +36,7 @@ trait Generators {
 
   def genNumberAsString(
       genMin: Gen[Double] = const(Double.MinValue),
-      genMax: Gen[Double] = const(Double.MaxValue),
+      genMax: Gen[Double] = const(Double.MaxValue)
   ) =
     for {
       min <- genMin
@@ -68,12 +68,14 @@ trait Generators {
 
   def genAttributeValueBS(
       genSize: Gen[Int] = choose(0, 6),
-      genByteVectorSize: Gen[Int] = choose(0, 6)) =
+      genByteVectorSize: Gen[Int] = choose(0, 6)
+  ) =
     for {
       size <- genSize
       values <- containerOfN[Set, ByteVector](
         size,
-        genByteVector(genByteVectorSize))
+        genByteVector(genByteVectorSize)
+      )
     } yield AttributeValue.BS(values)
 
   def genAttributeValueS(genStringMaxSize: Gen[Int] = choose(1, 6)) =
@@ -83,13 +85,14 @@ trait Generators {
 
   def genAttributeValueSS(
       genSize: Gen[Int] = choose(0, 6),
-      genStringMaxSize: Gen[Int] = choose(1, 6),
+      genStringMaxSize: Gen[Int] = choose(1, 6)
   ) =
     for {
       size <- genSize
       values <- containerOfN[Set, String](
         size,
-        genNonEmptyString(genStringMaxSize))
+        genNonEmptyString(genStringMaxSize)
+      )
     } yield AttributeValue.SS(values)
 
   def genAttributeValueN() =
@@ -105,7 +108,8 @@ trait Generators {
 
   def genAttributeValueL(
       maxDeep: Gen[Int] = const(3),
-      genSize: Gen[Int] = choose(0, 6)): Gen[AttributeValue.L] =
+      genSize: Gen[Int] = choose(0, 6)
+  ): Gen[AttributeValue.L] =
     for {
       size <- genSize
       values <- listOfN(size, genAttributeValue(maxDeep.map(_ - 1)))
@@ -113,12 +117,14 @@ trait Generators {
 
   def genAttributeValueM(
       maxDeep: Gen[Int] = const(3),
-      genSize: Gen[Int] = choose(0, 6)): Gen[AttributeValue.M] =
+      genSize: Gen[Int] = choose(0, 6)
+  ): Gen[AttributeValue.M] =
     for {
       size <- genSize
       values <- mapOfN(
         size,
-        zip(genAttributeName, genAttributeValue(maxDeep.map(_ - 1))))
+        zip(genAttributeName, genAttributeValue(maxDeep.map(_ - 1)))
+      )
     } yield AttributeValue.M(values)
 
   val genAttributeValueNULL = const(AttributeValue.NULL)
@@ -137,7 +143,7 @@ trait Generators {
           genAttributeValueB(),
           genAttributeValueBS(),
           genAttributeValueL(genMaxDeep),
-          genAttributeValueM(genMaxDeep),
+          genAttributeValueM(genMaxDeep)
         )
       } else {
         oneOf(
@@ -148,7 +154,7 @@ trait Generators {
           genAttributeValueN(),
           genAttributeValueNS(),
           genAttributeValueB(),
-          genAttributeValueBS(),
+          genAttributeValueBS()
         )
       }
     } yield attributeValue
@@ -169,19 +175,22 @@ trait Arbitraries {
     Arbitrary(genAttributeValueBOOL)
 
   implicit lazy val arbAttributeValueS: Arbitrary[AttributeValue.S] = Arbitrary(
-    genAttributeValueS())
+    genAttributeValueS()
+  )
 
   implicit lazy val arbAttributeValueSS: Arbitrary[AttributeValue.SS] =
     Arbitrary(genAttributeValueSS())
 
   implicit lazy val arbAttributeValueN: Arbitrary[AttributeValue.N] = Arbitrary(
-    genAttributeValueN())
+    genAttributeValueN()
+  )
 
   implicit lazy val arbAttributeValueNS: Arbitrary[AttributeValue.NS] =
     Arbitrary(genAttributeValueNS())
 
   implicit lazy val arbAttributeValueB: Arbitrary[AttributeValue.B] = Arbitrary(
-    genAttributeValueB())
+    genAttributeValueB()
+  )
 
   implicit lazy val arbAttributeValueBS: Arbitrary[AttributeValue.BS] =
     Arbitrary(genAttributeValueBS())

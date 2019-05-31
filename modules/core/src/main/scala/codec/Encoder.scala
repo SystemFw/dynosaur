@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
-import dynosaur.model.{AttributeName, AttributeValue}
+package dynosaur
+package codec
+
 import cats._, implicits._
 import cats.data.Chain
 
+import model.{AttributeName, AttributeValue}
 import Schema.structure._
 
 case class WriteError() extends Exception

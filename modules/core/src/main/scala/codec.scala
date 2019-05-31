@@ -27,7 +27,8 @@ import io.circe.{Decoder, Encoder, ObjectEncoder, derivation}
 import scodec.bits.ByteVector
 import model._
 
-object codec {
+// TODO move to dynosaur.lo.codec
+object codecs {
 
   implicit val attributeNameKeyEncoder: KeyEncoder[AttributeName] =
     new KeyEncoder[AttributeName] {
@@ -52,13 +53,13 @@ object codec {
     }
 
   implicit val expressionPlaceholderKeyEncoder
-    : KeyEncoder[ExpressionPlaceholder] =
+      : KeyEncoder[ExpressionPlaceholder] =
     new KeyEncoder[ExpressionPlaceholder] {
       override def apply(an: ExpressionPlaceholder): String = an.value
     }
 
   implicit val expressionPlaceholderKeyDecoder
-    : KeyDecoder[ExpressionPlaceholder] =
+      : KeyDecoder[ExpressionPlaceholder] =
     new KeyDecoder[ExpressionPlaceholder] {
       override def apply(key: String): Option[ExpressionPlaceholder] =
         ExpressionPlaceholder.fromString(key).toOption
@@ -176,16 +177,20 @@ object codec {
           str =>
             ByteVector
               .fromBase64(str)
-              .toRight(s"$str is not a valid base64"))
+              .toRight(s"$str is not a valid base64")
+        )
         .map(AttributeValue.B(_))
         .prepare(_.downField("B"))
         .widen[AttributeValue]
 
     val decodeBS: Decoder[AttributeValue] =
       Decoder[List[String]]
-        .emap(xs =>
-          xs.traverse(x =>
-            ByteVector.fromBase64(x).toRight(s"$x is not a valid base64")))
+        .emap(
+          xs =>
+            xs.traverse(
+              x => ByteVector.fromBase64(x).toRight(s"$x is not a valid base64")
+            )
+        )
         .map(_.toSet)
         .map(AttributeValue.BS(_))
         .prepare(_.downField("BS"))
@@ -220,13 +225,16 @@ object codec {
       val jsMap: Map[String, Json] = Map(
         "Item" -> extractM(request.item.asJson),
         "ReturnValues" -> request.returnValues.asJson,
-        "TableName" -> request.tableName.asJson,
-      ) ++ request.conditionExpression.map(x =>
-        "ConditionExpression" -> x.value.asJson) ++
-        request.expressionAttributeNames.map(x =>
-          "ExpressionAttributeNames" -> x.asJson) ++
-        request.expressionAttributeValues.map(x =>
-          "ExpressionAttributeValues" -> x.asJson)
+        "TableName" -> request.tableName.asJson
+      ) ++ request.conditionExpression.map(
+        x => "ConditionExpression" -> x.value.asJson
+      ) ++
+        request.expressionAttributeNames.map(
+          x => "ExpressionAttributeNames" -> x.asJson
+        ) ++
+        request.expressionAttributeValues.map(
+          x => "ExpressionAttributeValues" -> x.asJson
+        )
 
       Json.obj(jsMap.toSeq: _*)
     }
@@ -246,10 +254,12 @@ object codec {
         "Key" -> extractM(request.key.asJson),
         "ConsistentRead" -> request.consistent.asJson
       ) ++
-        request.projectionExpression.map(x =>
-          "ProjectionExpression" -> x.asJson) ++
-        request.expressionAttributeNames.map(x =>
-          "ExpressionAttributeNames" -> x.asJson)
+        request.projectionExpression.map(
+          x => "ProjectionExpression" -> x.asJson
+        ) ++
+        request.expressionAttributeNames.map(
+          x => "ExpressionAttributeNames" -> x.asJson
+        )
 
       Json.obj(jsMap.toSeq: _*)
 
@@ -269,12 +279,15 @@ object codec {
         "Key" -> extractM(request.key.asJson),
         "ReturnValues" -> request.returnValues.asJson
       ) ++
-        request.conditionExpression.map(x =>
-          "ConditionExpression" -> x.value.asJson) ++
-        request.expressionAttributeNames.map(x =>
-          "ExpressionAttributeNames" -> x.asJson) ++
-        request.expressionAttributeValues.map(x =>
-          "ExpressionAttributeValues" -> x.asJson)
+        request.conditionExpression.map(
+          x => "ConditionExpression" -> x.value.asJson
+        ) ++
+        request.expressionAttributeNames.map(
+          x => "ExpressionAttributeNames" -> x.asJson
+        ) ++
+        request.expressionAttributeValues.map(
+          x => "ExpressionAttributeValues" -> x.asJson
+        )
 
       Json.obj(jsMap.toSeq: _*)
     }
@@ -295,18 +308,22 @@ object codec {
         "UpdateExpression" -> request.updateExpression.asJson,
         "ReturnValues" -> request.returnValues.asJson
       ) ++
-        request.conditionExpression.map(x =>
-          "ConditionExpression" -> x.value.asJson) ++
+        request.conditionExpression.map(
+          x => "ConditionExpression" -> x.value.asJson
+        ) ++
         (if (request.expressionAttributeNames.isEmpty) {
            Map.empty
          } else {
-           Map("ExpressionAttributeNames" -> request.expressionAttributeNames.asJson)
+           Map(
+             "ExpressionAttributeNames" -> request.expressionAttributeNames.asJson
+           )
          }) ++
         (if (request.expressionAttributeValues.isEmpty) {
            Map.empty
          } else {
            Map(
-             "ExpressionAttributeValues" -> request.expressionAttributeValues.asJson)
+             "ExpressionAttributeValues" -> request.expressionAttributeValues.asJson
+           )
          })
 
       Json.obj(jsMap.toSeq: _*)

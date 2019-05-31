@@ -112,7 +112,8 @@ object model {
           M(Map.empty)
         def combine(
             x: AttributeValue.M,
-            y: AttributeValue.M): AttributeValue.M =
+            y: AttributeValue.M
+        ): AttributeValue.M =
           M(x.values ++ y.values)
       }
 
@@ -210,7 +211,8 @@ object model {
     def unsafeFromString(str: String): ExpressionAlias =
       fromString(str).getOrElse(
         throw new IllegalArgumentException(
-          s"$str is not a valid expression alias")
+          s"$str is not a valid expression alias"
+        )
       )
   }
 
@@ -262,7 +264,7 @@ object model {
       expressionAttributeNames: Map[ExpressionAlias, AttributeName] = Map.empty,
       expressionAttributeValues: Map[ExpressionPlaceholder, AttributeValue] =
         Map.empty,
-      returnValues: ReturnValues = ReturnValues.None,
+      returnValues: ReturnValues = ReturnValues.None
   )
 
   case class PutItemResponse(attributes: Option[AttributeValue.M])

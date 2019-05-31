@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+package dynosaur
+package codec
+
 import cats.free.FreeApplicative
 import cats.data.Chain
 
@@ -59,7 +62,8 @@ object Schema {
     def apply[E](
         name: String,
         elemSchema: Schema[E],
-        get: R => E): Ap[Field[R, ?], E] =
+        get: R => E
+    ): Ap[Field[R, ?], E] =
       Ap.lift(Field(name, elemSchema, get))
 
     def id(name: String, elemSchema: Schema[R]): Ap[Field[R, ?], R] =
@@ -68,21 +72,24 @@ object Schema {
     def const[E](
         name: String,
         elemSchema: Schema[E],
-        e: E): Ap[Field[R, ?], E] =
+        e: E
+    ): Ap[Field[R, ?], E] =
       Ap.lift(Field(name, elemSchema, _ => e))
   }
 
   class AltBuilder[A] {
-    def apply[B](id: String, caseSchema: Schema[B])(review: B => A)(
-        preview: PartialFunction[A, B]): Chain[Alt[A]] = {
+    def apply[B](id: String, caseSchema: Schema[B])(
+        review: B => A
+    )(preview: PartialFunction[A, B]): Chain[Alt[A]] = {
 
       val schema = record[B](_(id, caseSchema, identity))
 
       from(schema)(review)(preview)
     }
 
-    def from[B_](caseSchema_ : Schema[B_])(review_ : B_ => A)(
-        preview_ : PartialFunction[A, B_]): Chain[Alt[A]] =
+    def from[B_](
+        caseSchema_ : Schema[B_]
+    )(review_ : B_ => A)(preview_ : PartialFunction[A, B_]): Chain[Alt[A]] =
       Chain.one {
         new Alt[A] {
           type B = B_
