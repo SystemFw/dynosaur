@@ -308,6 +308,22 @@ object model {
       attributes: Option[AttributeValue.M]
   )
 
+  object BatchWriteItemsRequest {
+    sealed trait WriteRequest
+    case class DeleteRequest(key: AttributeValue.M) extends WriteRequest
+    case class PutRequest(item: AttributeValue.M) extends WriteRequest
+  }
+
+  case class BatchWriteItemsRequest(
+      requestItems: Map[TableName, List[BatchWriteItemsRequest.WriteRequest]]
+  )
+
+  case class BatchWriteItemsResponse(
+      unprocessedItems: Map[
+        TableName,
+        List[BatchWriteItemsRequest.WriteRequest]]
+  )
+
   // TODO Model all the DynamoDb errors
   case class DynamoDbError(message: String, retriable: Boolean = false)
       extends Exception(message)
@@ -334,5 +350,9 @@ object model {
 
     implicit val update: AwsOp[UpdateItemRequest, UpdateItemResponse] =
       instance("DynamoDB_20120810.UpdateItem")
+
+    implicit val batchWrite
+      : AwsOp[BatchWriteItemsRequest, BatchWriteItemsResponse] =
+      instance("DynamoDB_20120810.BatchWriteItem")
   }
 }

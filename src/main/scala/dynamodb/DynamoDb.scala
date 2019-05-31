@@ -50,6 +50,9 @@ trait DynamoDb[F[_]] {
   def deleteItem(request: DeleteItemRequest): F[DeleteItemResponse]
 
   def updateItem(request: UpdateItemRequest): F[UpdateItemResponse]
+
+  def batchWriteItems(
+      request: BatchWriteItemsRequest): F[BatchWriteItemsResponse]
 }
 
 object DynamoDb {
@@ -121,6 +124,9 @@ object DynamoDb {
         exec(request)
 
       def updateItem(request: UpdateItemRequest) =
+        exec(request)
+
+      def batchWriteItems(request: BatchWriteItemsRequest) =
         exec(request)
 
     }

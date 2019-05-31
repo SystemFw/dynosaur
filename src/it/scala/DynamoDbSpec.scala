@@ -15,7 +15,7 @@ import model._
 
 class DynamoDbSpec extends IntegrationSpec {
 
-  implicit val patience: PatienceConfig = PatienceConfig(scaled(5.seconds), 500.millis)
+  implicit val patience: PatienceConfig = PatienceConfig(scaled(30.seconds), 500.millis)
   implicit val ctx: ContextShift[IO] = IO.contextShift(scala.concurrent.ExecutionContext.global) 
 
 
@@ -152,6 +152,144 @@ class DynamoDbSpec extends IntegrationSpec {
           AttributeName("value")->AttributeValue.S("2")  
         ))))
       }.futureValue
+    } 
+
+    "write multiple items" in {
+      withDynamoDb { dynamoDb =>
+        for {
+          now <- IO(Instant.now).map(_.toEpochMilli)
+          response <- dynamoDb.batchWriteItems(
+            BatchWriteItemsRequest(
+              requestItems = Map(
+                TableName("comms-aws-test") -> List(
+                  BatchWriteItemsRequest.PutRequest(
+                    AttributeValue.M(
+                      Map(
+                        AttributeName("id")->AttributeValue.S("test-1"),
+                        AttributeName("date")->AttributeValue.N(now.toString)   
+                      )
+                    )
+                  ),
+                  BatchWriteItemsRequest.PutRequest(
+                    AttributeValue.M(
+                      Map(
+                        AttributeName("id")->AttributeValue.S("test-2"),
+                        AttributeName("date")->AttributeValue.N(now.toString)   
+                      )
+                    )
+                  ),
+                )
+              )
+            )
+          )
+        } yield response
+      }.futureValue shouldBe BatchWriteItemsResponse(Map.empty)
+    } 
+
+    "write and delete multiple items" in {
+      withDynamoDb { dynamoDb =>
+        for {
+          now <- IO(Instant.now).map(_.toEpochMilli)
+          key = AttributeValue.M(Map(
+            AttributeName("id")->AttributeValue.S("test-1"),
+            AttributeName("date")->AttributeValue.N(now.toString)   
+          ))
+          item = AttributeValue.M(key.values ++ Map(
+            AttributeName("value")->AttributeValue.S("1")  
+          ))
+          _ <- dynamoDb.putItem(PutItemRequest(
+            tableName = TableName("comms-aws-test"), 
+            item = item
+          ))
+          response <- dynamoDb.batchWriteItems(
+            BatchWriteItemsRequest(
+              requestItems = Map(
+                TableName("comms-aws-test") -> List(
+                  BatchWriteItemsRequest.DeleteRequest(
+                    AttributeValue.M(
+                      Map(
+                        AttributeName("id")->AttributeValue.S("test-1"),
+                        AttributeName("date")->AttributeValue.N(now.toString)   
+                      )
+                    )
+                  ),
+                  BatchWriteItemsRequest.PutRequest(
+                    AttributeValue.M(
+                      Map(
+                        AttributeName("id")->AttributeValue.S("test-2"),
+                        AttributeName("date")->AttributeValue.N(now.toString)   
+                      )
+                    )
+                  ),
+                )
+              )
+            )
+          )
+        } yield response
+      }.futureValue shouldBe BatchWriteItemsResponse(Map.empty)
+    } 
+
+    "delete multiple items" in {
+      withDynamoDb { dynamoDb =>
+        for {
+          now <- IO(Instant.now).map(_.toEpochMilli)
+          response <- dynamoDb.batchWriteItems(
+            BatchWriteItemsRequest(
+              requestItems = Map(
+                TableName("comms-aws-test") -> List(
+                  BatchWriteItemsRequest.DeleteRequest(
+                    AttributeValue.M(
+                      Map(
+                        AttributeName("id")->AttributeValue.S("test-1"),
+                        AttributeName("date")->AttributeValue.N(now.toString)   
+                      )
+                    )
+                  ),
+                  BatchWriteItemsRequest.DeleteRequest(
+                    AttributeValue.M(
+                      Map(
+                        AttributeName("id")->AttributeValue.S("test-2"),
+                        AttributeName("date")->AttributeValue.N(now.toString)   
+                      )
+                    )
+                  ),
+                )
+              )
+            )
+          )
+        } yield response
+      }.futureValue shouldBe BatchWriteItemsResponse(Map.empty)
+    } 
+
+    "return unprocessed items" in {
+      withDynamoDb { dynamoDb =>
+
+        // 25 items is the max batch size
+        val ids = (0 to 24).map(idx => s"test-$idx")
+        
+        // 380K string
+        val longString = (0 to 380 * 1024).map(_ => 65 + (math.random * 25).toInt).map(_.toChar).mkString
+        for {
+          now <- IO(Instant.now).map(_.toEpochMilli)
+          response <- dynamoDb.batchWriteItems(
+            BatchWriteItemsRequest(
+              requestItems = Map(
+                TableName("comms-aws-test") -> ids.map(id => 
+                  BatchWriteItemsRequest.PutRequest(
+                    AttributeValue.M(
+                      Map(
+                        AttributeName("id")->AttributeValue.S(id),
+                        AttributeName("date")->AttributeValue.N(now.toString),
+                        AttributeName("data")->AttributeValue.s(longString)   
+                      )
+                    )
+                  )
+                ).toList
+              )
+            )
+          )
+        } yield response
+      }.futureValue.unprocessedItems(TableName("comms-aws-test")) should not be empty
     } 
   }
 
