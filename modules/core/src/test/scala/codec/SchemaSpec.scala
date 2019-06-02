@@ -29,7 +29,7 @@ class SchemaSpec extends UnitSpec {
   // TODO add more parameters to status
   sealed trait Status
   case class Error(message: String) extends Status
-  case class Auth(role: Role) extends Status
+  case class Auth(role: Role, token: Int) extends Status
 
   sealed trait State
   case object Open extends State
@@ -137,7 +137,7 @@ class SchemaSpec extends UnitSpec {
       val user = User(203, "tim")
       val role = Role("admin", user)
       val error = Error("MyError")
-      val auth = Auth(role)
+      val auth = Auth(role, 1)
 
       val userSchema: Schema[User] = record[User] { field =>
         (
@@ -153,10 +153,17 @@ class SchemaSpec extends UnitSpec {
       }
       val statusSchema: Schema[Status] = Schema.oneOf[Status] { alt =>
         val errorSchema = record[Error] { field =>
-          field("error", str, _.message).map(Error.apply)
+          val body = field("message", str, _.message).map(Error.apply)
+
+          field("error", fields(body), x => x)
         }
         val authSchema = record[Auth] { field =>
-          field("auth", roleSchema, _.role).map(Auth.apply)
+          val body = (
+            field("role", roleSchema, _.role),
+            field("token", num, _.token)
+          ).mapN(Auth.apply)
+
+          field("auth", fields(body), x => x)
         }
 
         alt(errorSchema)(x => x: Error) { case v: Error => v } |+|
@@ -164,15 +171,20 @@ class SchemaSpec extends UnitSpec {
       }
 
       val expectedError = AttributeValue.m(
-        AttributeName("error") -> AttributeValue.s(error.message)
+        AttributeName("error") -> AttributeValue.m(
+          AttributeName("message") -> AttributeValue.s(error.message)
+        )
       )
       val expectedAuth = AttributeValue.m(
         AttributeName("auth") -> AttributeValue.m(
-          AttributeName("capability") -> AttributeValue.s(role.capability),
-          AttributeName("user") -> AttributeValue.m(
-            AttributeName("id") -> AttributeValue.n(role.user.id),
-            AttributeName("name") -> AttributeValue.s(role.user.name)
-          )
+          AttributeName("role") -> AttributeValue.m(
+            AttributeName("capability") -> AttributeValue.s(role.capability),
+            AttributeName("user") -> AttributeValue.m(
+              AttributeName("id") -> AttributeValue.n(role.user.id),
+              AttributeName("name") -> AttributeValue.s(role.user.name)
+            )
+          ),
+          AttributeName("token") -> AttributeValue.n(auth.token)
         )
       )
 
@@ -191,7 +203,7 @@ class SchemaSpec extends UnitSpec {
       val user = User(203, "tim")
       val role = Role("admin", user)
       val error = Error("MyError")
-      val auth = Auth(role)
+      val auth = Auth(role, 1)
 
       val userSchema: Schema[User] = record[User] { field =>
         (
@@ -208,12 +220,15 @@ class SchemaSpec extends UnitSpec {
       val statusSchema: Schema[Status] = {
         val errorSchema = Schema.record[Error] { field =>
           field("type", str, _ => "error") *>
-            field("body", str, _.message).map(Error.apply)
+            field("message", str, _.message).map(Error.apply)
         }
 
         val authSchema = Schema.record[Auth] { field =>
           field("type", str, _ => "auth") *>
-            field("body", roleSchema, _.role).map(Auth.apply)
+            (
+              field("role", roleSchema, _.role),
+              field("token", num, _.token)
+            ).mapN(Auth.apply)
         }
 
         Schema.oneOf[Status] { alt =>
@@ -224,17 +239,18 @@ class SchemaSpec extends UnitSpec {
 
       val expectedError = AttributeValue.m(
         AttributeName("type") -> AttributeValue.s("error"),
-        AttributeName("body") -> AttributeValue.s(error.message)
+        AttributeName("message") -> AttributeValue.s(error.message)
       )
       val expectedAuth = AttributeValue.m(
         AttributeName("type") -> AttributeValue.s("auth"),
-        AttributeName("body") -> AttributeValue.m(
+        AttributeName("role") -> AttributeValue.m(
           AttributeName("capability") -> AttributeValue.s(role.capability),
           AttributeName("user") -> AttributeValue.m(
             AttributeName("id") -> AttributeValue.n(role.user.id),
             AttributeName("name") -> AttributeValue.s(role.user.name)
           )
-        )
+        ),
+        AttributeName("token") -> AttributeValue.n(auth.token)
       )
 
       val encodedError = statusSchema.write(error)
@@ -247,97 +263,97 @@ class SchemaSpec extends UnitSpec {
       assert(decodedError === error)
       assert(decodedAuth === auth)
     }
-  }
 
-  "encode/decode objects as empty records" in {
-    val openDoor = Door(Open)
-    val closedDoor = Door(Closed)
+    "encode/decode objects as empty records" in {
+      val openDoor = Door(Open)
+      val closedDoor = Door(Closed)
 
-    val stateSchema: Schema[State] = {
-      val unit: Schema[Unit] = fields(Schema.structure.Ap.pure(()))
-      val openSchema = record[Open.type] { field =>
-        field("open", unit, _ => ()).as(Open)
+      val stateSchema: Schema[State] = {
+        val unit: Schema[Unit] = fields(Schema.structure.Ap.pure(()))
+        val openSchema = record[Open.type] { field =>
+          field("open", unit, _ => ()).as(Open)
+        }
+        val closedSchema = Schema.record[Closed.type] { field =>
+          field("closed", unit, _ => ()).as(Closed)
+        }
+        Schema.oneOf[State] { alt =>
+          alt(openSchema)(_ => Open) { case Open => Open } |+|
+            alt(closedSchema)(_ => Closed) { case Closed => Closed }
+        }
       }
-      val closedSchema = Schema.record[Closed.type] { field =>
-        field("closed", unit, _ => ()).as(Closed)
+      val doorSchema = record[Door] { field =>
+        field("state", stateSchema, _.state).map(Door.apply)
       }
-      Schema.oneOf[State] { alt =>
-        alt(openSchema)(_ => Open) { case Open => Open } |+|
-          alt(closedSchema)(_ => Closed) { case Closed => Closed }
-      }
-    }
-    val doorSchema = record[Door] { field =>
-      field("state", stateSchema, _.state).map(Door.apply)
-    }
 
-    val expectedOpen = AttributeValue.m(
-      AttributeName("state") -> AttributeValue.m(
-        AttributeName("open") -> AttributeValue.m()
+      val expectedOpen = AttributeValue.m(
+        AttributeName("state") -> AttributeValue.m(
+          AttributeName("open") -> AttributeValue.m()
+        )
       )
-    )
-    val expectedClosed = AttributeValue.m(
-      AttributeName("state") -> AttributeValue.m(
-        AttributeName("closed") -> AttributeValue.m()
+      val expectedClosed = AttributeValue.m(
+        AttributeName("state") -> AttributeValue.m(
+          AttributeName("closed") -> AttributeValue.m()
+        )
       )
-    )
 
-    val encodedOpen = doorSchema.write(openDoor)
-    val encodedClosed = doorSchema.write(closedDoor)
-    val decodedOpen = doorSchema.read(encodedOpen)
-    val decodedClosed = doorSchema.read(encodedClosed)
+      val encodedOpen = doorSchema.write(openDoor)
+      val encodedClosed = doorSchema.write(closedDoor)
+      val decodedOpen = doorSchema.read(encodedOpen)
+      val decodedClosed = doorSchema.read(encodedClosed)
 
-    assert(encodedOpen === expectedOpen)
-    assert(encodedClosed === expectedClosed)
-    assert(decodedOpen === openDoor)
-    assert(decodedClosed === closedDoor)
-  }
-
-  "encode/decode objects as strings" in {
-    pending
-    // TODO needs some notion of partial Iso
-    val openDoor = Door(Open)
-    val closedDoor = Door(Closed)
-
-    val stateSchema: Schema[State] = {
-      val unit: Schema[Unit] = fields(Schema.structure.Ap.pure(()))
-      val openSchema = record[Open.type] { field =>
-        field("open", unit, _ => ()).as(Open)
-      }
-      val closedSchema = Schema.record[Closed.type] { field =>
-        field("closed", unit, _ => ()).as(Closed)
-      }
-      Schema.oneOf[State] { alt =>
-        alt(openSchema)(_ => Open) { case Open => Open } |+|
-          alt(closedSchema)(_ => Closed) { case Closed => Closed }
-      }
-    }
-    val doorSchema = record[Door] { field =>
-      field("state", stateSchema, _.state).map(Door.apply)
+      assert(encodedOpen === expectedOpen)
+      assert(encodedClosed === expectedClosed)
+      assert(decodedOpen === openDoor)
+      assert(decodedClosed === closedDoor)
     }
 
-    val expectedOpen = AttributeValue.m(
-      AttributeName("state") -> AttributeValue.s("open")
-    )
-    val expectedClosed = AttributeValue.m(
-      AttributeName("state") -> AttributeValue.s("closed")
-    )
+    "encode/decode objects as strings" in {
+      pending
+      // TODO needs some notion of partial Iso
+      val openDoor = Door(Open)
+      val closedDoor = Door(Closed)
 
-    val encodedOpen = doorSchema.write(openDoor)
-    val encodedClosed = doorSchema.write(closedDoor)
-    val decodedOpen = doorSchema.read(encodedOpen)
-    val decodedClosed = doorSchema.read(encodedClosed)
+      val stateSchema: Schema[State] = {
+        val unit: Schema[Unit] = fields(Schema.structure.Ap.pure(()))
+        val openSchema = record[Open.type] { field =>
+          field("open", unit, _ => ()).as(Open)
+        }
+        val closedSchema = Schema.record[Closed.type] { field =>
+          field("closed", unit, _ => ()).as(Closed)
+        }
+        Schema.oneOf[State] { alt =>
+          alt(openSchema)(_ => Open) { case Open => Open } |+|
+            alt(closedSchema)(_ => Closed) { case Closed => Closed }
+        }
+      }
+      val doorSchema = record[Door] { field =>
+        field("state", stateSchema, _.state).map(Door.apply)
+      }
 
-    assert(encodedOpen === expectedOpen)
-    assert(encodedClosed === expectedClosed)
-    assert(decodedOpen === openDoor)
-    assert(decodedClosed === closedDoor)
-  }
+      val expectedOpen = AttributeValue.m(
+        AttributeName("state") -> AttributeValue.s("open")
+      )
+      val expectedClosed = AttributeValue.m(
+        AttributeName("state") -> AttributeValue.s("closed")
+      )
 
-  implicit class CodecSyntax[A](schema: Schema[A]) {
-    def read(v: AttributeValue): A =
-      Decoder.fromSchema(schema).read(v).toOption.get
+      val encodedOpen = doorSchema.write(openDoor)
+      val encodedClosed = doorSchema.write(closedDoor)
+      val decodedOpen = doorSchema.read(encodedOpen)
+      val decodedClosed = doorSchema.read(encodedClosed)
 
-    def write(v: A): AttributeValue =
-      Encoder.fromSchema(schema).write(v).toOption.get
+      assert(encodedOpen === expectedOpen)
+      assert(encodedClosed === expectedClosed)
+      assert(decodedOpen === openDoor)
+      assert(decodedClosed === closedDoor)
+    }
+
+    implicit class CodecSyntax[A](schema: Schema[A]) {
+      def read(v: AttributeValue): A =
+        Decoder.fromSchema(schema).read(v).toOption.get
+
+      def write(v: A): AttributeValue =
+        Encoder.fromSchema(schema).write(v).toOption.get
+    }
   }
 }
