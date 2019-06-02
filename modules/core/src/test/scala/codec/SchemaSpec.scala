@@ -180,7 +180,7 @@ class SchemaSpec extends UnitSpec {
       assert(decodedAuth === auth)
     }
 
-    "encode/decode (nested) ADTs using an embedded \"type\" field" in {
+    """encode/decode (nested) ADTs using an embedded "type" field""" in {
       val user = User(203, "tim")
       val role = Role("admin", user)
       val error = Error("MyError")
@@ -242,10 +242,6 @@ class SchemaSpec extends UnitSpec {
     }
   }
 
-  // TODO objects both ways, then encode/decode a Sum
-  // TODO eliminate combinator and encode manually
-  // TODO this uses a discriminator, replicate this test both ways, then nested ADTs
-  // or perhaps show ADTs first, then encoding of objects
   "encode/decode objects as empty records" in {
     val openDoor = Door(Open)
     val closedDoor = Door(Closed)
@@ -275,6 +271,45 @@ class SchemaSpec extends UnitSpec {
       AttributeName("state") -> AttributeValue.m(
         AttributeName("closed") -> AttributeValue.m()
       )
+    )
+
+    val encodedOpen = doorSchema.write(openDoor)
+    val encodedClosed = doorSchema.write(closedDoor)
+    val decodedOpen = doorSchema.read(encodedOpen)
+    val decodedClosed = doorSchema.read(encodedClosed)
+
+    assert(encodedOpen === expectedOpen)
+    assert(encodedClosed === expectedClosed)
+    assert(decodedOpen === openDoor)
+    assert(decodedClosed === closedDoor)
+  }
+
+  "encode/decode objects as strings" in {
+    pending
+    // TODO needs some notion of partial Iso
+    val openDoor = Door(Open)
+    val closedDoor = Door(Closed)
+
+    val stateSchema: Schema[State] = {
+      val openSchema: Schema[Open.type] = Schema.record[Open.type] { _ =>
+        Schema.structure.Ap.pure(Open)
+      }
+      val closedSchema: Schema[Closed.type] = Schema.record[Closed.type] { _ =>
+        Schema.structure.Ap.pure(Closed)
+      }
+      Schema.oneOf[State] { alt =>
+        alt("open", openSchema)(_ => Open) { case Open => Open } |+|
+          alt("closed", closedSchema)(_ => Closed) { case Closed => Closed }
+      }
+    }
+    val doorSchema = record[Door] { field =>
+      field("state", stateSchema, _.state).map(Door.apply)
+    }
+    val expectedOpen = AttributeValue.m(
+      AttributeName("state") -> AttributeValue.s("open")
+    )
+    val expectedClosed = AttributeValue.m(
+      AttributeName("state") -> AttributeValue.s("closed")
     )
 
     val encodedOpen = doorSchema.write(openDoor)
