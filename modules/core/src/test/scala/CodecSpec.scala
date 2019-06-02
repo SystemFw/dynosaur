@@ -19,8 +19,6 @@ package dynosaur
 import io.circe.syntax._
 import io.circe.literal._
 
-import com.ovoenergy.comms.aws.common._
-
 import model._
 import codecs._
 

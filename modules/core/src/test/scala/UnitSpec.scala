@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-package com.ovoenergy.comms.aws
-package common
+package dynosaur
 
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{Matchers, WordSpec}

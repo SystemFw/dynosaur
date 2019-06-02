@@ -8,7 +8,7 @@ import cats.implicits._
 import cats.effect.{IO, ContextShift}
 
 
-import com.ovoenergy.comms.aws.common.{IntegrationSpec, CredentialsProvider}
+import com.ovoenergy.comms.aws.common.CredentialsProvider
 import com.ovoenergy.comms.aws.common.model._
 
 import model._

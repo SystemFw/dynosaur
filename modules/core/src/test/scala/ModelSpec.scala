@@ -16,8 +16,6 @@
 
 package dynosaur
 
-import com.ovoenergy.comms.aws.common._
-
 import model._
 
 class ModelSpec extends UnitSpec {
