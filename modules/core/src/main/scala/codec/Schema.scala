@@ -69,12 +69,12 @@ object Schema {
   class AltBuilder[A] {
     def apply[B_](
         caseSchema_ : Schema[B_]
-    )(review_ : B_ => A)(preview_ : PartialFunction[A, B_]): Chain[Alt[A]] =
+    )(prism_ : Prism[A, B_]): Chain[Alt[A]] =
       Chain.one {
         new Alt[A] {
           type B = B_
           def caseSchema = caseSchema_
-          def prism = Prism(preview_.lift, review_)
+          def prism = prism_
         }
       }
   }
