@@ -20,7 +20,7 @@ package codec
 import cats.implicits._
 
 import model.{AttributeName, AttributeValue}
-import Schema.{num, record, str} // TODO try `Schema => S` rename?
+import Schema.{num, record, str, fields} // TODO try `Schema => S` rename?
 
 class SchemaSpec extends UnitSpec {
   case class User(id: Int, name: String)
@@ -85,7 +85,7 @@ class SchemaSpec extends UnitSpec {
       val user = User(203, "tim")
 
       val versionedSchema = record[User] { field =>
-        field.const("version", str, "1.0") *> (
+        field("version", str, _ => "1.0") *> (
           field("id", num, _.id),
           field("name", str, _.name)
         ).mapN(User.apply)
@@ -114,8 +114,8 @@ class SchemaSpec extends UnitSpec {
         ).mapN(User.apply)
       }
       val versionedSchema: Schema[User] = Schema.record[User] { field =>
-        field.const("version", str, "1.0") *>
-          field.id("body", schema)
+        field("version", str, _ => "1.0") *>
+          field("body", schema, x => x)
       }
 
       val expected = AttributeValue.m(
@@ -152,8 +152,15 @@ class SchemaSpec extends UnitSpec {
         ).mapN(Role.apply)
       }
       val statusSchema: Schema[Status] = Schema.oneOf[Status] { alt =>
-        alt("error", str)(Error(_)) { case Error(v) => v } |+|
-          alt("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
+        val errorSchema = record[Error] { field =>
+          field("error", str, _.message).map(Error.apply)
+        }
+        val authSchema = record[Auth] { field =>
+          field("auth", roleSchema, _.role).map(Auth.apply)
+        }
+
+        alt(errorSchema)(x => x: Error) { case v: Error => v } |+|
+          alt(authSchema)(x => x: Auth) { case v: Auth => v }
       }
 
       val expectedError = AttributeValue.m(
@@ -199,19 +206,19 @@ class SchemaSpec extends UnitSpec {
         ).mapN(Role.apply)
       }
       val statusSchema: Schema[Status] = {
-        val errorSchema: Schema[String] = Schema.record[String] { field =>
-          field.const("type", str, "error") *>
-            field.id("body", str)
+        val errorSchema = Schema.record[Error] { field =>
+          field("type", str, _ => "error") *>
+            field("body", str, _.message).map(Error.apply)
         }
 
-        val authSchema: Schema[Role] = Schema.record[Role] { field =>
-          field.const("type", str, "auth") *>
-            field.id("body", roleSchema)
+        val authSchema = Schema.record[Auth] { field =>
+          field("type", str, _ => "auth") *>
+            field("body", roleSchema, _.role).map(Auth.apply)
         }
 
         Schema.oneOf[Status] { alt =>
-          alt.from(errorSchema)(Error(_)) { case Error(v) => v } |+|
-            alt.from(authSchema)(Auth(_)) { case Auth(v) => v }
+          alt(errorSchema)(x => x: Error) { case v: Error => v } |+|
+            alt(authSchema)(x => x: Auth) { case v: Auth => v }
         }
       }
 
@@ -247,15 +254,16 @@ class SchemaSpec extends UnitSpec {
     val closedDoor = Door(Closed)
 
     val stateSchema: Schema[State] = {
-      val openSchema: Schema[Open.type] = Schema.record[Open.type] { _ =>
-        Schema.structure.Ap.pure(Open)
+      val unit: Schema[Unit] = fields(Schema.structure.Ap.pure(()))
+      val openSchema = record[Open.type] { field =>
+        field("open", unit, _ => ()).as(Open)
       }
-      val closedSchema: Schema[Closed.type] = Schema.record[Closed.type] { _ =>
-        Schema.structure.Ap.pure(Closed)
+      val closedSchema = Schema.record[Closed.type] { field =>
+        field("closed", unit, _ => ()).as(Closed)
       }
       Schema.oneOf[State] { alt =>
-        alt("open", openSchema)(_ => Open) { case Open => Open } |+|
-          alt("closed", closedSchema)(_ => Closed) { case Closed => Closed }
+        alt(openSchema)(_ => Open) { case Open => Open } |+|
+          alt(closedSchema)(_ => Closed) { case Closed => Closed }
       }
     }
     val doorSchema = record[Door] { field =>
@@ -291,20 +299,22 @@ class SchemaSpec extends UnitSpec {
     val closedDoor = Door(Closed)
 
     val stateSchema: Schema[State] = {
-      val openSchema: Schema[Open.type] = Schema.record[Open.type] { _ =>
-        Schema.structure.Ap.pure(Open)
+      val unit: Schema[Unit] = fields(Schema.structure.Ap.pure(()))
+      val openSchema = record[Open.type] { field =>
+        field("open", unit, _ => ()).as(Open)
       }
-      val closedSchema: Schema[Closed.type] = Schema.record[Closed.type] { _ =>
-        Schema.structure.Ap.pure(Closed)
+      val closedSchema = Schema.record[Closed.type] { field =>
+        field("closed", unit, _ => ()).as(Closed)
       }
       Schema.oneOf[State] { alt =>
-        alt("open", openSchema)(_ => Open) { case Open => Open } |+|
-          alt("closed", closedSchema)(_ => Closed) { case Closed => Closed }
+        alt(openSchema)(_ => Open) { case Open => Open } |+|
+          alt(closedSchema)(_ => Closed) { case Closed => Closed }
       }
     }
     val doorSchema = record[Door] { field =>
       field("state", stateSchema, _.state).map(Door.apply)
     }
+
     val expectedOpen = AttributeValue.m(
       AttributeName("state") -> AttributeValue.s("open")
     )
@@ -321,32 +331,6 @@ class SchemaSpec extends UnitSpec {
     assert(encodedClosed === expectedClosed)
     assert(decodedOpen === openDoor)
     assert(decodedClosed === closedDoor)
-  }
-
-  val inferenceCompilationSpec = {
-    import Schema._
-    val userSchema: Schema[User] = record[User] { field =>
-      (
-        field("id", num, _.id),
-        field("name", str, _.name)
-      ).mapN(User.apply)
-    }
-    val roleSchema: Schema[Role] = record[Role] { field =>
-      (
-        field("capability", str, _.capability),
-        field("user", userSchema, _.user)
-      ).mapN(Role.apply)
-    }
-
-    // can ascribe manually
-    field("capability", str, (_: Role).capability)
-    alt("auth", roleSchema)(Auth(_): Status) { case Auth(v) => v }
-    alt.from(roleSchema)(Auth(_): Status) { case Auth(v) => v }
-
-    // the library helps you
-    field[Role]("capability", str, _.capability)
-    alt[Status]("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
-    alt[Status].from(roleSchema)(Auth(_)) { case Auth(v) => v }
   }
 
   implicit class CodecSyntax[A](schema: Schema[A]) {
