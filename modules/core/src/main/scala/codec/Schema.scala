@@ -35,8 +35,7 @@ object Schema {
     trait Alt[A] {
       type B
       def caseSchema: Schema[B]
-      def review: B => A
-      def preview: A => Option[B]
+      def prism: Prism[A, B]
     }
 
   }
@@ -75,8 +74,7 @@ object Schema {
         new Alt[A] {
           type B = B_
           def caseSchema = caseSchema_
-          def review = review_
-          def preview = preview_.lift
+          def prism = Prism(preview_.lift, review_)
         }
       }
   }

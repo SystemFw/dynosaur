@@ -54,7 +54,7 @@ object Encoder {
     def encodeSum[C](cases: Chain[Alt[C]], v: C): Res =
       cases
         .foldMapK { alt =>
-          alt.preview(v).map { e =>
+          alt.prism.tryGet(v).map { e =>
             fromSchema(alt.caseSchema).write(e)
           }
         }

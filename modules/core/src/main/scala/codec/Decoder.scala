@@ -63,7 +63,7 @@ object Decoder {
     def decodeSum[B](cases: Chain[Alt[B]], v: AttributeValue.M): Res[B] =
       cases
         .foldMapK { alt =>
-          fromSchema(alt.caseSchema).read(v).map(alt.review).toOption
+          fromSchema(alt.caseSchema).read(v).map(alt.prism.inject).toOption
         }
         .toRight(ReadError())
 
