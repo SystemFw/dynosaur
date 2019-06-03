@@ -345,13 +345,45 @@ class SchemaSpec extends UnitSpec {
         ()
       }
     }
+  }
 
-    implicit class CodecSyntax[A](schema: Schema[A]) {
-      def read(v: AttributeValue): A =
-        Decoder.fromSchema(schema).read(v).toOption.get
-
-      def write(v: A): AttributeValue =
-        Encoder.fromSchema(schema).write(v).toOption.get
+  val compileTimeInferenceSpec = {
+    val userSchema: Schema[User] = record { field =>
+      (
+        field("id", num, _.id),
+        field("name", str, _.name)
+      ).mapN(User.apply)
     }
+
+    val userSchema2 = record[User] { field =>
+      (
+        field("id", num, _.id),
+        field("name", str, _.name)
+      ).mapN(User.apply)
+    }
+
+    // random impl but it does not matter
+    def closedSchema: Schema[Closed.type] =
+      record(_("foo", str, _.toString).as(Closed))
+    def openSchema: Schema[Open.type] =
+      record(_("foo", str, _.toString).as(Open))
+
+    val stateSchema: Schema[State] = Schema.oneOf { alt =>
+      alt(closedSchema) |+| alt(openSchema)
+    }
+
+    val stateSchema2 = Schema.oneOf[State] { alt =>
+      alt(closedSchema) |+| alt(openSchema)
+    }
+
+    val (_, _, _, _) = (userSchema, userSchema2, stateSchema, stateSchema2)
+  }
+
+  implicit class CodecSyntax[A](schema: Schema[A]) {
+    def read(v: AttributeValue): A =
+      Decoder.fromSchema(schema).read(v).toOption.get
+
+    def write(v: A): AttributeValue =
+      Encoder.fromSchema(schema).write(v).toOption.get
   }
 }
