@@ -69,12 +69,12 @@ object Schema {
   class AltBuilder[A] {
     def apply[B_](
         caseSchema_ : Schema[B_]
-    )(implicit prism_ : macros.PrismDerive[A, B_]): Chain[Alt[A]] =
+    )(implicit prism_ : Prism[A, B_]): Chain[Alt[A]] =
       Chain.one {
         new Alt[A] {
           type B = B_
           def caseSchema = caseSchema_
-          def prism = Prism(prism_.tryGet, prism_.inject)
+          def prism = prism_
         }
       }
   }

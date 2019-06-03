@@ -26,7 +26,6 @@ class SchemaSpec extends UnitSpec {
   case class User(id: Int, name: String)
   case class Role(capability: String, user: User)
 
-  // TODO add more parameters to status
   sealed trait Status
   case class Error(message: String) extends Status
   case class Auth(role: Role, token: Int) extends Status
@@ -376,7 +375,15 @@ class SchemaSpec extends UnitSpec {
       alt(closedSchema) |+| alt(openSchema)
     }
 
-    val (_, _, _, _) = (userSchema, userSchema2, stateSchema, stateSchema2)
+    val stateSchema3 = Schema.oneOf[State] { alt =>
+      implicit val p1 = Prism.derive[State, Open.type]
+      val p2 = Prism.derive[State, Closed.type]
+
+      alt(openSchema) |+| alt(closedSchema)(p2)
+    }
+
+    val (_, _, _, _, _) =
+      (userSchema, userSchema2, stateSchema, stateSchema2, stateSchema3)
   }
 
   implicit class CodecSyntax[A](schema: Schema[A]) {
