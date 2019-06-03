@@ -35,77 +35,66 @@ class SchemaSpec extends UnitSpec {
   case object Closed extends State
   case class Door(state: State)
 
+  def test[A](schema: Schema[A], data: A, expected: AttributeValue) = {
+    def output = Encoder.fromSchema(schema).write(data).toOption.get
+    def roundTrip = Decoder.fromSchema(schema).read(output).toOption.get
+
+    assert(output == expected)
+    assert(roundTrip == data)
+  }
+
   "schema" should {
     "encode/decode a product" in {
       val user = User(203, "tim")
-
       val schema = record[User] { field =>
         (
           field("id", num, _.id),
           field("name", str, _.name)
         ).mapN(User.apply)
       }
-
       val expected = AttributeValue.m(
         AttributeName("id") -> AttributeValue.n(user.id),
         AttributeName("name") -> AttributeValue.s(user.name)
       )
 
-      val encoded = schema.write(user)
-      val decoded = schema.read(encoded)
-
-      assert(encoded === expected)
-      assert(decoded === user)
+      test(schema, user, expected)
     }
 
     "encode/decode a product using arbitrary field names" in {
       val user = User(203, "tim")
-
       val schema = record[User] { field =>
         (
           field("number", num, _.id),
           field("label", str, _.name)
         ).mapN(User.apply)
       }
-
       val expected = AttributeValue.m(
         AttributeName("number") -> AttributeValue.n(user.id),
         AttributeName("label") -> AttributeValue.s(user.name)
       )
 
-      val encoded = schema.write(user)
-      val decoded = schema.read(encoded)
-
-      assert(encoded === expected)
-      assert(decoded === user)
+      test(schema, user, expected)
     }
 
     "encode/decode a product including additional info" in {
       val user = User(203, "tim")
-
       val versionedSchema = record[User] { field =>
         field("version", str, _ => "1.0") *> (
           field("id", num, _.id),
           field("name", str, _.name)
         ).mapN(User.apply)
       }
-
       val expected = AttributeValue.m(
         AttributeName("version") -> AttributeValue.s("1.0"),
         AttributeName("id") -> AttributeValue.n(user.id),
         AttributeName("name") -> AttributeValue.s(user.name)
       )
 
-      val encoded = versionedSchema.write(user)
-      val decoded = versionedSchema.read(encoded)
-
-      assert(encoded === expected)
-      assert(decoded === user)
+      test(versionedSchema, user, expected)
     }
 
     "encode/decode a product including additional info, nested" in {
       val user = User(203, "tim")
-
       val schema = record[User] { field =>
         (
           field("id", num, _.id),
@@ -116,7 +105,6 @@ class SchemaSpec extends UnitSpec {
         field("version", str, _ => "1.0") *>
           field("body", schema, x => x)
       }
-
       val expected = AttributeValue.m(
         AttributeName("version") -> AttributeValue.s("1.0"),
         AttributeName("body") -> AttributeValue.m(
@@ -125,11 +113,7 @@ class SchemaSpec extends UnitSpec {
         )
       )
 
-      val encoded = versionedSchema.write(user)
-      val decoded = versionedSchema.read(encoded)
-
-      assert(encoded === expected)
-      assert(decoded === user)
+      test(versionedSchema, user, expected)
     }
 
     "encode/decode (nested) ADTs using a discriminator" in {
@@ -186,15 +170,8 @@ class SchemaSpec extends UnitSpec {
         )
       )
 
-      val encodedError = statusSchema.write(error)
-      val encodedAuth = statusSchema.write(auth)
-      val decodedError: Status = statusSchema.read(encodedError)
-      val decodedAuth: Status = statusSchema.read(encodedAuth)
-
-      assert(encodedError === expectedError)
-      assert(encodedAuth === expectedAuth)
-      assert(decodedError === error)
-      assert(decodedAuth === auth)
+      test(statusSchema, error, expectedError)
+      test(statusSchema, auth, expectedAuth)
     }
 
     """encode/decode (nested) ADTs using an embedded "type" field""" in {
@@ -250,15 +227,8 @@ class SchemaSpec extends UnitSpec {
         AttributeName("token") -> AttributeValue.n(auth.token)
       )
 
-      val encodedError = statusSchema.write(error)
-      val encodedAuth = statusSchema.write(auth)
-      val decodedError: Status = statusSchema.read(encodedError)
-      val decodedAuth: Status = statusSchema.read(encodedAuth)
-
-      assert(encodedError === expectedError)
-      assert(encodedAuth === expectedAuth)
-      assert(decodedError === error)
-      assert(decodedAuth === auth)
+      test(statusSchema, error, expectedError)
+      test(statusSchema, auth, expectedAuth)
     }
 
     "encode/decode objects as empty records" in {
@@ -292,15 +262,8 @@ class SchemaSpec extends UnitSpec {
         )
       )
 
-      val encodedOpen = doorSchema.write(openDoor)
-      val encodedClosed = doorSchema.write(closedDoor)
-      val decodedOpen = doorSchema.read(encodedOpen)
-      val decodedClosed = doorSchema.read(encodedClosed)
-
-      assert(encodedOpen === expectedOpen)
-      assert(encodedClosed === expectedClosed)
-      assert(decodedOpen === openDoor)
-      assert(decodedClosed === closedDoor)
+      test(doorSchema, openDoor, expectedOpen)
+      test(doorSchema, closedDoor, expectedClosed)
     }
 
     "encode/decode objects as strings" in {
@@ -332,15 +295,8 @@ class SchemaSpec extends UnitSpec {
           AttributeName("state") -> AttributeValue.s("closed")
         )
 
-        val encodedOpen = doorSchema.write(openDoor)
-        val encodedClosed = doorSchema.write(closedDoor)
-        val decodedOpen = doorSchema.read(encodedOpen)
-        val decodedClosed = doorSchema.read(encodedClosed)
-
-        assert(encodedOpen === expectedOpen)
-        assert(encodedClosed === expectedClosed)
-        assert(decodedOpen === openDoor)
-        assert(decodedClosed === closedDoor)
+        test(doorSchema, openDoor, expectedOpen)
+        test(doorSchema, closedDoor, expectedClosed)
         ()
       }
     }
@@ -384,13 +340,5 @@ class SchemaSpec extends UnitSpec {
 
     val (_, _, _, _, _) =
       (userSchema, userSchema2, stateSchema, stateSchema2, stateSchema3)
-  }
-
-  implicit class CodecSyntax[A](schema: Schema[A]) {
-    def read(v: AttributeValue): A =
-      Decoder.fromSchema(schema).read(v).toOption.get
-
-    def write(v: A): AttributeValue =
-      Encoder.fromSchema(schema).write(v).toOption.get
   }
 }
