@@ -35,11 +35,20 @@ class PrismDerivationSpec extends UnitSpec {
 
         val b: A = B
 
+        def derive2[T, S <: T]: T => Option[S] =
+          PrismDerive[T, S]._1
+
+        val spC = derive2[A, C.type]
+
+        println(s"bare ${aToOptC(b)}")
+        println(s"in prism ${pC.tryGet(b)}")
+        println(s"simul ${spC.apply(b)}")
+
         assert(aToOptB(b) === Some(B))
         assert(aToOptC(b) === None)
         assert(pB.tryGet(b) === Some(B))
-        // all pass except this
         assert(pC.tryGet(b) === None)
+        assert(spC.apply(b) === None)
         ()
       }
     }

@@ -26,7 +26,8 @@ object Prism {
 
   def derive[T, S <: T]: Prism[T, S] = {
     // it's actually a macro with a TypeTag, so this is a false positive
-    val p = PrismDerive[T, S @unchecked]
-    Prism(p._1, p._2)
+    // ^^^ TODO actually not a false positive at all, massive bug
+    val (tryGet, inject) = PrismDerive[T, S @unchecked]
+    Prism(tryGet = tryGet, inject = inject)
   }
 }
