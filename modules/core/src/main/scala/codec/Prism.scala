@@ -24,10 +24,12 @@ object Prism {
   def fromPartial[A, B](tryGet: PartialFunction[A, B])(inject: B => A) =
     Prism(tryGet.lift, inject)
 
-  def derive[T, S <: T]: Prism[T, S] = {
+  implicit def derive[T, S <: T](
+      implicit ev: PrismDerive[T, S]
+  ): Prism[T, S] = {
     // it's actually a macro with a TypeTag, so this is a false positive
     // ^^^ TODO actually not a false positive at all, massive bug
-    val (tryGet, inject) = PrismDerive[T, S @unchecked]
-    Prism(tryGet = tryGet, inject = inject)
+//    val (tryGet, inject) = PrismDerive[T, S @unchecked]
+    Prism(tryGet = ev.tryGet, inject = ev.inject)
   }
 }

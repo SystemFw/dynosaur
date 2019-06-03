@@ -31,19 +31,22 @@ package macros
 
 import scala.reflect.macros.blackbox
 
+case class PrismDerive[A, B](tryGet: A => Option[B], inject: B => A)
 object PrismDerive {
-  def apply[T, S <: T]: (T => Option[S], S => T) = macro PrismDeriveImpl.deriveImpl[T, S]
+  implicit def create[T, S <: T]: PrismDerive[T, S] = macro PrismDeriveImpl.deriveImpl[T, S]
 }
 
 private class PrismDeriveImpl(val c: blackbox.Context) {
-  def deriveImpl[T: c.WeakTypeTag, S: c.WeakTypeTag]: c.Expr[(T => Option[S], S => T)] = {
+  def deriveImpl[T: c.WeakTypeTag, S: c.WeakTypeTag]: c.Expr[PrismDerive[T, S]] = {
     import c.universe._
 
     val (tTpe, sTpe) = (weakTypeOf[T], weakTypeOf[S])
-    c.Expr[(T => Option[S], S => T)](q"""
+    c.Expr[PrismDerive[T, S]](q"""
+       import dynosaur.macros.PrismDerive
+
        val tryGet: $tTpe => Option[$sTpe] = t => if (t.isInstanceOf[$sTpe]) Some(t.asInstanceOf[$sTpe]) else None
        val inject: $sTpe => $tTpe = _.asInstanceOf[$tTpe]
-       tryGet -> inject
+       PrismDerive(tryGet, inject)
     """)
   }
 }
