@@ -48,6 +48,12 @@ object Schema {
   def fields[R](p: Ap[Field[R, ?], R]): Schema[R] = Rec(p)
   def record[R](b: FieldBuilder[R] => Ap[Field[R, ?], R]): Schema[R] =
     fields(b(field))
+  def emptyRecord: Schema[Unit] = record(_.pure(()))
+
+  def tag[A](name: String)(schema: Schema[A]): Schema[A] =
+    record { field =>
+      field(name, schema, x => x)
+    }
 
   def alternatives[A](cases: Chain[Alt[A]]): Schema[A] =
     Sum(cases)
@@ -64,6 +70,8 @@ object Schema {
         get: R => E
     ): Ap[Field[R, ?], E] =
       Ap.lift(Field(name, elemSchema, get))
+
+    def pure[A](a: A): Ap[Field[R, ?], A] = Ap.pure(a)
   }
 
   class AltBuilder[A] {

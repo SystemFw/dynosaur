@@ -20,7 +20,13 @@ package codec
 import cats.implicits._
 
 import model.{AttributeName, AttributeValue}
-import Schema.{num, record, str, fields} // TODO try `Schema => S` rename?
+import Schema.{
+  num,
+  record,
+  str,
+  tag,
+  emptyRecord
+} // TODO try `Schema => S` rename?
 
 class SchemaSpec extends UnitSpec {
   case class User(id: Int, name: String)
@@ -101,7 +107,7 @@ class SchemaSpec extends UnitSpec {
           field("name", str, _.name)
         ).mapN(User.apply)
       }
-      val versionedSchema: Schema[User] = Schema.record[User] { field =>
+      val versionedSchema: Schema[User] = record[User] { field =>
         field("version", str, _ => "1.0") *>
           field("body", schema, x => x)
       }
@@ -136,20 +142,17 @@ class SchemaSpec extends UnitSpec {
       }
       val statusSchema: Schema[Status] = Schema.oneOf[Status] { alt =>
         val errorSchema = record[Error] { field =>
-          val body = field("message", str, _.message).map(Error.apply)
-
-          field("error", fields(body), x => x)
+          field("message", str, _.message).map(Error.apply)
         }
+
         val authSchema = record[Auth] { field =>
-          val body = (
+          (
             field("role", roleSchema, _.role),
             field("token", num, _.token)
           ).mapN(Auth.apply)
-
-          field("auth", fields(body), x => x)
         }
 
-        alt(errorSchema) |+| alt(authSchema)
+        alt { tag("error")(errorSchema) } |+| alt { tag("auth")(authSchema) }
       }
 
       val expectedError = AttributeValue.m(
@@ -236,12 +239,11 @@ class SchemaSpec extends UnitSpec {
       val closedDoor = Door(Closed)
 
       val stateSchema: Schema[State] = {
-        val unit: Schema[Unit] = fields(Schema.structure.Ap.pure(()))
         val openSchema = record[Open.type] { field =>
-          field("open", unit, _ => ()).as(Open)
+          field("open", emptyRecord, _ => ()).as(Open)
         }
         val closedSchema = Schema.record[Closed.type] { field =>
-          field("closed", unit, _ => ()).as(Closed)
+          field("closed", emptyRecord, _ => ()).as(Closed)
         }
         Schema.oneOf[State] { alt =>
           alt(openSchema) |+| alt(closedSchema)
@@ -273,12 +275,11 @@ class SchemaSpec extends UnitSpec {
         val closedDoor = Door(Closed)
 
         val stateSchema: Schema[State] = {
-          val unit: Schema[Unit] = fields(Schema.structure.Ap.pure(()))
           val openSchema = record[Open.type] { field =>
-            field("open", unit, _ => ()).as(Open)
+            field("open", emptyRecord, _ => ()).as(Open)
           }
           val closedSchema = Schema.record[Closed.type] { field =>
-            field("closed", unit, _ => ()).as(Closed)
+            field("closed", emptyRecord, _ => ()).as(Closed)
           }
           Schema.oneOf[State] { alt =>
             alt(openSchema) |+| alt(closedSchema)
