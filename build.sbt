@@ -1,4 +1,5 @@
-lazy val root = (project in file("."))
+lazy val root = project
+  .in(file("."))
   .aggregate(core)
   .settings(
     inThisBuild(
@@ -6,8 +7,9 @@ lazy val root = (project in file("."))
     )
   )
 
-lazy val core = (project in file("modules/core"))
-   .settings(
+lazy val core = project
+  .in(file("modules/core"))
+  .settings(
     name := "dynosaur-core",
     scalafmtOnCompile := true,
     dependencies
@@ -18,6 +20,11 @@ lazy val core = (project in file("modules/core"))
     inConfig(IntegrationTest)(Defaults.itSettings),
     automateHeaderSettings(IntegrationTest)
   )
+
+lazy val docs = project
+  .in(file("dynosaur-docs"))
+  .dependsOn(core)
+  .enablePlugins(MdocPlugin)
 
 lazy val IntegrationTest = config("it") extend Test
 
