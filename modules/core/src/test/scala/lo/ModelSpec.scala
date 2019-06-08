@@ -15,6 +15,7 @@
  */
 
 package dynosaur
+package lo
 
 import model._
 

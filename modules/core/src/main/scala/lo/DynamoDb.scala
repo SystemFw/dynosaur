@@ -15,6 +15,7 @@
  */
 
 package dynosaur
+package lo
 
 import scala.concurrent.ExecutionContext
 
@@ -39,7 +40,7 @@ import com.ovoenergy.comms.aws.common.headers._
 import com.ovoenergy.comms.aws.common.mediaTypes._
 
 import model._
-import codecs._
+import codec._
 
 trait DynamoDb[F[_]] {
 

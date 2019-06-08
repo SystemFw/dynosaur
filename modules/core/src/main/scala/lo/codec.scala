@@ -15,6 +15,7 @@
  */
 
 package dynosaur
+package lo
 
 import cats.implicits._
 
@@ -24,10 +25,11 @@ import io.circe.literal._
 import io.circe.{Decoder, Encoder}
 
 import scodec.bits.ByteVector
+
+import dynosaur.model.{AttributeName, AttributeValue}
 import model._
 
-// TODO move to dynosaur.lo.codec
-object codecs {
+object codec {
 
   implicit val attributeNameKeyEncoder: KeyEncoder[AttributeName] =
     new KeyEncoder[AttributeName] {

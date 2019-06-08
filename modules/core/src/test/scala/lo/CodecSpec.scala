@@ -15,12 +15,14 @@
  */
 
 package dynosaur
+package lo
 
 import io.circe.syntax._
 import io.circe.literal._
 
+import dynosaur.model.AttributeValue
 import model._
-import codecs._
+import codec._
 
 import Arbitraries._
 
