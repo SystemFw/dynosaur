@@ -41,6 +41,11 @@ class SchemaSpec extends UnitSpec {
   case object Closed extends State
   case class Door(state: State)
 
+  //TODO test this for different ADT encoding
+  sealed trait Same
+  case class One(v: String) extends Same
+  case class Two(v: String) extends Same
+
   def test[A](schema: Schema[A], data: A, expected: AttributeValue) = {
     def output = Encoder.fromSchema(schema).write(data).toOption.get
     def roundTrip = Decoder.fromSchema(schema).read(output).toOption.get

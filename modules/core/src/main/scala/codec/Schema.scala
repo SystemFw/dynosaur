@@ -20,7 +20,9 @@ package codec
 import cats.free.FreeApplicative
 import cats.data.Chain
 
-sealed trait Schema[A]
+sealed trait Schema[A] {
+  override def toString = "Schema(..)"
+}
 object Schema {
   object structure {
     type Ap[F[_], A] = FreeApplicative[F, A]
