@@ -374,9 +374,264 @@ Both the ability to assert that a field may not be there, and that the
 value of a field should be a _specific_ `String` (or anything else)
 are useful, they are treated further down in this document.
 
+### Constants
 
-### Sums
+
+### Coproducts
+
+Since DynamoDB uses a JSON-like format, there are different ways to
+encode coproducts. The recommended one looks like this:
+
+```scala mdoc:compile-only
+sealed trait Auth
+case class Error(reason: String) extends Auth
+case class User(id: Int, name: String) extends Auth
+
+def error: Schema[Error] = ???
+def user: Schema[User] = ???
+
+import Schema._
+
+val schema: Schema[Auth] = oneOf { alt =>
+  alt(tag("error")(error)) |+| alt(tag("user")(user))
+}
+```
+
+The first thing we need to make this work is a way to go from
+`Schema[Subtype]` to `Schema[Supertype]`, which we can do by
+introducing the concept of a `Prism`.  
+Let's focus on `Error` and `Auth`, starting with decoding: if you have
+a `Decoder[Error]` and you need a `Decoder[Auth]`, it means that after
+you decoded an `Error`, you need to transform it into an `Auth`, i.e.
+you need a `Error => Auth`.  
+The other direction however, is a bit different: if you have an
+`Encoder[Error]` and you want to build an `Encoder[Auth]`, you first
+need to figure out if the `Auth` you have is indeed an `Error` (and not a
+`User`), and only then you can use the encoder for errors that you
+have. This decision can be represented with a `Auth => Option[Error]`.
+
+Given that a `Schema` needs to produce both an `Encoder` and a `Decoder`,
+we need to have both functions, which as it turns out form a well-known 
+abstraction called `Prism`. `Dynosaur` defines a very simple `Prism` as:
+```scala mdoc:compile-only
+case class Prism[A, B](tryGet: A => Option[B], inject: B => A)
+```
+
+One can define `Prism`s for several things, but the one between an ADT
+and one of its cases is particularly common and straighforward.
+
+```scala mdoc:compile-only
+import dynosaur.codec.Prism
+
+sealed trait A
+case class B() extends A
+
+val p: Prism[A, B] = Prism.fromPartial[A, B] {
+  case b: B => b
+}(b => b: A)
+```
+
+In fact, it is so common that `Dynosaur` can derive it automatically
+if you ask for one implicitly:
+
+```scala mdoc
+import dynosaur.codec.Prism
+
+sealed trait PrismExample
+case class Case1(v: String) extends PrismExample
+case class Case2(i: Int) extends PrismExample
+
+val c1: PrismExample = Case1("hello")
+
+val p = implicitly[Prism[PrismExample, Case1]]
+
+p.tryGet(c1).map(_.v)
+p.inject(Case1("yes"))
+p.tryGet(Case2(3))
+```
+
+So we know how to write a schema for the individual cases, we know
+that `Prism` encodes their relationship with the supertype, all that's
+left is a concept of choice, which is expressed by the `alt`
+constructor.
+
+```scala mdoc:compile-only
+import cats.data.Chain
+import Schema.structure.Alt
+
+sealed trait Auth
+case class Error(reason: String) extends Auth
+case class User(id: Int, name: String) extends Auth
+
+def error: Schema[Error] = ???
+def user: Schema[User] = ???
+
+def errorCase: Chain[Alt[Auth]] = Schema.alt(error)
+def userCase: Chain[Alt[Auth]] = Schema.alt(user)
+def allCases: Chain[Alt[Auth]] = errorCase |+| userCase
+def authSchema: Schema[Auth] = Schema.alternatives(allCases)
+```
+
+In the above snippet:
+-  `Chain[Alt[Auth]]` is the type of computations that express _choice
+   between subtypes of `Auth`_.
+- `alt` takes as arguments the schema of the subtype and an implicit,
+  automatically derived `Prism`.
+- The `Monoid` instance for `Chain` expresses choice using `|+|` to mean "or"
+- The `Schema.alternatives` constructor builds a schema out of a set of choices
+
+When encoding, we will do the equivalent of pattern matching to select
+the right encoder. When decoding, we will try each decoder until we
+find a successful one, or fail if none of the alternatives
+successfully decodes our data. In a following section we will see how
+to minimise the work decoders have to do.
+
+**Note**: Unfortunately, it's up to you to make sure that you cover
+all the cases of the ADT in your chain of `|+|`. If you don't,
+encoding will graciously fail if you try to encode a case you have not
+covered. We do not have a way to express the equivalent of a pattern
+matching exhaustiveness check.
+
+
+### Inference
+
+Similarly to products, coproducts expressed as above also suffer from
+extra annotation clutter, and we employ a similar fix, compare
+`clutter` to `noClutter` in the snippet below:
+
+```scala mdoc:compile-only
+sealed trait Auth
+case class Error(reason: String) extends Auth
+case class User(id: Int, name: String) extends Auth
+
+def error: Schema[Error] = ???
+def user: Schema[User] = ???
+
+def clutter: Schema[Auth] = Schema.alternatives {
+  Schema.alt[Auth](error) |+| Schema.alt[Auth](user)
+}
+
+def noClutter: Schema[Auth] = Schema.oneOf { alt =>
+  alt(error) |+| alt(user)
+}
+
+// note the [Auth] annotation
+def noClutter2 = Schema.oneOf[Auth] { alt =>
+  alt(error) |+| alt(user)
+}
+```
+
+### Tagging
+
+In the example above we simply composed the schemas of the subtypes
+with `|+|`, with no further modifications.  
+This can work in simple cases, but it has two drawbacks:
+- A decoder might have to do a lot of work decoding a bunch of fields,
+  before realising it needs to fallback to the next one.
+- It's not possible to distinguish between two cases with the same
+  representation.
+
+Here is a quick example of the second issue:
+
+```scala mdoc:silent
+sealed trait A
+case class B(v: String) extends A
+case class C(v: String) extends A
+
+val ambiguous: Schema[A] = Schema.oneOf { alt =>
+  val b: Schema[B] = Schema.record { field =>
+   field("v", Schema.str, _.v).map(B.apply)
+  }
+  val c: Schema[C] = Schema.record { field =>
+   field("v", Schema.str, _.v).map(C.apply)
+  }
+  
+  alt(b) |+| alt(c)
+}
+```
+
+`a` needs to distinguish between `b` and `c` when decoding, but their encoded form is the same:
+
+```scala mdoc:to-string
+ambiguous.write(B("hello"))
+ambiguous.write(C("hello"))
+```
+
+Therefore we need a way to _tag_ each schema before using `|+|` to
+clearly distinguish between them. As a bonus, the decoder has to do
+(potentially a lot) less work because it can fallback to the next case
+after analysing only the tag, instead of the whole record.
+
+There are various strategies for tagging, the one we recommend is to
+create a record with one key corresponding to the name of the
+coproduct case, like so:
+
+```scala mdoc:silent
+val tagged: Schema[A] = Schema.oneOf { alt =>
+  // same as before
+  val b: Schema[B] = Schema.record { field =>
+   field("v", Schema.str, _.v).map(B.apply)
+  }
+  val c: Schema[C] = Schema.record { field =>
+   field("v", Schema.str, _.v).map(C.apply)
+  }
+  // but we tag them
+  val taggedB = Schema.record[B] { field =>
+    field("b", b, x => x)
+  }
+  val taggedC = Schema.record[C] { field =>
+    field("c", c, x => x)
+  }
+  // using the tags
+  alt(taggedB) |+| alt(taggedC)
+}
+```
+
+Which results in correct behaviour:
+
+```scala mdoc:to-string
+val out = tagged.write(B("hello"))
+tagged.read(out)
+```
+
+This is common enough to be worth a `tag` combinator, which is what
+you saw in the initial example.
+
+```scala mdoc:silent
+import Schema._
+
+val betterTagged: Schema[A] = oneOf { alt =>
+  val b = record[B] { field =>
+   field("v", str, _.v).map(B.apply)
+  }
+  val c = record[C] { field =>
+   field("v", str, _.v).map(C.apply)
+  }
+  
+  alt(tag("b")(b)) |+| alt(tag("c")(c))
+}
+```
+
+
+### Flexible tagging
+
+The tagging schema above is the recommended one, but by no means the
+only way to do it, here is another common way by having a record with
+a field named "type" to discriminate, and a field "payload" for the
+actual content.
+
+TODO once I have constants
+
+### Encoding objects
+
+You can encode object as empty records or Strings
 
 ### Optional
+
+When reading if will retun None on `Nil` or missing key, when writing you decide
+
+### Defaults on error
+
+withDefault
 
 ### Sequences
