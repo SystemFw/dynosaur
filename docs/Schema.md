@@ -1,3 +1,8 @@
+---
+id: schema
+title: Encoding and decoding
+sidebar_label: Encoding and decoding
+---
 
 # Encoding and decoding
 

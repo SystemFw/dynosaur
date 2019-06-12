@@ -24,7 +24,7 @@ lazy val core = project
 lazy val docs = project
   .in(file("dynosaur-docs"))
   .dependsOn(core)
-  .enablePlugins(MdocPlugin)
+  .enablePlugins(MdocPlugin, DocusaurusPlugin)
 
 lazy val IntegrationTest = config("it") extend Test
 
