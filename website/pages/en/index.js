@@ -76,7 +76,11 @@ class Index extends React.Component {
 // Published for Scala ${scalaPublishVersions}. For changes, refer to the [release notes](https://github.com/ovotech/fs2-kafka/releases).
       // `.trim()
 
-    const index = `intro`
+    const index = `
+Dynosaur is a purely functional, native, non-blocking client for DynamoDb, based on cats-effect and fs2
+
+NOTE: Dynosaur right now is still in internal development, it will follow a proper OSS governance model once bootstrapped.
+`.trim()
 
     return (
       <div>

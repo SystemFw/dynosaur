@@ -7,7 +7,7 @@ const repoUrl = "https://github.com/ovotech/dynosaur";
 // See https://docusaurus.io/docs/site-config for available options.
 const siteConfig = {
   title: 'Dynosaur',
-  tagline: 'Purely functional, native DynamoDb client based on FS2',
+  tagline: 'Purely functional, native DynamoDb client for FS2',
   url: 'https://ovotech.github.io/dynosaur',
   baseUrl: '/dynosaur/',
 
@@ -17,7 +17,7 @@ const siteConfig = {
   organizationName: 'ovotech',
 
   headerLinks: [
-    { doc: 'schema', label: 'Documentation' },
+    { doc: 'overview', label: 'Documentation' },
     { href: repoUrl, label: "GitHub" }
   ],
 
