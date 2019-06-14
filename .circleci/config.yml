@@ -42,7 +42,7 @@ executors:
       JAVA_OPTS: "-Xmx1g -XX:MaxMetaspaceSize=1g -XX:MetaspaceSize=1g -XX:+CMSClassUnloadingEnabled"
       DEFAULT_AWS_REGION: "eu-west-1"
       AWS_REGION: "eu-west-1"
-     
+
 
 jobs:
   build:
@@ -116,7 +116,7 @@ jobs:
 
     - store_test_results:
         path: modules/s3/target/test-reports
-        
+
     - store_artifacts:
         path: target/unit-test.log
         destination: logs/unit-test.log
@@ -201,6 +201,9 @@ workflows:
   build_test_release:
     jobs:
     - build
+      filters:
+        branches:
+          ignore: gh-pages
 
     - unit_test:
         requires:
@@ -222,5 +225,3 @@ workflows:
     - release:
         requires:
         - tag
-
-
