@@ -1,5 +1,4 @@
-package com.ovoenergy.comms.aws
-package common
+package dynosaur
 
 import org.scalatest.{Matchers, WordSpec}
 

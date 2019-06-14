@@ -20,7 +20,9 @@ package codec
 import cats.free.FreeApplicative
 import cats.data.Chain
 
-sealed trait Schema[A]
+sealed trait Schema[A] {
+  override def toString = "Schema(..)"
+}
 object Schema {
   object structure {
     type Ap[F[_], A] = FreeApplicative[F, A]
@@ -35,8 +37,7 @@ object Schema {
     trait Alt[A] {
       type B
       def caseSchema: Schema[B]
-      def review: B => A
-      def preview: A => Option[B]
+      def prism: Prism[A, B]
     }
 
   }
@@ -49,6 +50,12 @@ object Schema {
   def fields[R](p: Ap[Field[R, ?], R]): Schema[R] = Rec(p)
   def record[R](b: FieldBuilder[R] => Ap[Field[R, ?], R]): Schema[R] =
     fields(b(field))
+  def emptyRecord: Schema[Unit] = record(_.pure(()))
+
+  def tag[A](name: String)(schema: Schema[A]): Schema[A] =
+    record { field =>
+      field(name, schema, x => x)
+    }
 
   def alternatives[A](cases: Chain[Alt[A]]): Schema[A] =
     Sum(cases)
@@ -66,36 +73,18 @@ object Schema {
     ): Ap[Field[R, ?], E] =
       Ap.lift(Field(name, elemSchema, get))
 
-    def id(name: String, elemSchema: Schema[R]): Ap[Field[R, ?], R] =
-      apply(name, elemSchema, identity)
-
-    def const[E](
-        name: String,
-        elemSchema: Schema[E],
-        e: E
-    ): Ap[Field[R, ?], E] =
-      Ap.lift(Field(name, elemSchema, _ => e))
+    def pure[A](a: A): Ap[Field[R, ?], A] = Ap.pure(a)
   }
 
   class AltBuilder[A] {
-    def apply[B](id: String, caseSchema: Schema[B])(
-        review: B => A
-    )(preview: PartialFunction[A, B]): Chain[Alt[A]] = {
-
-      val schema = record[B](_(id, caseSchema, identity))
-
-      from(schema)(review)(preview)
-    }
-
-    def from[B_](
+    def apply[B_](
         caseSchema_ : Schema[B_]
-    )(review_ : B_ => A)(preview_ : PartialFunction[A, B_]): Chain[Alt[A]] =
+    )(implicit prism_ : Prism[A, B_]): Chain[Alt[A]] =
       Chain.one {
         new Alt[A] {
           type B = B_
           def caseSchema = caseSchema_
-          def review = review_
-          def preview = preview_.lift
+          def prism = prism_
         }
       }
   }

@@ -1,13 +1,14 @@
-lazy val root = (project in file("."))
-  .aggregate(core, macros)
+lazy val root = project
+  .in(file("."))
+  .aggregate(core)
   .settings(
     inThisBuild(
       commonSettings ++ compilerOptions ++ releaseOptions ++ consoleSettings
     )
   )
 
-lazy val core = (project in file("modules/core"))
-  .dependsOn(macros)
+lazy val core = project
+  .in(file("modules/core"))
   .settings(
     name := "dynosaur-core",
     scalafmtOnCompile := true,
@@ -20,11 +21,10 @@ lazy val core = (project in file("modules/core"))
     automateHeaderSettings(IntegrationTest)
   )
 
-lazy val macros = (project in file("modules/macros"))
-  .settings(
-    name := "dynosaur-macros",
-    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
-  )
+lazy val docs = project
+  .in(file("dynosaur-docs"))
+  .dependsOn(core)
+  .enablePlugins(MdocPlugin, DocusaurusPlugin)
 
 lazy val IntegrationTest = config("it") extend Test
 

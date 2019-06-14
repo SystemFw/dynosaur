@@ -17,16 +17,27 @@
 package dynosaur
 package codec
 
-import macros.PrismDerive
+import scala.reflect.macros.blackbox
 
 case class Prism[A, B](tryGet: A => Option[B], inject: B => A)
 object Prism {
   def fromPartial[A, B](tryGet: PartialFunction[A, B])(inject: B => A) =
     Prism(tryGet.lift, inject)
 
-  def derive[T, S <: T]: Prism[T, S] = {
-    // it's actually a macro with a TypeTag, so this is a false positive
-    val p = PrismDerive[T, S @unchecked]
-    Prism(p._1, p._2)
+  implicit def derive[T, S <: T]: Prism[T, S] = macro DerivedPrism.impl[T, S]
+}
+
+private class DerivedPrism(val c: blackbox.Context) {
+  def impl[T: c.WeakTypeTag, S: c.WeakTypeTag]: c.Expr[Prism[T, S]] = {
+    import c.universe._
+
+    val (tTpe, sTpe) = (weakTypeOf[T], weakTypeOf[S])
+    c.Expr[Prism[T, S]](q"""
+       import dynosaur.codec.Prism
+
+       val tryGet: $tTpe => Option[$sTpe] = t => if (t.isInstanceOf[$sTpe]) Some(t.asInstanceOf[$sTpe]) else None
+       val inject: $sTpe => $tTpe = _.asInstanceOf[$tTpe]
+       Prism(tryGet, inject)
+    """)
   }
 }

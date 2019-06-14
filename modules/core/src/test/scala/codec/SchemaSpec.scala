@@ -18,209 +18,333 @@ package dynosaur
 package codec
 
 import cats.implicits._
-import com.ovoenergy.comms.aws.common._
-import dynosaur.codec.Schema.{num, record, str}
-import dynosaur.model.{AttributeName, AttributeValue}
+
+import model.{AttributeName, AttributeValue}
+import Schema.{
+  num,
+  record,
+  str,
+  tag,
+  emptyRecord
+} // TODO try `Schema => S` rename?
 
 class SchemaSpec extends UnitSpec {
+  case class User(id: Int, name: String)
+  case class Role(capability: String, user: User)
+
+  sealed trait Status
+  case class Error(message: String) extends Status
+  case class Auth(role: Role, token: Int) extends Status
+
+  sealed trait State
+  case object Open extends State
+  case object Closed extends State
+  case class Door(state: State)
+
+  //TODO test this for different ADT encoding
+  sealed trait Same
+  case class One(v: String) extends Same
+  case class Two(v: String) extends Same
+
+  def test[A](schema: Schema[A], data: A, expected: AttributeValue) = {
+    def output = Encoder.fromSchema(schema).write(data).toOption.get
+    def roundTrip = Decoder.fromSchema(schema).read(output).toOption.get
+
+    assert(output == expected)
+    assert(roundTrip == data)
+  }
 
   "schema" should {
     "encode/decode a product" in {
-      val expectedEncodedUser = AttributeValue.m(
+      val user = User(203, "tim")
+      val schema = record[User] { field =>
+        (
+          field("id", num, _.id),
+          field("name", str, _.name)
+        ).mapN(User.apply)
+      }
+      val expected = AttributeValue.m(
         AttributeName("id") -> AttributeValue.n(user.id),
         AttributeName("name") -> AttributeValue.s(user.name)
       )
 
-      val encodedUser = userSchema.write(user)
-      val decodedUser = userSchema.read(encodedUser)
-
-      assert(encodedUser === expectedEncodedUser)
-      assert(decodedUser === user)
+      test(schema, user, expected)
     }
 
-    "encode/decode a product using an \"type\" field" in {
-      val taggedUserSchema: Schema[User] = Schema.record[User] { field =>
-        field.const("type", str, "user") *>
-          field.id("body", userSchema)
+    "encode/decode a product using arbitrary field names" in {
+      val user = User(203, "tim")
+      val schema = record[User] { field =>
+        (
+          field("number", num, _.id),
+          field("label", str, _.name)
+        ).mapN(User.apply)
       }
+      val expected = AttributeValue.m(
+        AttributeName("number") -> AttributeValue.n(user.id),
+        AttributeName("label") -> AttributeValue.s(user.name)
+      )
 
-      val expectedEncodedUser = AttributeValue.m(
-        AttributeName("type") -> AttributeValue.s("user"),
+      test(schema, user, expected)
+    }
+
+    "encode/decode a product including additional info" in {
+      val user = User(203, "tim")
+      val versionedSchema = record[User] { field =>
+        field("version", str, _ => "1.0") *> (
+          field("id", num, _.id),
+          field("name", str, _.name)
+        ).mapN(User.apply)
+      }
+      val expected = AttributeValue.m(
+        AttributeName("version") -> AttributeValue.s("1.0"),
+        AttributeName("id") -> AttributeValue.n(user.id),
+        AttributeName("name") -> AttributeValue.s(user.name)
+      )
+
+      test(versionedSchema, user, expected)
+    }
+
+    "encode/decode a product including additional info, nested" in {
+      val user = User(203, "tim")
+      val schema = record[User] { field =>
+        (
+          field("id", num, _.id),
+          field("name", str, _.name)
+        ).mapN(User.apply)
+      }
+      val versionedSchema: Schema[User] = record[User] { field =>
+        field("version", str, _ => "1.0") *>
+          field("body", schema, x => x)
+      }
+      val expected = AttributeValue.m(
+        AttributeName("version") -> AttributeValue.s("1.0"),
         AttributeName("body") -> AttributeValue.m(
           AttributeName("id") -> AttributeValue.n(user.id),
           AttributeName("name") -> AttributeValue.s(user.name)
         )
       )
 
-      val encodedUser = taggedUserSchema.write(user)
-      val decodedUser = taggedUserSchema.read(encodedUser)
-
-      assert(encodedUser === expectedEncodedUser)
-      assert(decodedUser === user)
+      test(versionedSchema, user, expected)
     }
 
-    "encode/decode a sum" in {
-      val fooSchema: Schema[Foo] = {
-        val barSchema: Schema[Bar.type] = Schema.record[Bar.type] { _ =>
-          Schema.structure.Ap.pure(Bar)
+    "encode/decode (nested) ADTs using a discriminator" in {
+      val user = User(203, "tim")
+      val role = Role("admin", user)
+      val error = Error("MyError")
+      val auth = Auth(role, 1)
+
+      val userSchema: Schema[User] = record[User] { field =>
+        (
+          field("id", num, _.id),
+          field("name", str, _.name)
+        ).mapN(User.apply)
+      }
+      val roleSchema: Schema[Role] = record[Role] { field =>
+        (
+          field("capability", str, _.capability),
+          field("user", userSchema, _.user)
+        ).mapN(Role.apply)
+      }
+      val statusSchema: Schema[Status] = Schema.oneOf[Status] { alt =>
+        val errorSchema = record[Error] { field =>
+          field("message", str, _.message).map(Error.apply)
         }
 
-        val bazSchema: Schema[Baz.type] = Schema.record[Baz.type] { _ =>
-          Schema.structure.Ap.pure(Baz)
+        val authSchema = record[Auth] { field =>
+          (
+            field("role", roleSchema, _.role),
+            field("token", num, _.token)
+          ).mapN(Auth.apply)
         }
 
-        Schema.oneOf[Foo] { alt =>
-          alt("bar", barSchema)(_ => Bar) { case Bar => Bar } |+|
-            alt("baz", bazSchema)(_ => Baz) { case Baz => Baz }
-        }
+        alt { tag("error")(errorSchema) } |+| alt { tag("auth")(authSchema) }
       }
 
-      val expectedEncodedBar = AttributeValue.m(
-        Map(
-          AttributeName("bar") -> AttributeValue.m()
+      val expectedError = AttributeValue.m(
+        AttributeName("error") -> AttributeValue.m(
+          AttributeName("message") -> AttributeValue.s(error.message)
         )
       )
-
-      val expectedEncodedBaz = AttributeValue.m(
-        Map(
-          AttributeName("baz") -> AttributeValue.m()
-        )
-      )
-
-      val encodedBar = fooSchema.write(Bar)
-      val encodedBaz = fooSchema.write(Baz)
-
-      assert(encodedBar === expectedEncodedBar)
-      assert(encodedBaz === expectedEncodedBaz)
-
-      val decodedBar = fooSchema.read(encodedBar)
-      val decodedBaz = fooSchema.read(encodedBaz)
-
-      assert(decodedBar === Bar)
-      assert(decodedBaz === Baz)
-    }
-
-    "encode/decode ADTs using a discriminator" in {
-      val errorStatus = Error("MyError")
-      val authStatus = Auth(role)
-
-      val expectedEncodedErrorStatus = AttributeValue.m(
-        AttributeName("error") -> AttributeValue.s(errorStatus.message)
-      )
-
-      val expectedEncodedAuthStatus = AttributeValue.m(
+      val expectedAuth = AttributeValue.m(
         AttributeName("auth") -> AttributeValue.m(
-          AttributeName("capability") -> AttributeValue.s(role.capability),
-          AttributeName("user") -> AttributeValue.m(
-            AttributeName("id") -> AttributeValue.n(role.user.id),
-            AttributeName("name") -> AttributeValue.s(role.user.name)
-          )
+          AttributeName("role") -> AttributeValue.m(
+            AttributeName("capability") -> AttributeValue.s(role.capability),
+            AttributeName("user") -> AttributeValue.m(
+              AttributeName("id") -> AttributeValue.n(role.user.id),
+              AttributeName("name") -> AttributeValue.s(role.user.name)
+            )
+          ),
+          AttributeName("token") -> AttributeValue.n(auth.token)
         )
       )
 
-      val encodedErrorStatus = statusSchema.write(errorStatus)
-      val encodedAuthStatus = statusSchema.write(authStatus)
-
-      assert(encodedErrorStatus === expectedEncodedErrorStatus)
-      assert(encodedAuthStatus === expectedEncodedAuthStatus)
-
-      val decodedErrorStatus = statusSchema.read(encodedErrorStatus)
-      val decodedAuthStatus = statusSchema.read(encodedAuthStatus)
-
-      assert(decodedErrorStatus === errorStatus)
-      assert(decodedAuthStatus === authStatus)
+      test(statusSchema, error, expectedError)
+      test(statusSchema, auth, expectedAuth)
     }
 
-    "encode/decode ADTs using an embedded \"type\" field" in {
-      val taggedStatusSchema: Schema[Status] = {
-        val errorSchema: Schema[String] = Schema.record[String] { field =>
-          field.const("type", str, "error") *>
-            field.id("body", str)
+    """encode/decode (nested) ADTs using an embedded "type" field""" in {
+      val user = User(203, "tim")
+      val role = Role("admin", user)
+      val error = Error("MyError")
+      val auth = Auth(role, 1)
+
+      val userSchema: Schema[User] = record[User] { field =>
+        (
+          field("id", num, _.id),
+          field("name", str, _.name)
+        ).mapN(User.apply)
+      }
+      val roleSchema: Schema[Role] = record[Role] { field =>
+        (
+          field("capability", str, _.capability),
+          field("user", userSchema, _.user)
+        ).mapN(Role.apply)
+      }
+      val statusSchema: Schema[Status] = {
+        val errorSchema = Schema.record[Error] { field =>
+          field("type", str, _ => "error") *>
+            field("message", str, _.message).map(Error.apply)
         }
 
-        val authSchema: Schema[Role] = Schema.record[Role] { field =>
-          field.const("type", str, "auth") *>
-            field.id("body", roleSchema)
+        val authSchema = Schema.record[Auth] { field =>
+          field("type", str, _ => "auth") *>
+            (
+              field("role", roleSchema, _.role),
+              field("token", num, _.token)
+            ).mapN(Auth.apply)
         }
 
         Schema.oneOf[Status] { alt =>
-          alt.from(errorSchema)(Error(_)) { case Error(v) => v } |+|
-            alt.from(authSchema)(Auth(_)) { case Auth(v) => v }
+          alt(errorSchema) |+| alt(authSchema)
         }
       }
 
-      val errorStatus = Error("MyError")
-      val authStatus = Auth(role)
-
-      val expectedEncodedErrorStatus = AttributeValue.m(
+      val expectedError = AttributeValue.m(
         AttributeName("type") -> AttributeValue.s("error"),
-        AttributeName("body") -> AttributeValue.s(errorStatus.message)
+        AttributeName("message") -> AttributeValue.s(error.message)
       )
-
-      val expectedEncodedAuthStatus = AttributeValue.m(
+      val expectedAuth = AttributeValue.m(
         AttributeName("type") -> AttributeValue.s("auth"),
-        AttributeName("body") -> AttributeValue.m(
+        AttributeName("role") -> AttributeValue.m(
           AttributeName("capability") -> AttributeValue.s(role.capability),
           AttributeName("user") -> AttributeValue.m(
             AttributeName("id") -> AttributeValue.n(role.user.id),
             AttributeName("name") -> AttributeValue.s(role.user.name)
           )
+        ),
+        AttributeName("token") -> AttributeValue.n(auth.token)
+      )
+
+      test(statusSchema, error, expectedError)
+      test(statusSchema, auth, expectedAuth)
+    }
+
+    "encode/decode objects as empty records" in {
+      val openDoor = Door(Open)
+      val closedDoor = Door(Closed)
+
+      val stateSchema: Schema[State] = {
+        val openSchema = record[Open.type] { field =>
+          field("open", emptyRecord, _ => ()).as(Open)
+        }
+        val closedSchema = Schema.record[Closed.type] { field =>
+          field("closed", emptyRecord, _ => ()).as(Closed)
+        }
+        Schema.oneOf[State] { alt =>
+          alt(openSchema) |+| alt(closedSchema)
+        }
+      }
+      val doorSchema = record[Door] { field =>
+        field("state", stateSchema, _.state).map(Door.apply)
+      }
+
+      val expectedOpen = AttributeValue.m(
+        AttributeName("state") -> AttributeValue.m(
+          AttributeName("open") -> AttributeValue.m()
+        )
+      )
+      val expectedClosed = AttributeValue.m(
+        AttributeName("state") -> AttributeValue.m(
+          AttributeName("closed") -> AttributeValue.m()
         )
       )
 
-      val encodedErrorStatus = taggedStatusSchema.write(errorStatus)
-      val encodedAuthStatus = taggedStatusSchema.write(authStatus)
+      test(doorSchema, openDoor, expectedOpen)
+      test(doorSchema, closedDoor, expectedClosed)
+    }
 
-      assert(encodedErrorStatus === expectedEncodedErrorStatus)
-      assert(encodedAuthStatus === expectedEncodedAuthStatus)
+    "encode/decode objects as strings" in {
+      pendingUntilFixed {
+        info("Needs some notion of partial iso")
+        val openDoor = Door(Open)
+        val closedDoor = Door(Closed)
 
-      val decodedErrorStatus = taggedStatusSchema.read(encodedErrorStatus)
-      val decodedAuthStatus = taggedStatusSchema.read(encodedAuthStatus)
+        val stateSchema: Schema[State] = {
+          val openSchema = record[Open.type] { field =>
+            field("open", emptyRecord, _ => ()).as(Open)
+          }
+          val closedSchema = Schema.record[Closed.type] { field =>
+            field("closed", emptyRecord, _ => ()).as(Closed)
+          }
+          Schema.oneOf[State] { alt =>
+            alt(openSchema) |+| alt(closedSchema)
+          }
+        }
+        val doorSchema = record[Door] { field =>
+          field("state", stateSchema, _.state).map(Door.apply)
+        }
 
-      assert(decodedErrorStatus === errorStatus)
-      assert(decodedAuthStatus === authStatus)
+        val expectedOpen = AttributeValue.m(
+          AttributeName("state") -> AttributeValue.s("open")
+        )
+        val expectedClosed = AttributeValue.m(
+          AttributeName("state") -> AttributeValue.s("closed")
+        )
+
+        test(doorSchema, openDoor, expectedOpen)
+        test(doorSchema, closedDoor, expectedClosed)
+        ()
+      }
     }
   }
 
-  case class User(id: Int, name: String)
-  case class Role(capability: String, user: User)
+  val compileTimeInferenceSpec = {
+    val userSchema: Schema[User] = record { field =>
+      (
+        field("id", num, _.id),
+        field("name", str, _.name)
+      ).mapN(User.apply)
+    }
 
-  sealed trait Status
-  case class Error(message: String) extends Status
-  case class Auth(role: Role) extends Status
+    val userSchema2 = record[User] { field =>
+      (
+        field("id", num, _.id),
+        field("name", str, _.name)
+      ).mapN(User.apply)
+    }
 
-  sealed trait Foo
-  case object Bar extends Foo
-  case object Baz extends Foo
+    // random impl but it does not matter
+    def closedSchema: Schema[Closed.type] =
+      record(_("foo", str, _.toString).as(Closed))
+    def openSchema: Schema[Open.type] =
+      record(_("foo", str, _.toString).as(Open))
 
-  private val userSchema: Schema[User] = record[User] { field =>
-    (
-      field("id", num, _.id),
-      field("name", str, _.name)
-    ).mapN(User.apply)
+    val stateSchema: Schema[State] = Schema.oneOf { alt =>
+      alt(closedSchema) |+| alt(openSchema)
+    }
+
+    val stateSchema2 = Schema.oneOf[State] { alt =>
+      alt(closedSchema) |+| alt(openSchema)
+    }
+
+    val stateSchema3 = Schema.oneOf[State] { alt =>
+      implicit val p1 = Prism.derive[State, Open.type]
+      val p2 = Prism.derive[State, Closed.type]
+
+      alt(openSchema) |+| alt(closedSchema)(p2)
+    }
+
+    val (_, _, _, _, _) =
+      (userSchema, userSchema2, stateSchema, stateSchema2, stateSchema3)
   }
-
-  private val roleSchema: Schema[Role] = record[Role] { field =>
-    (
-      field("capability", str, _.capability),
-      field("user", userSchema, _.user)
-    ).mapN(Role.apply)
-  }
-
-  private val statusSchema: Schema[Status] = Schema.oneOf[Status] { alt =>
-    alt("error", str)(Error(_)) { case Error(v) => v } |+|
-      alt("auth", roleSchema)(Auth(_)) { case Auth(v) => v }
-  }
-
-  private val user = User(20, "joe")
-  private val role = Role("admin", user)
-
-  implicit class CodecSyntax[A](schema: Schema[A]) {
-    def read(v: AttributeValue): A =
-      Decoder.fromSchema(schema).read(v).toOption.get
-
-    def write(v: A): AttributeValue =
-      Encoder.fromSchema(schema).write(v).toOption.get
-  }
-
 }

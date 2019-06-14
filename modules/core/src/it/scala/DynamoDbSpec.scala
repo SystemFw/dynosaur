@@ -1,17 +1,16 @@
 package dynosaur
 
-import java.time._
-
-import scala.concurrent.duration._
-
-import cats.implicits._
 import cats.effect.{IO, ContextShift}
 
+import java.time.Instant
+import scala.concurrent.duration._
 
-import com.ovoenergy.comms.aws.common.{IntegrationSpec, CredentialsProvider}
+import com.ovoenergy.comms.aws.common.CredentialsProvider
 import com.ovoenergy.comms.aws.common.model._
 
-import model._
+import model.{AttributeName, AttributeValue}
+import lo.DynamoDb
+import lo.model._
 
 class DynamoDbSpec extends IntegrationSpec {
 

@@ -15,8 +15,7 @@
  */
 
 package dynosaur
-
-import com.ovoenergy.comms.aws.common._
+package lo
 
 import model._
 

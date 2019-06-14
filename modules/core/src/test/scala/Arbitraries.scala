@@ -16,12 +16,14 @@
 
 package dynosaur
 
+import scodec.bits._
+
+import dynosaur.model.{AttributeName, AttributeValue}
+import lo.model._
+
 import org.scalacheck._
 import org.scalacheck.Gen._
 import org.scalacheck.Arbitrary._
-
-import scodec.bits._
-import model._
 
 trait Generators {
 
