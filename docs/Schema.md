@@ -1,10 +1,8 @@
 ---
 id: schema
 title: Encoding and decoding
-sidebar_label: Encoding and decoding
 ---
 
-# Encoding and decoding
 
 `Dynosaur` design for codecs (pioneered by the
 [xenomorph](https://github.com/nuttycom/xenomorph) library) is based

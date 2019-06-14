@@ -3,7 +3,7 @@
   "localized-strings": {
     "next": "Next",
     "previous": "Previous",
-    "tagline": "A website for testing",
+    "tagline": "Purely functional, native DynamoDb client based on FS2",
     "docs": {
       "doc1": {
         "title": "Latin-ish",
@@ -21,22 +21,19 @@
       "doc5": {
         "title": "Fifth Document"
       },
+      "overview": {
+        "title": "overview"
+      },
       "schema": {
-        "title": "Encoding and decoding",
-        "sidebar_label": "Encoding and decoding"
+        "title": "Encoding and decoding"
       }
     },
     "links": {
-      "Docs": "Docs",
-      "API": "API",
-      "Encoding and decoding": "Encoding and decoding",
-      "Help": "Help",
-      "Blog": "Blog"
+      "Documentation": "Documentation",
+      "GitHub": "GitHub"
     },
     "categories": {
-      "Docusaurus": "Docusaurus",
-      "First Category": "First Category",
-      "Second Category": "Second Category"
+      "Documentation": "Documentation"
     }
   },
   "pages-strings": {
