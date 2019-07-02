@@ -35,10 +35,9 @@ class SchemaSpec extends UnitSpec {
   case object Closed extends State
   case class Door(state: State)
 
-  //TODO test this for different ADT encoding
   sealed trait Same
-  case class One(v: String) extends Same
-  case class Two(v: String) extends Same
+  case class One(user: User) extends Same
+  case class Two(user: User) extends Same
 
   def test[A](schema: Schema[A], data: A, expected: AttributeValue) = {
     def output = Encoder.fromSchema(schema).write(data).toOption.get
@@ -121,7 +120,7 @@ class SchemaSpec extends UnitSpec {
       test(versionedSchema, user, expected)
     }
 
-    "encode/decode (nested) ADTs using a discriminator" in {
+    "encode/decode nested ADTs using a discriminator (common scenario)" in {
       val user = User(203, "tim")
       val role = Role("admin", user)
       val error = Error("MyError")
@@ -176,61 +175,59 @@ class SchemaSpec extends UnitSpec {
       test(statusSchema, auth, expectedAuth)
     }
 
-    """encode/decode (nested) ADTs using an embedded "type" field""" in {
-      val user = User(203, "tim")
-      val role = Role("admin", user)
-      val error = Error("MyError")
-      val auth = Auth(role, 1)
+    """encode/decode ADTs using an embedded "type" field""" in {
+      pendingUntilFixed {
+        info("Needs some notion of const schema")
 
-      val userSchema: Schema[User] = record[User] { field =>
-        (
-          field("id", num, _.id),
-          field("name", str, _.name)
-        ).mapN(User.apply)
-      }
-      val roleSchema: Schema[Role] = record[Role] { field =>
-        (
-          field("capability", str, _.capability),
-          field("user", userSchema, _.user)
-        ).mapN(Role.apply)
-      }
-      val statusSchema: Schema[Status] = {
-        val errorSchema = Schema.record[Error] { field =>
-          field("type", str, _ => "error") *>
-            field("message", str, _.message).map(Error.apply)
+        val user = User(203, "tim")
+        val one = One(user)
+        val two = Two(user)
+
+        val userSchema: Schema[User] = record { field =>
+          (
+            field("id", num, _.id),
+            field("name", str, _.name)
+          ).mapN(User.apply)
         }
 
-        val authSchema = Schema.record[Auth] { field =>
-          field("type", str, _ => "auth") *>
-            (
-              field("role", roleSchema, _.role),
-              field("token", num, _.token)
-            ).mapN(Auth.apply)
+        val sameSchema: Schema[Same] = Schema.oneOf { alt =>
+          val oneSchema = record[One] { field =>
+            field("type", str, _ => "one") *>
+              field("payload", userSchema tag "user", _.user).map(One.apply)
+          }
+
+          val twoSchema = record[Two] { field =>
+            field("type", str, _ => "two") *>
+              field("payload", userSchema tag "user", _.user).map(Two.apply)
+          }
+
+          alt(oneSchema) |+| alt(twoSchema)
         }
 
-        Schema.oneOf[Status] { alt =>
-          alt(errorSchema) |+| alt(authSchema)
-        }
-      }
-
-      val expectedError = AttributeValue.m(
-        AttributeName("type") -> AttributeValue.s("error"),
-        AttributeName("message") -> AttributeValue.s(error.message)
-      )
-      val expectedAuth = AttributeValue.m(
-        AttributeName("type") -> AttributeValue.s("auth"),
-        AttributeName("role") -> AttributeValue.m(
-          AttributeName("capability") -> AttributeValue.s(role.capability),
-          AttributeName("user") -> AttributeValue.m(
-            AttributeName("id") -> AttributeValue.n(role.user.id),
-            AttributeName("name") -> AttributeValue.s(role.user.name)
+        val expectedOne = AttributeValue.m(
+          AttributeName("type") -> AttributeValue.s("one"),
+          AttributeName("payload") -> AttributeValue.m(
+            AttributeName("user") -> AttributeValue.m(
+              AttributeName("id") -> AttributeValue.n(one.user.id),
+              AttributeName("name") -> AttributeValue.s(one.user.name)
+            )
           )
-        ),
-        AttributeName("token") -> AttributeValue.n(auth.token)
-      )
+        )
 
-      test(statusSchema, error, expectedError)
-      test(statusSchema, auth, expectedAuth)
+        val expectedTwo = AttributeValue.m(
+          AttributeName("type") -> AttributeValue.s("two"),
+          AttributeName("payload") -> AttributeValue.m(
+            AttributeName("user") -> AttributeValue.m(
+              AttributeName("id") -> AttributeValue.n(one.user.id),
+              AttributeName("name") -> AttributeValue.s(one.user.name)
+            )
+          )
+        )
+
+        test(sameSchema, one, expectedOne)
+        test(sameSchema, two, expectedTwo)
+        ()
+      }
     }
 
     "encode/decode objects as empty records" in {
@@ -269,7 +266,7 @@ class SchemaSpec extends UnitSpec {
 
     "encode/decode objects as strings" in {
       pendingUntilFixed {
-        info("Needs some notion of partial iso")
+        info("Needs some notion of const schema")
         val openDoor = Door(Open)
         val closedDoor = Door(Closed)
 
