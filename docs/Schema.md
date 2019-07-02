@@ -162,12 +162,13 @@ Let's unpack what's going on there.
 
 1. The first component is `field`:
    ```scala mdoc:compile-only
-   import Schema.structure.{Ap, Field}
+   import cats.free.Free
+   import Schema.structure.Field
 
-   val fieldExample: Ap[Field[Foo, ?], String] =
+   val fieldExample: Free[Field[Foo, ?], String] =
      Schema.field("a", Schema.str, _.a) 
    ```
-   Which represents an _applicative computation_ that accesses
+   Which represents an computation that accesses
    fields of `Foo`, and returns `String.`
 
    Points to note:
@@ -196,9 +197,10 @@ Let's unpack what's going on there.
    ```
    We can define a field for `b` in a similar fashion.
    ```scala mdoc:compile-only
-   import Schema.structure.{Ap, Field}
+   import cats.free.Free
+   import Schema.structure.Field
 
-   val b: Ap[Field[Foo, ?], Int] = 
+   val b: Free[Field[Foo, ?], Int] = 
      Schema.field("b", Schema.num, _.b)
    ```
 
@@ -214,12 +216,14 @@ Let's unpack what's going on there.
    Decoded[Foo]
    ```
    This is exactly the shape that `cats.Applicative` encodes, and our
-   `field` returns applicative computations, which means we can do:
+   `field` returns `Free` computations, which are instances of
+   `Applicative` and allow us to do:
 
    ```scala mdoc:compile-only
-   import Schema.structure.{Ap, Field}
+   import cats.free.Free
+   import Schema.structure.Field
 
-   val foo: Ap[Field[Foo, ?], Foo] = 
+   val foo: Free[Field[Foo, ?], Foo] = 
     (
      Schema.field[Foo]("a", Schema.str, _.a),
      Schema.field[Foo]("b", Schema.num, _.b),
@@ -336,13 +340,14 @@ Schema.record[Error] { field =>
 We'd like to keep the nesting in our code, but not in Dynamo.  
 Here's one way to do it by changing the schema for `msg` to a `String`
 and changing the accessor and constructor functions accordingly.
+We will use `for` for convenience.
 
 ```scala mdoc:to-string
 Schema.record[Error] { field =>
-  (
-    field("code", Schema.num, _.code),
-    field("msg", Schema.str, _.msg.value)
-  ).mapN((code, msg) => Error(code, Msg(msg)))
+  for {
+    code <- field("code", Schema.num, _.code)
+    msg <- field("msg", Schema.str, _.msg.value)
+  } yield Error(code, Msg(msg))
 }.write(errMsg)
 ```
 
@@ -379,6 +384,21 @@ are useful, they are treated further down in this document.
 
 ### Constants
 
+### Case classes with more than 22 fields
+
+Scala's tuples have a hard limit of 22 elements, so if your case class has
+more than 22 fields you won't be able to call `(f1, ..., f23).mapN`.  
+Just use `for` for this case:
+
+```scala
+record[BigClass] { field =>
+  for {
+    f1 <- field(...)
+    ...
+    f23 <- field(...)
+  } yield BigClass(f1, .., f23)
+}
+```
 
 ### Coproducts
 

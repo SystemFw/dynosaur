@@ -17,7 +17,7 @@
 package dynosaur
 package codec
 
-import cats.free.FreeApplicative
+import cats.free.Free
 import cats.data.Chain
 
 sealed trait Schema[A] {
@@ -29,12 +29,9 @@ sealed trait Schema[A] {
 }
 object Schema {
   object structure {
-    type Ap[F[_], A] = FreeApplicative[F, A]
-    val Ap = FreeApplicative
-
     case object Num extends Schema[Int]
     case object Str extends Schema[String]
-    case class Rec[R](p: Ap[Field[R, ?], R]) extends Schema[R]
+    case class Rec[R](p: Free[Field[R, ?], R]) extends Schema[R]
     case class Sum[A](alt: Chain[Alt[A]]) extends Schema[A]
 
     case class Field[R, E](name: String, elemSchema: Schema[E], get: R => E)
@@ -51,8 +48,8 @@ object Schema {
   def str: Schema[String] = Str
   def num: Schema[Int] = Num
 
-  def fields[R](p: Ap[Field[R, ?], R]): Schema[R] = Rec(p)
-  def record[R](b: FieldBuilder[R] => Ap[Field[R, ?], R]): Schema[R] =
+  def fields[R](p: Free[Field[R, ?], R]): Schema[R] = Rec(p)
+  def record[R](b: FieldBuilder[R] => Free[Field[R, ?], R]): Schema[R] =
     fields(b(field))
   def emptyRecord: Schema[Unit] = record(_.pure(()))
 
@@ -69,10 +66,10 @@ object Schema {
         name: String,
         elemSchema: Schema[E],
         get: R => E
-    ): Ap[Field[R, ?], E] =
-      Ap.lift(Field(name, elemSchema, get))
+    ): Free[Field[R, ?], E] =
+      Free.liftF(Field(name, elemSchema, get))
 
-    def pure[A](a: A): Ap[Field[R, ?], A] = Ap.pure(a)
+    def pure[A](a: A): Free[Field[R, ?], A] = Free.pure(a)
   }
 
   class AltBuilder[A] {

@@ -39,6 +39,32 @@ class SchemaSpec extends UnitSpec {
   case class One(user: User) extends Same
   case class Two(user: User) extends Same
 
+  case class Big(
+      one: String,
+      two: String,
+      three: String,
+      four: String,
+      five: String,
+      six: String,
+      seven: String,
+      eight: String,
+      nine: String,
+      ten: String,
+      eleven: String,
+      twelve: String,
+      thirteen: String,
+      fourteen: String,
+      fifteen: String,
+      sixteen: String,
+      seventeen: String,
+      eighteen: String,
+      nineteen: String,
+      twenty: String,
+      twentyOne: String,
+      twentyTwo: String,
+      twentyThree: String
+  )
+
   def test[A](schema: Schema[A], data: A, expected: AttributeValue) = {
     def output = Encoder.fromSchema(schema).write(data).toOption.get
     def roundTrip = Decoder.fromSchema(schema).read(output).toOption.get
@@ -118,6 +144,116 @@ class SchemaSpec extends UnitSpec {
       )
 
       test(versionedSchema, user, expected)
+    }
+
+    "encode/decode a product with more than 22 fields" in {
+      val big = Big(
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f",
+        "f"
+      )
+
+      val bigSchema = record[Big](
+        field =>
+          for {
+            a <- field("1", str, _.one)
+            b <- field("2", str, _.two)
+            c <- field("3", str, _.three)
+            d <- field("4", str, _.four)
+            e <- field("5", str, _.five)
+            f <- field("6", str, _.six)
+            g <- field("7", str, _.seven)
+            h <- field("8", str, _.eight)
+            i <- field("9", str, _.nine)
+            j <- field("10", str, _.ten)
+            k <- field("11", str, _.eleven)
+            l <- field("12", str, _.twelve)
+            m <- field("13", str, _.thirteen)
+            n <- field("14", str, _.fourteen)
+            o <- field("15", str, _.fifteen)
+            p <- field("16", str, _.sixteen)
+            q <- field("17", str, _.seventeen)
+            r <- field("18", str, _.eighteen)
+            s <- field("19", str, _.nineteen)
+            t <- field("20", str, _.twenty)
+            u <- field("21", str, _.twentyOne)
+            v <- field("22", str, _.twentyTwo)
+            w <- field("23", str, _.twentyThree)
+          } yield
+            Big(
+              a,
+              b,
+              c,
+              d,
+              e,
+              f,
+              g,
+              h,
+              i,
+              j,
+              k,
+              l,
+              m,
+              n,
+              o,
+              p,
+              q,
+              r,
+              s,
+              t,
+              u,
+              v,
+              w
+            )
+      )
+
+      val expected = AttributeValue.m(
+        AttributeName("1") -> AttributeValue.s(big.one),
+        AttributeName("2") -> AttributeValue.s(big.two),
+        AttributeName("3") -> AttributeValue.s(big.three),
+        AttributeName("4") -> AttributeValue.s(big.four),
+        AttributeName("5") -> AttributeValue.s(big.five),
+        AttributeName("6") -> AttributeValue.s(big.six),
+        AttributeName("7") -> AttributeValue.s(big.seven),
+        AttributeName("8") -> AttributeValue.s(big.eight),
+        AttributeName("9") -> AttributeValue.s(big.nine),
+        AttributeName("10") -> AttributeValue.s(big.ten),
+        AttributeName("11") -> AttributeValue.s(big.eleven),
+        AttributeName("12") -> AttributeValue.s(big.twelve),
+        AttributeName("13") -> AttributeValue.s(big.thirteen),
+        AttributeName("14") -> AttributeValue.s(big.fourteen),
+        AttributeName("15") -> AttributeValue.s(big.fifteen),
+        AttributeName("16") -> AttributeValue.s(big.sixteen),
+        AttributeName("17") -> AttributeValue.s(big.seventeen),
+        AttributeName("18") -> AttributeValue.s(big.eighteen),
+        AttributeName("19") -> AttributeValue.s(big.nineteen),
+        AttributeName("20") -> AttributeValue.s(big.twenty),
+        AttributeName("21") -> AttributeValue.s(big.twentyOne),
+        AttributeName("22") -> AttributeValue.s(big.twentyTwo),
+        AttributeName("23") -> AttributeValue.s(big.twentyThree)
+      )
+
+      test(bigSchema, big, expected)
     }
 
     "encode/decode nested ADTs using a discriminator (common scenario)" in {

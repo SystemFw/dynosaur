@@ -18,7 +18,8 @@ package dynosaur
 package codec
 
 import cats._, implicits._
-import cats.data.Chain
+import cats.data.{Chain, WriterT}
+import cats.free.Free
 
 import model.{AttributeName, AttributeValue}
 import Schema.structure._
@@ -39,16 +40,23 @@ object Encoder {
 
     def encodeInt: Int => Res = AttributeValue.n(_).asRight
     def encodeString: String => Res = AttributeValue.s(_).asRight
-    def encodeObject[R](record: Ap[Field[R, ?], R], v: R): Res =
+    def encodeObject[R](record: Free[Field[R, ?], R], v: R): Res =
       record
-        .analyze {
-          λ[Field[R, ?] ~> λ[a => Either[WriteError, AttributeValue.M]]] {
+        .foldMap {
+          λ[Field[R, ?] ~> WriterT[Either[WriteError, ?], AttributeValue.M, ?]] {
             field =>
-              fromSchema(field.elemSchema).write(field.get(v)).map { av =>
-                AttributeValue.M(Map(AttributeName(field.name) -> av))
+              val r = field.get(v)
+              WriterT {
+                fromSchema(field.elemSchema)
+                  .write(r)
+                  .map(
+                    av => AttributeValue.M(Map(AttributeName(field.name) -> av))
+                  )
+                  .tupleRight(r)
               }
           }
         }
+        .written
         .widen[AttributeValue]
 
     def encodeSum[C](cases: Chain[Alt[C]], v: C): Res =

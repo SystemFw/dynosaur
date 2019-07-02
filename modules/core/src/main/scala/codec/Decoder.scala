@@ -19,6 +19,7 @@ package codec
 
 import cats._, implicits._
 import cats.data.Chain
+import cats.free.Free
 
 import model.{AttributeName, AttributeValue}
 import Schema.structure._
@@ -46,7 +47,7 @@ object Decoder {
       _.s.toRight(ReadError()).map(_.value)
 
     def decodeObject[R](
-        record: Ap[Field[R, ?], R],
+        record: Free[Field[R, ?], R],
         v: AttributeValue.M
     ): Res[R] =
       record.foldMap {
