@@ -20,13 +20,7 @@ package codec
 import cats.implicits._
 
 import model.{AttributeName, AttributeValue}
-import Schema.{
-  num,
-  record,
-  str,
-  tag,
-  emptyRecord
-} // TODO try `Schema => S` rename?
+import Schema.{num, record, str, emptyRecord} // TODO try `Schema => S` rename?
 
 class SchemaSpec extends UnitSpec {
   case class User(id: Int, name: String)
@@ -157,7 +151,7 @@ class SchemaSpec extends UnitSpec {
           ).mapN(Auth.apply)
         }
 
-        alt { tag("error")(errorSchema) } |+| alt { tag("auth")(authSchema) }
+        alt(errorSchema tag "error") |+| alt(authSchema tag "auth")
       }
 
       val expectedError = AttributeValue.m(

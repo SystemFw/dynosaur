@@ -22,6 +22,10 @@ import cats.data.Chain
 
 sealed trait Schema[A] {
   override def toString = "Schema(..)"
+
+  def tag(name: String): Schema[A] = Schema.record { field =>
+    field(name, this, x => x)
+  }
 }
 object Schema {
   object structure {
@@ -51,11 +55,6 @@ object Schema {
   def record[R](b: FieldBuilder[R] => Ap[Field[R, ?], R]): Schema[R] =
     fields(b(field))
   def emptyRecord: Schema[Unit] = record(_.pure(()))
-
-  def tag[A](name: String)(schema: Schema[A]): Schema[A] =
-    record { field =>
-      field(name, schema, x => x)
-    }
 
   def alternatives[A](cases: Chain[Alt[A]]): Schema[A] =
     Sum(cases)

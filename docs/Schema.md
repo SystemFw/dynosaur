@@ -79,7 +79,7 @@ val schema: Schema[Auth] = {
   }
   
   oneOf { alt =>
-    alt(tag("error")(error)) |+| alt(tag("user")(user)) 
+    alt(error tag "error") |+| alt(user tag "user") 
   }
 }
 ```
@@ -396,7 +396,7 @@ def user: Schema[User] = ???
 import Schema._
 
 val schema: Schema[Auth] = oneOf { alt =>
-  alt(tag("error")(error)) |+| alt(tag("user")(user))
+  alt(error tag "error") |+| alt(user tag "user") 
 }
 ```
 
@@ -597,7 +597,7 @@ val out = tagged.write(B("hello"))
 tagged.read(out)
 ```
 
-This is common enough to be worth a `tag` combinator, which is what
+This is common enough to be worth a `tag` method on `Schema`, which is what
 you saw in the initial example.
 
 ```scala mdoc:silent
@@ -611,7 +611,7 @@ val betterTagged: Schema[A] = oneOf { alt =>
    field("v", str, _.v).map(C.apply)
   }
   
-  alt(tag("b")(b)) |+| alt(tag("c")(c))
+  alt(b tag "b") |+| alt(c tag "c")
 }
 ```
 
