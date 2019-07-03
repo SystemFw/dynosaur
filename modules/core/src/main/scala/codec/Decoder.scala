@@ -61,17 +61,18 @@ object Decoder {
         }
       }
 
-    def decodeSum[B](cases: Chain[Alt[B]], v: AttributeValue.M): Res[B] =
+    def decodeSum[B](cases: Chain[Alt[B]], v: AttributeValue): Res[B] =
       cases
         .foldMapK { alt =>
           fromSchema(alt.caseSchema).read(v).map(alt.prism.inject).toOption
         }
         .toRight(ReadError())
 
-    def decodeConst[V](schema: Schema[V], const: V, v: AttributeValue): Res[V] =
-      fromSchema(schema)
+    def decodeConst[V](const: ConstField[V], v: AttributeValue): Res[V] =
+      fromSchema(const.schema)
         .read(v)
-        .ensure(ReadError())(_ == const) // ensureOr(a => ReadError(msgWithA))
+        .ensure(ReadError())(_ == const.in)
+        .as(const.out) // ensureOr(a => ReadError(msgWithA))
 
     s match {
       case Num => Decoder.instance(decodeInt)
@@ -81,10 +82,10 @@ object Decoder {
           _.m.toRight(ReadError()).flatMap(decodeObject(rec, _))
         }
       case Sum(cases) =>
-        Decoder.instance {
-          _.m.toRight(ReadError()).flatMap(decodeSum(cases, _))
+        Decoder.instance { v =>
+          decodeSum(cases, v)
         }
-      case Const(schema, a) => Decoder.instance(decodeConst(schema, a, _))
+      case Const(c) => Decoder.instance(decodeConst(c, _))
     }
   }
 }

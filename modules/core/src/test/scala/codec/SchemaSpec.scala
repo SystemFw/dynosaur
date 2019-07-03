@@ -326,12 +326,12 @@ class SchemaSpec extends UnitSpec {
       val sameSchema: Schema[Same] = Schema.oneOf { alt =>
         // TODO the _ => "" is not great
         val oneSchema = record[One] { field =>
-          field("type", str.const("one"), _ => "") *>
+          field("type", str.const("one", ()), _ => ()) *>
             field("payload", userSchema tag "user", _.user).map(One.apply)
         }
 
         val twoSchema = record[Two] { field =>
-          field("type", str.const("two"), _ => "") *>
+          field("type", str.const("two", ()), _ => ()) *>
             field("payload", userSchema tag "user", _.user).map(Two.apply)
         }
 
@@ -397,34 +397,26 @@ class SchemaSpec extends UnitSpec {
     }
 
     "encode/decode objects as strings" in {
-      pendingUntilFixed {
-        info("Const needs to return the appropriate value")
-        val openDoor = Door(Open)
-        val closedDoor = Door(Closed)
-        // TODO ideally the |+| should move down to `State`
-        // so it would be record - oneOf instead of oneOf - record
-        val doorSchema: Schema[Door] = Schema.oneOf { alt =>
-          val open = record[Door](
-            _("state", str.const("open"), _ => "").as(Door(Open))
-          )
-          val closed = record[Door](
-            _("state", str.const("closed"), _ => "").as(Door(Closed))
-          )
-
-          alt(open) |+| alt(closed)
+      val openDoor = Door(Open)
+      val closedDoor = Door(Closed)
+      val state = Schema.oneOf[State] { alt =>
+        alt { str.const("open", Open) } |+| alt {
+          str.const("closed", Closed)
         }
-        val expectedOpen = AttributeValue.m(
-          AttributeName("state") -> AttributeValue.s("open")
-        )
-        val expectedClosed = AttributeValue.m(
-          AttributeName("state") -> AttributeValue.s("closed")
-        )
-
-        test(doorSchema, openDoor, expectedOpen)
-        test(doorSchema, closedDoor, expectedClosed)
-
-        ()
       }
+
+      val doorSchema: Schema[Door] = record { field =>
+        field("state", state, _.state).map(Door.apply)
+      }
+      val expectedOpen = AttributeValue.m(
+        AttributeName("state") -> AttributeValue.s("open")
+      )
+      val expectedClosed = AttributeValue.m(
+        AttributeName("state") -> AttributeValue.s("closed")
+      )
+
+      test(doorSchema, openDoor, expectedOpen)
+      test(doorSchema, closedDoor, expectedClosed)
     }
   }
 

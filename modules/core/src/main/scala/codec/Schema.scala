@@ -27,7 +27,7 @@ sealed trait Schema[A] {
     field(name, this, x => x)
   }
 
-  def const(a: A) = Schema.structure.Const(this, a)
+  def const[B](in: A, out: B): Schema[B] = Schema.const(this, in, out)
 }
 object Schema {
   object structure {
@@ -35,13 +35,19 @@ object Schema {
     case object Str extends Schema[String]
     case class Rec[R](p: Free[Field[R, ?], R]) extends Schema[R]
     case class Sum[A](alt: Chain[Alt[A]]) extends Schema[A]
-    case class Const[A](schema: Schema[A], a: A) extends Schema[A]
+    case class Const[A](c: ConstField[A]) extends Schema[A]
 
     case class Field[R, E](name: String, elemSchema: Schema[E], get: R => E)
     trait Alt[A] {
       type B
       def caseSchema: Schema[B]
       def prism: Prism[A, B]
+    }
+    trait ConstField[Out] {
+      type In
+      def in: In
+      def out: Out
+      def schema: Schema[In]
     }
 
   }
@@ -63,6 +69,19 @@ object Schema {
 
   def field[R] = new FieldBuilder[R]
   def alt[A] = new AltBuilder[A]
+
+  def const[In_, Out](
+      schema_ : Schema[In_],
+      in_ : In_,
+      out_ : Out
+  ): Schema[Out] = Const {
+    new ConstField[Out] {
+      type In = In_
+      def schema = schema_
+      def in = in_
+      def out = out_
+    }
+  }
 
   class FieldBuilder[R] {
     def apply[E](

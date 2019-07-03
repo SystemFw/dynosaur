@@ -68,7 +68,8 @@ object Encoder {
         }
         .getOrElse(WriteError().asLeft)
 
-    def encodeConst[C](schema: Schema[C], v: C) = fromSchema(schema).write(v)
+    def encodeConst[C](c: ConstField[C]): Res =
+      fromSchema(c.schema).write(c.in)
 
     s match {
       case Num => Encoder.instance(encodeInt)
@@ -76,8 +77,8 @@ object Encoder {
       case Rec(rec) =>
         Encoder.instance(v => encodeObject(rec, v))
       case Sum(cases) => Encoder.instance(v => encodeSum(cases, v))
-      case Const(schema, a) =>
-        Encoder.instance(_ => encodeConst(schema, a))
+      case Const(c) =>
+        Encoder.instance(_ => encodeConst(c))
     }
   }
 }
