@@ -68,6 +68,11 @@ object Decoder {
         }
         .toRight(ReadError())
 
+    def decodeConst[V](schema: Schema[V], const: V, v: AttributeValue): Res[V] =
+      fromSchema(schema)
+        .read(v)
+        .ensure(ReadError())(_ == const) // ensureOr(a => ReadError(msgWithA))
+
     s match {
       case Num => Decoder.instance(decodeInt)
       case Str => Decoder.instance(decodeString)
@@ -79,6 +84,7 @@ object Decoder {
         Decoder.instance {
           _.m.toRight(ReadError()).flatMap(decodeSum(cases, _))
         }
+      case Const(schema, a) => Decoder.instance(decodeConst(schema, a, _))
     }
   }
 }

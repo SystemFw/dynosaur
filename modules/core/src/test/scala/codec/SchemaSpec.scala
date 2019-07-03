@@ -312,58 +312,54 @@ class SchemaSpec extends UnitSpec {
     }
 
     """encode/decode ADTs using an embedded "type" field""" in {
-      pendingUntilFixed {
-        info("Needs some notion of const schema")
+      val user = User(203, "tim")
+      val one = One(user)
+      val two = Two(user)
 
-        val user = User(203, "tim")
-        val one = One(user)
-        val two = Two(user)
-
-        val userSchema: Schema[User] = record { field =>
-          (
-            field("id", num, _.id),
-            field("name", str, _.name)
-          ).mapN(User.apply)
-        }
-
-        val sameSchema: Schema[Same] = Schema.oneOf { alt =>
-          val oneSchema = record[One] { field =>
-            field("type", str, _ => "one") *>
-              field("payload", userSchema tag "user", _.user).map(One.apply)
-          }
-
-          val twoSchema = record[Two] { field =>
-            field("type", str, _ => "two") *>
-              field("payload", userSchema tag "user", _.user).map(Two.apply)
-          }
-
-          alt(oneSchema) |+| alt(twoSchema)
-        }
-
-        val expectedOne = AttributeValue.m(
-          AttributeName("type") -> AttributeValue.s("one"),
-          AttributeName("payload") -> AttributeValue.m(
-            AttributeName("user") -> AttributeValue.m(
-              AttributeName("id") -> AttributeValue.n(one.user.id),
-              AttributeName("name") -> AttributeValue.s(one.user.name)
-            )
-          )
-        )
-
-        val expectedTwo = AttributeValue.m(
-          AttributeName("type") -> AttributeValue.s("two"),
-          AttributeName("payload") -> AttributeValue.m(
-            AttributeName("user") -> AttributeValue.m(
-              AttributeName("id") -> AttributeValue.n(one.user.id),
-              AttributeName("name") -> AttributeValue.s(one.user.name)
-            )
-          )
-        )
-
-        test(sameSchema, one, expectedOne)
-        test(sameSchema, two, expectedTwo)
-        ()
+      val userSchema: Schema[User] = record { field =>
+        (
+          field("id", num, _.id),
+          field("name", str, _.name)
+        ).mapN(User.apply)
       }
+
+      val sameSchema: Schema[Same] = Schema.oneOf { alt =>
+        val oneSchema = record[One] { field =>
+          field("type", str.const("one"), _ => "") *>
+            field("payload", userSchema tag "user", _.user).map(One.apply)
+        }
+
+
+        val twoSchema = record[Two] { field =>
+          field("type", str.const("two"), _ => "") *>
+            field("payload", userSchema tag "user", _.user).map(Two.apply)
+        }
+
+        alt(oneSchema) |+| alt(twoSchema)
+      }
+
+      val expectedOne = AttributeValue.m(
+        AttributeName("type") -> AttributeValue.s("one"),
+        AttributeName("payload") -> AttributeValue.m(
+          AttributeName("user") -> AttributeValue.m(
+            AttributeName("id") -> AttributeValue.n(one.user.id),
+            AttributeName("name") -> AttributeValue.s(one.user.name)
+          )
+        )
+      )
+
+      val expectedTwo = AttributeValue.m(
+        AttributeName("type") -> AttributeValue.s("two"),
+        AttributeName("payload") -> AttributeValue.m(
+          AttributeName("user") -> AttributeValue.m(
+            AttributeName("id") -> AttributeValue.n(one.user.id),
+            AttributeName("name") -> AttributeValue.s(one.user.name)
+          )
+        )
+      )
+
+      test(sameSchema, one, expectedOne)
+      test(sameSchema, two, expectedTwo)
     }
 
     "encode/decode objects as empty records" in {

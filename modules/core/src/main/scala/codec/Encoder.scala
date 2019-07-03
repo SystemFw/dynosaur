@@ -68,12 +68,16 @@ object Encoder {
         }
         .getOrElse(WriteError().asLeft)
 
+    def encodeConst[C](schema: Schema[C], v: C) = fromSchema(schema).write(v)
+
     s match {
       case Num => Encoder.instance(encodeInt)
       case Str => Encoder.instance(encodeString)
       case Rec(rec) =>
         Encoder.instance(v => encodeObject(rec, v))
       case Sum(cases) => Encoder.instance(v => encodeSum(cases, v))
+      case Const(schema, a) =>
+        Encoder.instance(_ => encodeConst(schema, a))
     }
   }
 }

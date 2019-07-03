@@ -26,6 +26,8 @@ sealed trait Schema[A] {
   def tag(name: String): Schema[A] = Schema.record { field =>
     field(name, this, x => x)
   }
+
+  def const(a: A) = Schema.structure.Const(this, a)
 }
 object Schema {
   object structure {
@@ -33,6 +35,7 @@ object Schema {
     case object Str extends Schema[String]
     case class Rec[R](p: Free[Field[R, ?], R]) extends Schema[R]
     case class Sum[A](alt: Chain[Alt[A]]) extends Schema[A]
+    case class Const[A](schema: Schema[A], a: A) extends Schema[A]
 
     case class Field[R, E](name: String, elemSchema: Schema[E], get: R => E)
     trait Alt[A] {
