@@ -324,7 +324,6 @@ class SchemaSpec extends UnitSpec {
       }
 
       val sameSchema: Schema[Same] = Schema.oneOf { alt =>
-        // TODO the _ => "" is not great
         val oneSchema = record[One] { field =>
           field("type", str.const("one", ()), _ => ()) *>
             field("payload", userSchema tag "user", _.user).map(One.apply)
@@ -367,16 +366,14 @@ class SchemaSpec extends UnitSpec {
       val closedDoor = Door(Closed)
 
       val stateSchema: Schema[State] = {
-        val openSchema = record[Open.type] { field =>
-          field("open", emptyRecord, _ => ()).as(Open)
-        }
-        val closedSchema = Schema.record[Closed.type] { field =>
-          field("closed", emptyRecord, _ => ()).as(Closed)
-        }
+        val openSchema = emptyRecord.const((), Open).tag("open")
+        val closedSchema = emptyRecord.const((), Closed).tag("closed")
+
         Schema.oneOf[State] { alt =>
           alt(openSchema) |+| alt(closedSchema)
         }
       }
+
       val doorSchema = record[Door] { field =>
         field("state", stateSchema, _.state).map(Door.apply)
       }
