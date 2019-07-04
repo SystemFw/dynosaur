@@ -68,11 +68,10 @@ object Decoder {
         }
         .toRight(ReadError())
 
-    def decodeConst[V](const: ConstField[V], v: AttributeValue): Res[V] =
-      fromSchema(const.schema)
+    def decodeIsos[V](xmap: XMap[V], v: AttributeValue): Res[V] =
+      fromSchema(xmap.schema)
         .read(v)
-        .ensure(ReadError())(_ == const.in)
-        .as(const.out) // ensureOr(a => ReadError(msgWithA))
+        .flatMap(xmap.r)
 
     s match {
       case Num => Decoder.instance(decodeInt)
@@ -85,7 +84,7 @@ object Decoder {
         Decoder.instance { v =>
           decodeSum(cases, v)
         }
-      case Const(c) => Decoder.instance(decodeConst(c, _))
+      case Isos(x) => Decoder.instance(decodeIsos(x, _))
     }
   }
 }

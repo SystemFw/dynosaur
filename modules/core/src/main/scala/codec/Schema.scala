@@ -17,6 +17,7 @@
 package dynosaur
 package codec
 
+import cats.implicits._
 import cats.free.Free
 import cats.data.Chain
 
@@ -27,7 +28,12 @@ sealed trait Schema[A] {
     field(name, this, x => x)
   }
 
-  def const[B](in: A, out: B): Schema[B] = Schema.const(this, in, out)
+  def const[B](repr: A, v: B): Schema[B] =
+    Schema.xmap(
+      this,
+      _ => repr.asRight,
+      (r: A) => (r == repr).guard[Option].toRight(ReadError()).as(v)
+    )
 }
 object Schema {
   object structure {
@@ -35,7 +41,7 @@ object Schema {
     case object Str extends Schema[String]
     case class Rec[R](p: Free[Field[R, ?], R]) extends Schema[R]
     case class Sum[A](alt: Chain[Alt[A]]) extends Schema[A]
-    case class Const[A](c: ConstField[A]) extends Schema[A]
+    case class Isos[A](x: XMap[A]) extends Schema[A]
 
     case class Field[R, E](name: String, elemSchema: Schema[E], get: R => E)
     trait Alt[A] {
@@ -43,13 +49,12 @@ object Schema {
       def caseSchema: Schema[B]
       def prism: Prism[A, B]
     }
-    trait ConstField[Out] {
-      type In
-      def in: In
-      def out: Out
-      def schema: Schema[In]
+    trait XMap[A] {
+      type B
+      def schema: Schema[B]
+      def w: A => Either[WriteError, B]
+      def r: B => Either[ReadError, A]
     }
-
   }
 
   import structure._
@@ -70,16 +75,16 @@ object Schema {
   def field[R] = new FieldBuilder[R]
   def alt[A] = new AltBuilder[A]
 
-  def const[In_, Out](
-      schema_ : Schema[In_],
-      in_ : In_,
-      out_ : Out
-  ): Schema[Out] = Const {
-    new ConstField[Out] {
-      type In = In_
+  def xmap[A, B_](
+      schema_ : Schema[B_],
+      w_ : A => Either[WriteError, B_],
+      r_ : B_ => Either[ReadError, A]
+  ): Schema[A] = Isos {
+    new XMap[A] {
+      type B = B_
       def schema = schema_
-      def in = in_
-      def out = out_
+      def w = w_
+      def r = r_
     }
   }
 
