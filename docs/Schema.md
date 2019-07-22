@@ -351,39 +351,6 @@ Schema.record[Error] { field =>
 }.write(errMsg)
 ```
 
-### Extra information
-
-It's easy to add data to the serialised record that isn't present in
-the code representation, because we have the entire `Applicative` api
-at our disposal.   
-Let's add a `version: 1.0` field to `Foo` using `*>`, a variant of
-`mapN` (also provided by `cats`) which discards the left-hand side.
-
-```scala mdoc:to-string
-Schema.record[Foo] { field =>
-  field("version", Schema.str, _ => "1.0") *>
-  (
-    field("a", Schema.str, _.a),
-    field("b", Schema.num, _.b)
-  ).mapN(Foo.apply)
-}.write(Foo("foo", 345))
-```
-
-In this case is worth specifying something with respect to decoding:
-`field("version", Schema.str, _ => "1.0")` means that the record
-_must_ contain a field named `"version"`, but that the contents of
-that field can be _any_ `String` (that's what `Schema.str` means),
-even though when we serialise we put `"1.0"` there.  
-Therefore, parsing `Foo` with the schema above will fail if the record
-does not contain a field named `"version"`, but if it does it will
-succeed no matter what the value of that field is, as long as it is a
-`String`.  
-Both the ability to assert that a field may not be there, and that the
-value of a field should be a _specific_ `String` (or anything else)
-are useful, they are treated further down in this document.
-
-### Constants
-
 ### Case classes with more than 22 fields
 
 Scala's tuples have a hard limit of 22 elements, so if your case class has
@@ -399,6 +366,29 @@ record[BigClass] { field =>
   } yield BigClass(f1, .., f23)
 }
 ```
+
+### Extra information
+
+It's easy to add data to the serialised record that isn't present in
+the code representation, because we have the entire `Monad` api
+at our disposal.   
+For example let's say we want to add a random `eventId` to our record,
+that we don't care about in our model: we can use `*>`, a variant of
+`mapN` (also provided by `cats`) which discards the left-hand side.
+
+```scala mdoc:to-string
+val randomEventId = "14tafet143ba"
+
+Schema.record[Foo] { field =>
+  field("eventId", Schema.str, _ => randomEventId) *>
+  (
+    field("a", Schema.str, _.a),
+    field("b", Schema.num, _.b)
+  ).mapN(Foo.apply)
+}.write(Foo("foo", 345))
+```
+
+### Constants
 
 ### Coproducts
 
@@ -516,7 +506,7 @@ covered. We do not have a way to express the equivalent of a pattern
 matching exhaustiveness check.
 
 
-### Inference
+### Coproduct inference
 
 Similarly to products, coproducts expressed as above also suffer from
 extra annotation clutter, and we employ a similar fix, compare
