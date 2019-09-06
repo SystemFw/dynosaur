@@ -68,7 +68,7 @@ object Encoder {
         }
         .getOrElse(WriteError().asLeft)
 
-    def encodeConst[V](xmap: XMap[V], v: V): Res =
+    def encodeIsos[V](xmap: XMap[V], v: V): Res =
       xmap.w(v).flatMap(v => fromSchema(xmap.schema).write(v))
 
     s match {
@@ -78,7 +78,7 @@ object Encoder {
         Encoder.instance(v => encodeObject(rec, v))
       case Sum(cases) => Encoder.instance(v => encodeSum(cases, v))
       case Isos(x) =>
-        Encoder.instance(v => encodeConst(x, v))
+        Encoder.instance(v => encodeIsos(x, v))
     }
   }
 }
