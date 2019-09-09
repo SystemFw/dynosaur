@@ -39,6 +39,8 @@ class SchemaSpec extends UnitSpec {
   case class One(user: User) extends Same
   case class Two(user: User) extends Same
 
+  case class Event(state: State, value: String)
+
   case class Big(
       one: String,
       two: String,
@@ -109,7 +111,7 @@ class SchemaSpec extends UnitSpec {
     "encode/decode a product including additional info" in {
       val user = User(203, "tim")
       val versionedSchema = record[User] { field =>
-        field("version", str, _ => "1.0") *> (
+        field.const("version", str, "1.0") *> (
           field("id", num, _.id),
           field("name", str, _.name)
         ).mapN(User.apply)
@@ -132,7 +134,7 @@ class SchemaSpec extends UnitSpec {
         ).mapN(User.apply)
       }
       val versionedSchema: Schema[User] = record[User] { field =>
-        field("version", str, _ => "1.0") *>
+        field.const("version", str, "1.0") *>
           field("body", schema, x => x)
       }
       val expected = AttributeValue.m(
@@ -325,12 +327,12 @@ class SchemaSpec extends UnitSpec {
 
       val sameSchema: Schema[Same] = Schema.oneOf { alt =>
         val oneSchema = record[One] { field =>
-          field("type", str.const("one", ()), _ => ()) *>
+          field.const("type", str, "one") *>
             field("payload", userSchema tag "user", _.user).map(One.apply)
         }
 
         val twoSchema = record[Two] { field =>
-          field("type", str.const("two", ()), _ => ()) *>
+          field.const("type", str, "two") *>
             field("payload", userSchema tag "user", _.user).map(Two.apply)
         }
 
@@ -359,6 +361,43 @@ class SchemaSpec extends UnitSpec {
 
       test(sameSchema, one, expectedOne)
       test(sameSchema, two, expectedTwo)
+    }
+
+    "encode/decode ADTs inside a case class using isos" in {
+      val closed = Event(Closed, "closed")
+      val open = Event(Open, "open")
+
+      val stateSchema: Schema[State] = {
+        val openSchema = emptyRecord.const((), Open).tag("open")
+        val closedSchema = emptyRecord.const((), Closed).tag("closed")
+
+        Schema.oneOf[State] { alt =>
+          alt(openSchema) |+| alt(closedSchema)
+        }
+      }
+      val eventSchema: Schema[Event] = Schema.record { field =>
+        (
+          field("state", stateSchema, _.state),
+          field("value", str, _.value)
+        ).mapN(Event.apply)
+      }
+
+      val expectedClosed = AttributeValue.m(
+        AttributeName("state") -> AttributeValue.m(
+          AttributeName("closed") -> AttributeValue.m()
+        ),
+        AttributeName("value") -> AttributeValue.s(closed.value)
+      )
+
+      val expectedOpen = AttributeValue.m(
+        AttributeName("state") -> AttributeValue.m(
+          AttributeName("open") -> AttributeValue.m()
+        ),
+        AttributeName("value") -> AttributeValue.s(open.value)
+      )
+
+      test(eventSchema, closed, expectedClosed)
+      test(eventSchema, open, expectedOpen)
     }
 
     "encode/decode objects as empty records" in {
@@ -415,6 +454,7 @@ class SchemaSpec extends UnitSpec {
       test(doorSchema, openDoor, expectedOpen)
       test(doorSchema, closedDoor, expectedClosed)
     }
+
   }
 
   val compileTimeInferenceSpec = {

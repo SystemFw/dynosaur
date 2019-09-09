@@ -97,6 +97,13 @@ object Schema {
       Free.liftF(Field(name, elemSchema, get))
 
     def pure[A](a: A): Free[Field[R, ?], A] = Free.pure(a)
+
+    def const[V](
+        name: String,
+        valueSchema: Schema[V],
+        value: V
+    ): Free[Field[R, ?], Unit] =
+      Free.liftF(Field(name, valueSchema.const(value, ()), _ => ()))
   }
 
   class AltBuilder[A] {
