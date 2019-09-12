@@ -18,7 +18,7 @@ package dynosaur
 package lo
 package model
 
-import dynosaur.model.{AttributeName, AttributeValue}
+import dynosaur.model.{AttributeRef, AttributeValue}
 
 import cats.implicits._
 import scala.reflect.macros.whitebox
@@ -137,7 +137,7 @@ case class PutItemRequest(
     tableName: TableName,
     item: AttributeValue.M,
     conditionExpression: Option[ConditionExpression] = None,
-    expressionAttributeNames: Map[ExpressionAlias, AttributeName] = Map.empty,
+    expressionAttributeNames: Map[ExpressionAlias, AttributeRef] = Map.empty,
     expressionAttributeValues: Map[ExpressionPlaceholder, AttributeValue] =
       Map.empty,
     returnValues: ReturnValues = ReturnValues.None
@@ -150,7 +150,7 @@ case class GetItemRequest(
     key: AttributeValue.M,
     consistent: Boolean = false,
     projectionExpression: Option[ProjectionExpression] = None,
-    expressionAttributeNames: Map[ExpressionAlias, AttributeName] = Map.empty
+    expressionAttributeNames: Map[ExpressionAlias, AttributeRef] = Map.empty
 )
 
 case class GetItemResponse(
@@ -161,7 +161,7 @@ case class DeleteItemRequest(
     tableName: TableName,
     key: AttributeValue.M,
     conditionExpression: Option[ConditionExpression] = None,
-    expressionAttributeNames: Map[ExpressionAlias, AttributeName] = Map.empty,
+    expressionAttributeNames: Map[ExpressionAlias, AttributeRef] = Map.empty,
     expressionAttributeValues: Map[ExpressionPlaceholder, AttributeValue] =
       Map.empty,
     returnValues: ReturnValues = ReturnValues.None
@@ -175,7 +175,7 @@ case class UpdateItemRequest(
     tableName: TableName,
     key: AttributeValue.M,
     updateExpression: UpdateExpression,
-    expressionAttributeNames: Map[ExpressionAlias, AttributeName] = Map.empty,
+    expressionAttributeNames: Map[ExpressionAlias, AttributeRef] = Map.empty,
     expressionAttributeValues: Map[ExpressionPlaceholder, AttributeValue] =
       Map.empty,
     conditionExpression: Option[ConditionExpression] = None,

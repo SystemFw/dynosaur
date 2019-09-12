@@ -17,7 +17,7 @@
 package dynosaur
 package model
 
-import cats._, implicits._
+import cats._, implicits._, data._
 import scodec.bits.ByteVector
 
 /**
@@ -31,6 +31,8 @@ import scodec.bits.ByteVector
   * 3) Add a zipper, possibly reusing the one from circe, to get errors
   */
 case class AttributeName(value: String)
+
+case class AttributeRef(path: NonEmptyList[AttributeName])
 
 sealed trait AttributeValue {
   def `null`: Option[AttributeValue.NULL.type] = this match {
