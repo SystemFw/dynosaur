@@ -364,8 +364,8 @@ class SchemaSpec extends UnitSpec {
     }
 
     "encode/decode ADTs inside a case class using isos" in {
-      val closed = Event(Closed, "closed")
-      val open = Event(Open, "open")
+      val closed = Event(Closed, "closed event")
+      val open = Event(Open, "open event")
 
       val stateSchema: Schema[State] = {
         val openSchema = emptyRecord.const((), Open).tag("open")

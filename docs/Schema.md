@@ -3,7 +3,6 @@ id: schema
 title: Encoding and decoding
 ---
 
-
 `Dynosaur` design for codecs (pioneered by the
 [xenomorph](https://github.com/nuttycom/xenomorph) library) is based
 on defining _schemas_ for your data, rather than your typical
