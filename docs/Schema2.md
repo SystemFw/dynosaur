@@ -145,6 +145,12 @@ def str: Schema[String]
 You can also introduce a schema is declaring a bidirectional
 relationship between your data and one of the primitives.
 talk about isos, xmap and const, can use enums for example, 
+change const to eqv
+
+example:
+ newtype for iso (+ date for exceptions?)
+ enums for epi
+ think about eqv
 
 
 ## Records
@@ -209,6 +215,8 @@ Schema.record[Foo] { field =>
  ).mapN(Foo.apply)
 }
 ```
+
+TODO: they nest the obvious way (move Schema arg to a separate list)
 
 **Notes:**
 - `record` is designed to help type inference as much as possible, but
@@ -293,23 +301,8 @@ Schema.record[Error] { field =>
 
 TODO can I use iso here? and remove this section
 
-## Case classes with more than 22 fields
 
-Scala's tuples have a hard limit of 22 elements, so if your case class has
-more than 22 fields you won't be able to call `(f1, ..., f23).mapN`.  
-Just use `for` for this case:
-
-```scala
-record[BigClass] { field =>
-  for {
-    f1 <- field(...)
-    ...
-    f23 <- field(...)
-  } yield BigClass(f1, .., f23)
-}
-```
-
-## Extra information
+## Extra information (TODO show nested version, + tagging)
 
 It's easy to add data to the serialised record that isn't present in
 the code representation, because we have the entire `Monad` api
@@ -339,14 +332,36 @@ field.const
 field.optional
 make the point about optional fields vs optional values
 
+## Case classes with more than 22 fields
+
+Scala's tuples have a hard limit of 22 elements, so if your case class has
+more than 22 fields you won't be able to call `(f1, ..., f23).mapN`.  
+Just use `for` for this case:
+
+```scala
+record[BigClass] { field =>
+  for {
+    f1 <- field(...)
+    ...
+    f23 <- field(...)
+  } yield BigClass(f1, .., f23)
+}
+```
+
 ## Coproducts
 example, show oneOf builder, show |+|, talk about how to merge and Prisms
 
 ## Tagging
+    
+How about moving tagging to the record section as "additional structure", then 
+we could have a "ambiguity" section here showing tagging or type fields with tools already used
 
 ## type field
+moved above
 
-## encoding enums (with records or isos)
+## detail choice for objects
+we've seen enums (all obj) and hierarchies with case classes, what about mixed?
+can use empty records or string
 
 ## withDefault
 
