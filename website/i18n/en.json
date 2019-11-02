@@ -5,24 +5,11 @@
     "previous": "Previous",
     "tagline": "Purely functional, native DynamoDb client for FS2",
     "docs": {
-      "doc1": {
-        "title": "Latin-ish",
-        "sidebar_label": "Example Page"
-      },
-      "doc2": {
-        "title": "document number 2"
-      },
-      "doc3": {
-        "title": "This is document number 3"
-      },
-      "doc4": {
-        "title": "Other Document"
-      },
-      "doc5": {
-        "title": "Fifth Document"
-      },
       "overview": {
         "title": "Overview"
+      },
+      "Schema-old": {
+        "title": "Schema-old"
       },
       "schema": {
         "title": "Encoding and decoding"
