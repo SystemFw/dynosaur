@@ -80,8 +80,8 @@ class SchemaSpec extends UnitSpec {
       val user = User(203, "tim")
       val schema = record[User] { field =>
         (
-          field("id", num, _.id),
-          field("name", str, _.name)
+          field("id", _.id)(num),
+          field("name", _.name)(str)
         ).mapN(User.apply)
       }
       val expected = AttributeValue.m(
@@ -96,8 +96,8 @@ class SchemaSpec extends UnitSpec {
       val user = User(203, "tim")
       val schema = record[User] { field =>
         (
-          field("number", num, _.id),
-          field("label", str, _.name)
+          field("number", _.id)(num),
+          field("label", _.name)(str)
         ).mapN(User.apply)
       }
       val expected = AttributeValue.m(
@@ -111,9 +111,9 @@ class SchemaSpec extends UnitSpec {
     "encode/decode a product including additional info" in {
       val user = User(203, "tim")
       val versionedSchema = record[User] { field =>
-        field.const("version", str, "1.0") *> (
-          field("id", num, _.id),
-          field("name", str, _.name)
+        field.const("version", "1.0")(str) *> (
+          field("id", _.id)(num),
+          field("name", _.name)(str)
         ).mapN(User.apply)
       }
       val expected = AttributeValue.m(
@@ -129,13 +129,13 @@ class SchemaSpec extends UnitSpec {
       val user = User(203, "tim")
       val schema = record[User] { field =>
         (
-          field("id", num, _.id),
-          field("name", str, _.name)
+          field("id", _.id)(num),
+          field("name", _.name)(str)
         ).mapN(User.apply)
       }
       val versionedSchema: Schema[User] = record[User] { field =>
-        field.const("version", str, "1.0") *>
-          field("body", schema, x => x)
+        field.const("version", "1.0")(str) *>
+          field("body", x => x)(schema)
       }
       val expected = AttributeValue.m(
         AttributeName("version") -> AttributeValue.s("1.0"),
@@ -178,29 +178,29 @@ class SchemaSpec extends UnitSpec {
       val bigSchema = record[Big](
         field =>
           for {
-            a <- field("1", str, _.one)
-            b <- field("2", str, _.two)
-            c <- field("3", str, _.three)
-            d <- field("4", str, _.four)
-            e <- field("5", str, _.five)
-            f <- field("6", str, _.six)
-            g <- field("7", str, _.seven)
-            h <- field("8", str, _.eight)
-            i <- field("9", str, _.nine)
-            j <- field("10", str, _.ten)
-            k <- field("11", str, _.eleven)
-            l <- field("12", str, _.twelve)
-            m <- field("13", str, _.thirteen)
-            n <- field("14", str, _.fourteen)
-            o <- field("15", str, _.fifteen)
-            p <- field("16", str, _.sixteen)
-            q <- field("17", str, _.seventeen)
-            r <- field("18", str, _.eighteen)
-            s <- field("19", str, _.nineteen)
-            t <- field("20", str, _.twenty)
-            u <- field("21", str, _.twentyOne)
-            v <- field("22", str, _.twentyTwo)
-            w <- field("23", str, _.twentyThree)
+            a <- field("1", _.one)(str)
+            b <- field("2", _.two)(str)
+            c <- field("3", _.three)(str)
+            d <- field("4", _.four)(str)
+            e <- field("5", _.five)(str)
+            f <- field("6", _.six)(str)
+            g <- field("7", _.seven)(str)
+            h <- field("8", _.eight)(str)
+            i <- field("9", _.nine)(str)
+            j <- field("10", _.ten)(str)
+            k <- field("11", _.eleven)(str)
+            l <- field("12", _.twelve)(str)
+            m <- field("13", _.thirteen)(str)
+            n <- field("14", _.fourteen)(str)
+            o <- field("15", _.fifteen)(str)
+            p <- field("16", _.sixteen)(str)
+            q <- field("17", _.seventeen)(str)
+            r <- field("18", _.eighteen)(str)
+            s <- field("19", _.nineteen)(str)
+            t <- field("20", _.twenty)(str)
+            u <- field("21", _.twentyOne)(str)
+            v <- field("22", _.twentyTwo)(str)
+            w <- field("23", _.twentyThree)(str)
           } yield
             Big(
               a,
@@ -266,25 +266,25 @@ class SchemaSpec extends UnitSpec {
 
       val userSchema: Schema[User] = record[User] { field =>
         (
-          field("id", num, _.id),
-          field("name", str, _.name)
+          field("id", _.id)(num),
+          field("name", _.name)(str)
         ).mapN(User.apply)
       }
       val roleSchema: Schema[Role] = record[Role] { field =>
         (
-          field("capability", str, _.capability),
-          field("user", userSchema, _.user)
+          field("capability", _.capability)(str),
+          field("user", _.user)(userSchema)
         ).mapN(Role.apply)
       }
       val statusSchema: Schema[Status] = Schema.oneOf[Status] { alt =>
         val errorSchema = record[Error] { field =>
-          field("message", str, _.message).map(Error.apply)
+          field("message", _.message)(str).map(Error.apply)
         }
 
         val authSchema = record[Auth] { field =>
           (
-            field("role", roleSchema, _.role),
-            field("token", num, _.token)
+            field("role", _.role)(roleSchema),
+            field("token", _.token)(num)
           ).mapN(Auth.apply)
         }
 
@@ -320,20 +320,20 @@ class SchemaSpec extends UnitSpec {
 
       val userSchema: Schema[User] = record { field =>
         (
-          field("id", num, _.id),
-          field("name", str, _.name)
+          field("id", _.id)(num),
+          field("name", _.name)(str)
         ).mapN(User.apply)
       }
 
       val sameSchema: Schema[Same] = Schema.oneOf { alt =>
         val oneSchema = record[One] { field =>
-          field.const("type", str, "one") *>
-            field("payload", userSchema tag "user", _.user).map(One.apply)
+          field.const("type", "one")(str) *>
+            field("payload", _.user)(userSchema tag "user").map(One.apply)
         }
 
         val twoSchema = record[Two] { field =>
-          field.const("type", str, "two") *>
-            field("payload", userSchema tag "user", _.user).map(Two.apply)
+          field.const("type", "two")(str) *>
+            field("payload", _.user)(userSchema tag "user").map(Two.apply)
         }
 
         alt(oneSchema) |+| alt(twoSchema)
@@ -377,8 +377,8 @@ class SchemaSpec extends UnitSpec {
       }
       val eventSchema: Schema[Event] = Schema.record { field =>
         (
-          field("state", stateSchema, _.state),
-          field("value", str, _.value)
+          field("state", _.state)(stateSchema),
+          field("value", _.value)(str)
         ).mapN(Event.apply)
       }
 
@@ -414,7 +414,7 @@ class SchemaSpec extends UnitSpec {
       }
 
       val doorSchema = record[Door] { field =>
-        field("state", stateSchema, _.state).map(Door.apply)
+        field("state", _.state)(stateSchema).map(Door.apply)
       }
 
       val expectedOpen = AttributeValue.m(
@@ -442,7 +442,7 @@ class SchemaSpec extends UnitSpec {
       }
 
       val doorSchema: Schema[Door] = record { field =>
-        field("state", state, _.state).map(Door.apply)
+        field("state", _.state)(state).map(Door.apply)
       }
       val expectedOpen = AttributeValue.m(
         AttributeName("state") -> AttributeValue.s("open")
@@ -460,23 +460,23 @@ class SchemaSpec extends UnitSpec {
   val compileTimeInferenceSpec = {
     val userSchema: Schema[User] = record { field =>
       (
-        field("id", num, _.id),
-        field("name", str, _.name)
+        field("id", _.id)(num),
+        field("name", _.name)(str)
       ).mapN(User.apply)
     }
 
     val userSchema2 = record[User] { field =>
       (
-        field("id", num, _.id),
-        field("name", str, _.name)
+        field("id", _.id)(num),
+        field("name", _.name)(str)
       ).mapN(User.apply)
     }
 
     // random impl but it does not matter
     def closedSchema: Schema[Closed.type] =
-      record(_("foo", str, _.toString).as(Closed))
+      record(_("foo", _.toString)(str).as(Closed))
     def openSchema: Schema[Open.type] =
-      record(_("foo", str, _.toString).as(Open))
+      record(_("foo", _.toString)(str).as(Open))
 
     val stateSchema: Schema[State] = Schema.oneOf { alt =>
       alt(closedSchema) |+| alt(openSchema)

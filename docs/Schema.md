@@ -30,7 +30,7 @@ output as `Json` instead of the `AttributeValue` ADT to help with
 readability.
 
 <details>
-  <summary>Click to expand</summary>
+<summary>Click to expand</summary>
 
 ```scala mdoc
 implicit class Codecs[A](schema: Schema[A]) {
@@ -74,13 +74,13 @@ val schema: Schema[Auth] = {
   import Schema._
 
   val error = record[Auth.Error] { field =>
-    field("reason", str, _.reason).map(Auth.Error.apply)
+    field("reason", _.reason)(str).map(Auth.Error.apply)
    }
    
   val user = record[Auth.User] { field =>
     (
-      field("id", num, _.id),
-      field("name", str, _.name)
+      field("id", _.id)(num),
+      field("name", _.name)(str)
     ).mapN(Auth.User.apply)
   }
   
@@ -90,7 +90,8 @@ val schema: Schema[Auth] = {
 }
 ```
 
-Which can then be used for both encoding and decoding
+Which can then be used for both encoding and decoding:
+
 ```scala mdoc:to-string
 val u = Auth.User(303, "tim")
 val e = Auth.Error("Unauthorized")
@@ -164,8 +165,8 @@ whose `Schema[Foo]` can be defined as:
 ```scala mdoc:silent
 val fooSchema = Schema.record[Foo] { field =>
  (
-  field("a", Schema.str, _.a),
-  field("b", Schema.num, _.b)
+  field("a", _.a)(Schema.str),
+  field("b", _.b)(Schema.num)
  ).mapN(Foo.apply)
 }
 
@@ -189,7 +190,7 @@ methods. The primary method is `apply`
 
 ```scala mdoc:compile-only
 Schema.record[Foo] { field =>
- val b = field("b", Schema.num, _.b)
+ val b = field("b", _.b)(Schema.num)
   
  ???
 }
@@ -210,8 +211,8 @@ computations returned by `field.apply` are monadic, so we can use
 ```scala mdoc:silent
 Schema.record[Foo] { field =>
  (
-  field("a", Schema.str, _.a),
-  field("b", Schema.num, _.b)
+  field("a",_.a)(Schema.str),
+  field("b", _.b)(Schema.num)
  ).mapN(Foo.apply)
 }
 ```
@@ -242,15 +243,15 @@ val nestedSchema: Schema[Bar] = {
   // we could also reuse the one defined above, of course
   val foo = record[Foo] { field =>
     (
-      field("a", str, _.a),
-      field("b", num, _.b)
+      field("a", _.a)(str),
+      field("b",_.b)(num)
     ).mapN(Foo.apply)
   }
   
   record { field =>
     (
-     field("n", num, _.n),
-     field("foo", foo, _.foo) // we pass `foo` here
+     field("n", _.n)(num),
+     field("foo", _.foo)(foo) // we pass `foo` here
     ).mapN(Bar.apply)
   }
 }
@@ -275,12 +276,11 @@ val errMsg = Error(2, Msg("problem"))
 
 Schema.record[Error] { field =>
  (
-   field("code", Schema.num, _.code),
+   field("code", _.code)(Schema.num),
    field(
      "msg",
-     Schema.record[Msg](_("value", Schema.str, _.value).map(Msg.apply)),
      _.msg
-   )
+    )(Schema.record[Msg](_("value", _.value)(Schema.str).map(Msg.apply)))
   ).mapN(Error.apply)
 }.write(errMsg)
 ```
@@ -293,8 +293,8 @@ We will use `for` for convenience.
 ```scala mdoc:to-string
 Schema.record[Error] { field =>
   for {
-    code <- field("code", Schema.num, _.code)
-    msg <- field("msg", Schema.str, _.msg.value)
+    code <- field("code", _.code)(Schema.num)
+    msg <- field("msg", _.msg.value)(Schema.str)
   } yield Error(code, Msg(msg))
 }.write(errMsg)
 ```
@@ -315,10 +315,10 @@ that we don't care about in our model: we can use `*>`, a variant of
 val randomEventId = "14tafet143ba"
 
 Schema.record[Foo] { field =>
-  field("eventId", Schema.str, _ => randomEventId) *>
+  field("eventId", _ => randomEventId)(Schema.str) *>
   (
-    field("a", Schema.str, _.a),
-    field("b", Schema.num, _.b)
+    field("a", _.a)(Schema.str),
+    field("b", _.b)(Schema.num)
   ).mapN(Foo.apply)
 }.write(Foo("foo", 345))
 ```
@@ -367,3 +367,4 @@ can use empty records or string
 
 ## sequences
     hello
+

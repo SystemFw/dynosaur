@@ -25,7 +25,7 @@ sealed trait Schema[A] {
   override def toString = "Schema(..)"
 
   def tag(name: String): Schema[A] = Schema.record { field =>
-    field(name, this, x => x)
+    field(name, x => x)(this)
   }
 
   def const[B](repr: A, v: B): Schema[B] =
@@ -91,18 +91,16 @@ object Schema {
   class FieldBuilder[R] {
     def apply[E](
         name: String,
-        elemSchema: Schema[E],
         get: R => E
-    ): Free[Field[R, ?], E] =
+    )(elemSchema: Schema[E]): Free[Field[R, ?], E] =
       Free.liftF(Field(name, elemSchema, get))
 
     def pure[A](a: A): Free[Field[R, ?], A] = Free.pure(a)
 
     def const[V](
         name: String,
-        valueSchema: Schema[V],
         value: V
-    ): Free[Field[R, ?], Unit] =
+    )(valueSchema: Schema[V]): Free[Field[R, ?], Unit] =
       Free.liftF(Field(name, valueSchema.const(value, ()), _ => ()))
   }
 
