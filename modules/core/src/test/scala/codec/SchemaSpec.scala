@@ -67,6 +67,8 @@ class SchemaSpec extends UnitSpec {
       twentyThree: String
   )
 
+  case class TraceToken(value: String)
+
   def test[A](schema: Schema[A], data: A, expected: AttributeValue) = {
     def output = Encoder.fromSchema(schema).write(data).toOption.get
     def roundTrip = Decoder.fromSchema(schema).read(output).toOption.get
@@ -146,6 +148,14 @@ class SchemaSpec extends UnitSpec {
       )
 
       test(versionedSchema, user, expected)
+    }
+
+    "encode a newtype with no wrapping" in {
+      val token = TraceToken("1234")
+      val schema = ??? // TODO
+      val expected = AttributeValue.s(token.value)
+
+      test(schema, token, expected)
     }
 
     "encode/decode a product with more than 22 fields" in {
@@ -258,7 +268,7 @@ class SchemaSpec extends UnitSpec {
       test(bigSchema, big, expected)
     }
 
-    "encode/decode nested ADTs using a discriminator (common scenario)" in {
+    "encode/decode nested ADTs using a discriminator" in {
       val user = User(203, "tim")
       val role = Role("admin", user)
       val error = Error("MyError")
@@ -364,6 +374,7 @@ class SchemaSpec extends UnitSpec {
     }
 
     "encode/decode ADTs inside a case class using isos" in {
+      // TODO use isos here
       val closed = Event(Closed, "closed event")
       val open = Event(Open, "open event")
 

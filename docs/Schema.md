@@ -92,6 +92,9 @@ val schema: Schema[Auth] = {
 
 Which can then be used for both encoding and decoding:
 
+<details>
+<summary>Click to show the resulting AttributeValue</summary>
+
 ```scala mdoc:to-string
 val u = Auth.User(303, "tim")
 val e = Auth.Error("Unauthorized")
@@ -101,6 +104,7 @@ schema.read(schema.write(u))
 schema.write(e)
 schema.read(schema.write(e))
 ```
+</details>
 
 In the rest of the document, we will only show encoding since decoding
 comes for free, unless there is something specific to point out about
@@ -141,17 +145,82 @@ def str: Schema[String]
 ...
 ```
 
-## Isos
+## Bidirectional mappings
 
-You can also introduce a schema is declaring a bidirectional
-relationship between your data and one of the primitives.
-talk about isos, xmap and const, can use enums for example, 
-change const to eqv
+New schemas can be created from existing ones by declaring a
+bidirectional mapping between them.  
+The most general way is using the `xmap` method on `Schema`:
+```scala
+class Schema[A] {
+  def xmap[B](f: A => Either[ReadError, B])(g: B => Either[WriteError, A]): Schema[B]
+  ...
+}
+```
 
-example:
- newtype for iso (+ date for exceptions?)
- enums for epi
- think about eqv
+although in many cases its two specialised variants `imap` and
+`imapErr` are sufficient:
+
+```scala
+class Schema[A] {
+  ...
+  def imap[B](f: A => B)(g: B => A): Schema[B]
+  def imapErr[B](f: A => Either[ReadError, B])(g: B => A): Schema[B]
+  ...
+}
+```
+
+`imap` defines an isomorphism between `A` and `B`, which often arises
+when using newtypes such as:
+
+```scala mdoc
+case class EventId(id: String)
+```
+
+We would like to keep the specialised representation of `EventId` in
+our code, but represent it as a simple `String` in Dynamo, without the
+extra nesting.
+
+```scala mdoc:silent
+val eventIdSchema = Schema.str.imap(EventId.apply)(_.value)
+```
+<details>
+<summary>Click to show the resulting AttributeValue</summary>
+
+```scala mdoc:to-string
+eventIdSchema.write(EventId("event-1234"))
+```
+</details>
+
+`imapErr` encodes the common case where encoding cannot fail but
+decoding can, as seen, for example, in enums:
+
+```scala mdoc:silent
+import dynosaur.codec.ReadError
+
+sealed trait Switch
+object Switch {
+  case object On extends Switch
+  case object Off extends Switch
+
+  def parse: String => Option[Switch] = _.trim.toLowerCase match {
+    case "on" => On.some
+    case "off" => Off.some
+    case _ => None
+  }
+}
+
+def switchSchema = Schema.str.imapErr(_.toString) { s =>
+   Switch.parse(s).toRight(ReadError()) // TODO s"$s is not a valid Switch"
+ }
+```
+
+<details>
+<summary>Click to show the resulting AttributeValue</summary>
+
+```scala mdoc:to-string
+val a = switchSchema.write(On)
+```
+</details>
 
 
 ## Records
@@ -171,10 +240,14 @@ val fooSchema = Schema.record[Foo] { field =>
 }
 
 ```
-Resulting in the expected `AttributeValue` representation:
+
+<details>
+<summary>Click to show the resulting AttributeValue</summary>
+
 ```scala mdoc:to-string
 fooSchema.write(Foo("a", 1))
 ```
+</details>
 
 The central component is the record builder:
 
@@ -198,10 +271,8 @@ Schema.record[Foo] { field =>
 it takes three arguments:
 
 1. the name of the field in the resulting `AttributeValue`
-2. the schema of the field, which is `Schema[Int]` is this case
-3. a function to access the field during the encoding phase, in this
-  case `Foo => Int` since the source type is `Foo` and the field is
-  represented by a `Schema[Int]`
+2. A function to access the field during the encoding phase, in this case `Foo => Int`
+3. the schema of the field, which is `Schema[Int]` is this case
 
 Once we have declared our fields, we need to tell `dynosaur` how to
 combine them into a `Foo` during the decoding phase. Luckily, the
@@ -217,7 +288,31 @@ Schema.record[Foo] { field =>
 }
 ```
 
-TODO: they nest the obvious way (move Schema arg to a separate list)
+These definitions nest in the obvious way:
+
+```scala mdoc:silent
+case class Bar(n: Int, foo: Foo)
+val nestedSchema: Schema[Bar] =
+  record[Bar] { field =>
+    field("n", _.n)(Schema.num)
+    field("foo", _.foo) {
+      record[Foo]{ field =>
+        (
+         field("a", _.a)(str),
+         field("b",_.b)(num)
+        ).mapN(Foo.apply)
+      }
+    }
+  }
+```
+<details>
+<summary>Click to show the resulting AttributeValue</summary>
+
+```scala mdoc:to-string
+val bar = Bar(10, Foo("value", 40))
+nestedSchema.write(bar)
+```
+</details>
 
 **Notes:**
 - `record` is designed to help type inference as much as possible, but
@@ -231,75 +326,6 @@ TODO: they nest the obvious way (move Schema arg to a separate list)
   ```
 - You can name the builder that `record` gives you however you want
   obviously, but `field` is nice and descriptive.
-
-## Nested records
-
-Nested records naturally correspond to nested schemas
-
-```scala mdoc:silent
-case class Bar(n: Int, foo: Foo)
-val nestedSchema: Schema[Bar] = {
-  import Schema._
-  // we could also reuse the one defined above, of course
-  val foo = record[Foo] { field =>
-    (
-      field("a", _.a)(str),
-      field("b",_.b)(num)
-    ).mapN(Foo.apply)
-  }
-  
-  record { field =>
-    (
-     field("n", _.n)(num),
-     field("foo", _.foo)(foo) // we pass `foo` here
-    ).mapN(Bar.apply)
-  }
-}
-```
-```scala mdoc:to-string
-val bar = Bar(10, Foo("value", 40))
-nestedSchema.write(bar)
-```
-
-## Flattening records
-
-When modelling data in code, sometimes it's desirable to introduce newtypes
-for extra precision:
-```scala mdoc
-case class Msg(value: String)
-case class Error(code: Int, msg: Msg)
-```
-This would result in extra nesting in the AttributeValue, if encoded as shown
-above
-```scala mdoc:to-string
-val errMsg = Error(2, Msg("problem"))
-
-Schema.record[Error] { field =>
- (
-   field("code", _.code)(Schema.num),
-   field(
-     "msg",
-     _.msg
-    )(Schema.record[Msg](_("value", _.value)(Schema.str).map(Msg.apply)))
-  ).mapN(Error.apply)
-}.write(errMsg)
-```
-
-We'd like to keep the nesting in our code, but not in Dynamo.  
-Here's one way to do it by changing the schema for `msg` to a `String`
-and changing the accessor and constructor functions accordingly.
-We will use `for` for convenience.
-
-```scala mdoc:to-string
-Schema.record[Error] { field =>
-  for {
-    code <- field("code", _.code)(Schema.num)
-    msg <- field("msg", _.msg.value)(Schema.str)
-  } yield Error(code, Msg(msg))
-}.write(errMsg)
-```
-
-TODO can I use iso here? and remove this section
 
 
 ## Extra information (TODO show nested version, + tagging)
