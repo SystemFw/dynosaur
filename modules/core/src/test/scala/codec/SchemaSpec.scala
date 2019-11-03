@@ -305,7 +305,11 @@ class SchemaSpec extends UnitSpec {
           .tag("warning")
 
         val unknown =
-          Schema.unit.tag("unknown").imap(_ => Unknown)(_ => ())
+          Schema
+            .record[Unknown.type](
+              _.pure(Unknown)
+            )
+            .tag("unknown")
 
         val successful = Schema
           .record[Successful] { field =>

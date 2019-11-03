@@ -62,14 +62,6 @@ sealed trait Schema[A] { self =>
         def w = g.map(_.asRight)
       }
     }
-
-  // TODO remove this and inline it into field const?
-  def const[B](repr: A, v: B): Schema[B] =
-    this.xmap { r =>
-      (r == repr).guard[Option].toRight(ReadError()).as(v)
-    } { _ =>
-      repr.asRight
-    }
 }
 
 object Schema {
@@ -125,7 +117,11 @@ object Schema {
         name: String,
         value: V
     )(valueSchema: Schema[V]): Free[Field[R, ?], Unit] =
-      Free.liftF(Field(name, valueSchema.const(value, ()), _ => ()))
+      apply(name, _ => ()) {
+        valueSchema.xmap { r =>
+          Either.cond((r == value), (), ReadError())
+        }(_ => value.asRight)
+      }
   }
 
   class AltBuilder[A] {
