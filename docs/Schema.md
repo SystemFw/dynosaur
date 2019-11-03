@@ -327,7 +327,7 @@ nestedSchema.write(bar)
   obviously, but `field` is nice and descriptive.
 
 
-## Extra information (TODO show nested version, + tagging)
+## Extra information (TODO show nested version, + tagging, + empty record, renmae to additional structure through monad)
 
 It's easy to add data to the serialised record that isn't present in
 the code representation, because we have the entire `Monad` api
@@ -386,7 +386,12 @@ moved above
 
 ## detail choice for objects
 we've seen enums (all obj) and hierarchies with case classes, what about mixed?
-can use empty records or string
+show to use empty records, add a combinator probably
+incorporate this in the ambiguity section:
+naive |+| works, but what about ambiguity and what about objects?
+
+For the `type` encoding, objects just use field.const("type").as(object) and no other fields
+for the map encoding, just `unit.tag("thing").imap...`, abbreviated as `singleton...`
 
 ## withDefault
 

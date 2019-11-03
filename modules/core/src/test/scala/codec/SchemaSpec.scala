@@ -20,26 +20,37 @@ package codec
 import cats.implicits._
 
 import model.{AttributeName => Name, AttributeValue => Value}
-import Schema.{num, record, str, emptyRecord} // TODO try `Schema => S` rename?
+import Schema.{num, record, str, unit} // TODO try `Schema => S` rename?
 
 class SchemaSpec extends UnitSpec {
+  // simple case class
   case class User(id: Int, name: String)
+  // nested case class
   case class Role(capability: String, user: User)
+  // newtype
+  case class TraceToken(value: String)
+  // enum
+  sealed trait EventType
+  case object Started extends EventType
+  case object Completed extends EventType
+  // case class with enum
+  case class Event(state: EventType, value: String)
+  // ADT with case classes, objects and ambiguous cases
+
+  /* TODO  revamp ADT example
+     - needs to be wrapped in case class (no Map for partition key)
+     - mixed case classes and objects
+     - two cases should be ambiguous
+     - do I need any nesting?
+   */
 
   sealed trait Status
   case class Error(message: String) extends Status
   case class Auth(role: Role, token: Int) extends Status
 
-  sealed trait State
-  case object Open extends State
-  case object Closed extends State
-  case class Door(state: State)
-
   sealed trait Same
   case class One(user: User) extends Same
   case class Two(user: User) extends Same
-
-  case class Event(state: State, value: String)
 
   case class Big(
       one: String,
@@ -66,8 +77,6 @@ class SchemaSpec extends UnitSpec {
       twentyTwo: String,
       twentyThree: String
   )
-
-  case class TraceToken(value: String)
 
   def test[A](schema: Schema[A], data: A, expected: Value) = {
     def output = Encoder.fromSchema(schema).write(data).toOption.get
@@ -115,14 +124,6 @@ class SchemaSpec extends UnitSpec {
       )
 
       test(versionedSchema, user, expected)
-    }
-
-    "encode a newtype with no wrapping" in {
-      val token = TraceToken("1234")
-      val schema = Schema.str.imap(TraceToken.apply)(_.value)
-      val expected = Value.s(token.value)
-
-      test(schema, token, expected)
     }
 
     "encode/decode a product with more than 22 fields" in {
@@ -235,6 +236,50 @@ class SchemaSpec extends UnitSpec {
       test(bigSchema, big, expected)
     }
 
+    "encode a newtype with no wrapping" in {
+      val token = TraceToken("1234")
+      val schema = Schema.str.imap(TraceToken.apply)(_.value)
+      val expected = Value.s(token.value)
+
+      test(schema, token, expected)
+    }
+
+    "encode/decode enums" in {
+      val started = Event(Started, "transaction started event")
+      val completed = Event(Completed, "transaction completed event")
+
+      // Similar to the one provided by enumeratum
+      def parser: String => Option[EventType] = {
+        case "Started" => Started.some
+        case "Completed" => Completed.some
+        case _ => none
+      }
+
+      val stateSchema: Schema[EventType] = Schema.str.imapErr { s =>
+        parser(s) toRight ReadError()
+      }(_.toString)
+
+      val eventSchema: Schema[Event] = Schema.record { field =>
+        (
+          field("type", _.state)(stateSchema),
+          field("value", _.value)(str)
+        ).mapN(Event.apply)
+      }
+
+      val expectedStarted = Value.m(
+        Name("type") -> Value.s("Started"),
+        Name("value") -> Value.s(started.value)
+      )
+
+      val expectedCompleted = Value.m(
+        Name("type") -> Value.s("Completed"),
+        Name("value") -> Value.s(completed.value)
+      )
+
+      test(eventSchema, started, expectedStarted)
+      test(eventSchema, completed, expectedCompleted)
+    }
+
     "encode/decode nested ADTs using a discriminator" in {
       val user = User(203, "tim")
       val role = Role("admin", user)
@@ -337,98 +382,64 @@ class SchemaSpec extends UnitSpec {
       test(sameSchema, two, expectedTwo)
     }
 
-    "encode/decode enums" in {
-      val closed = Event(Closed, "closed event")
-      val open = Event(Open, "open event")
+    // "encode/decode objects as empty records (e.g. for use in mixed ADTs)" in {
+    //   // TODO rename to encode decode objects as empty records or Strings, remove const
+    //   // revamp ADT tests altogether
+    //   val openDoor = Door(Open)
+    //   val closedDoor = Door(Closed)
 
-      // Similar to the one provided by enumeratum
-      def parser: String => Option[State] = {
-        case "Open" => Open.some
-        case "Closed" => Closed.some
-        case _ => none
-      }
+    //   val stateSchema: Schema[State] = {
+    //     val openSchema =
+    //       unit.tag("open").imap(_ => Open)(_ => ())
+    //     val closedSchema = unit.tag("closed").imap(_ => Open)(_ => ())
 
-      val stateSchema: Schema[State] = Schema.str.imapErr { s =>
-        parser(s) toRight ReadError()
-      }(_.toString)
+    //     Schema.oneOf[State] { alt =>
+    //       alt(openSchema) |+| alt(closedSchema)
+    //     }
+    //   }
 
-      val eventSchema: Schema[Event] = Schema.record { field =>
-        (
-          field("state", _.state)(stateSchema),
-          field("value", _.value)(str)
-        ).mapN(Event.apply)
-      }
+    //   val doorSchema = record[Door] { field =>
+    //     field("state", _.state)(stateSchema).map(Door.apply)
+    //   }
 
-      val expectedClosed = Value.m(
-        Name("state") -> Value.s("Closed"),
-        Name("value") -> Value.s(closed.value)
-      )
+    //   val expectedOpen = Value.m(
+    //     Name("state") -> Value.m(
+    //       Name("open") -> Value.m()
+    //     )
+    //   )
+    //   val expectedClosed = Value.m(
+    //     Name("state") -> Value.m(
+    //       Name("closed") -> Value.m()
+    //     )
+    //   )
 
-      val expectedOpen = Value.m(
-        Name("state") -> Value.s("Open"),
-        Name("value") -> Value.s(open.value)
-      )
+    //   test(doorSchema, openDoor, expectedOpen)
+    //   test(doorSchema, closedDoor, expectedClosed)
+    // }
 
-      test(eventSchema, closed, expectedClosed)
-      test(eventSchema, open, expectedOpen)
-    }
+    // "encode/decode objects as strings" in {
+    //   // TODO merge with the above
+    //   val openDoor = Door(Open)
+    //   val closedDoor = Door(Closed)
+    //   val state = Schema.oneOf[State] { alt =>
+    //     alt { str.const("open", Open) } |+| alt {
+    //       str.const("closed", Closed)
+    //     }
+    //   }
 
-    "encode/decode objects as empty records" in {
-      // TODO rename to encode decode objects as empty records or Strings, remove const
-      val openDoor = Door(Open)
-      val closedDoor = Door(Closed)
+    //   val doorSchema: Schema[Door] = record { field =>
+    //     field("state", _.state)(state).map(Door.apply)
+    //   }
+    //   val expectedOpen = Value.m(
+    //     Name("state") -> Value.s("open")
+    //   )
+    //   val expectedClosed = Value.m(
+    //     Name("state") -> Value.s("closed")
+    //   )
 
-      val stateSchema: Schema[State] = {
-        val openSchema = emptyRecord.const((), Open).tag("open")
-        val closedSchema = emptyRecord.const((), Closed).tag("closed")
-
-        Schema.oneOf[State] { alt =>
-          alt(openSchema) |+| alt(closedSchema)
-        }
-      }
-
-      val doorSchema = record[Door] { field =>
-        field("state", _.state)(stateSchema).map(Door.apply)
-      }
-
-      val expectedOpen = Value.m(
-        Name("state") -> Value.m(
-          Name("open") -> Value.m()
-        )
-      )
-      val expectedClosed = Value.m(
-        Name("state") -> Value.m(
-          Name("closed") -> Value.m()
-        )
-      )
-
-      test(doorSchema, openDoor, expectedOpen)
-      test(doorSchema, closedDoor, expectedClosed)
-    }
-
-    "encode/decode objects as strings" in {
-      // TODO merge with the above
-      val openDoor = Door(Open)
-      val closedDoor = Door(Closed)
-      val state = Schema.oneOf[State] { alt =>
-        alt { str.const("open", Open) } |+| alt {
-          str.const("closed", Closed)
-        }
-      }
-
-      val doorSchema: Schema[Door] = record { field =>
-        field("state", _.state)(state).map(Door.apply)
-      }
-      val expectedOpen = Value.m(
-        Name("state") -> Value.s("open")
-      )
-      val expectedClosed = Value.m(
-        Name("state") -> Value.s("closed")
-      )
-
-      test(doorSchema, openDoor, expectedOpen)
-      test(doorSchema, closedDoor, expectedClosed)
-    }
+    //   test(doorSchema, openDoor, expectedOpen)
+    //   test(doorSchema, closedDoor, expectedClosed)
+    // }
 
   }
 
@@ -448,24 +459,24 @@ class SchemaSpec extends UnitSpec {
     }
 
     // random impl but it does not matter
-    def closedSchema: Schema[Closed.type] =
-      record(_("foo", _.toString)(str).as(Closed))
-    def openSchema: Schema[Open.type] =
-      record(_("foo", _.toString)(str).as(Open))
+    def completedSchema: Schema[Completed.type] =
+      record(_("foo", _.toString)(str).as(Completed))
+    def startedSchema: Schema[Started.type] =
+      record(_("foo", _.toString)(str).as(Started))
 
-    val stateSchema: Schema[State] = Schema.oneOf { alt =>
-      alt(closedSchema) |+| alt(openSchema)
+    val eventTypeSchema: Schema[EventType] = Schema.oneOf { alt =>
+      alt(completedSchema) |+| alt(startedSchema)
     }
 
-    val stateSchema2 = Schema.oneOf[State] { alt =>
-      alt(closedSchema) |+| alt(openSchema)
+    val eventTypeSchema2 = Schema.oneOf[EventType] { alt =>
+      alt(completedSchema) |+| alt(startedSchema)
     }
 
-    val stateSchema3 = Schema.oneOf[State] { alt =>
-      implicit val p1 = Prism.derive[State, Open.type]
-      val p2 = Prism.derive[State, Closed.type]
+    val eventTypeSchema3 = Schema.oneOf[EventType] { alt =>
+      implicit val p1 = Prism.derive[EventType, Started.type]
+      val p2 = Prism.derive[EventType, Completed.type]
 
-      alt(openSchema) |+| alt(closedSchema)(p2)
+      alt(startedSchema) |+| alt(completedSchema)(p2)
     }
 
     val traceTokenSchema = Schema.str.imap(TraceToken.apply)(_.value)
@@ -474,9 +485,9 @@ class SchemaSpec extends UnitSpec {
       (
         userSchema,
         userSchema2,
-        stateSchema,
-        stateSchema2,
-        stateSchema3,
+        eventTypeSchema,
+        eventTypeSchema2,
+        eventTypeSchema3,
         traceTokenSchema
       )
   }

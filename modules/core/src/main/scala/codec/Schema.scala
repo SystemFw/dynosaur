@@ -102,7 +102,7 @@ object Schema {
   def fields[R](p: Free[Field[R, ?], R]): Schema[R] = Rec(p)
   def record[R](b: FieldBuilder[R] => Free[Field[R, ?], R]): Schema[R] =
     fields(b(field))
-  def emptyRecord: Schema[Unit] = record(_.pure(()))
+  def unit: Schema[Unit] = record(_.pure(()))
 
   def alternatives[A](cases: Chain[Alt[A]]): Schema[A] =
     Sum(cases)
