@@ -70,23 +70,19 @@ object Auth {
 We define a schema for it
 
 ```scala mdoc:silent
-val schema: Schema[Auth] = {
-  import Schema._
-
-  val error = record[Auth.Error] { field =>
-    field("reason", _.reason)(str).map(Auth.Error.apply)
+val schema: Schema[Auth] = Schema.oneOf { alt =>
+  val error = Schema.record[Auth.Error] { field =>
+    field("reason", _.reason).map(Auth.Error.apply)
    }
    
-  val user = record[Auth.User] { field =>
+  val user = Schema.record[Auth.User] { field =>
     (
-      field("id", _.id)(num),
-      field("name", _.name)(str)
+      field("id", _.id),
+      field("name", _.name)
     ).mapN(Auth.User.apply)
   }
   
-  oneOf { alt =>
-    alt(error tag "error") |+| alt(user tag "user") 
-  }
+  alt(error tag "error") |+| alt(user tag "user") 
 }
 ```
 
@@ -231,8 +227,8 @@ whose `Schema[Foo]` can be defined as:
 ```scala mdoc:silent
 val fooSchema = Schema.record[Foo] { field =>
  (
-  field("a", _.a)(Schema.str),
-  field("b", _.b)(Schema.num)
+   field("a", _.a)(Schema.str),
+   field("b", _.b)(Schema.num)
  ).mapN(Foo.apply)
 }
 
@@ -279,8 +275,8 @@ computations returned by `field.apply` are monadic, so we can use
 ```scala mdoc:silent
 Schema.record[Foo] { field =>
  (
-  field("a",_.a)(Schema.str),
-  field("b", _.b)(Schema.num)
+   field("a",_.a)(Schema.str),
+   field("b", _.b)(Schema.num)
  ).mapN(Foo.apply)
 }
 ```
@@ -313,19 +309,56 @@ nestedSchema.write(bar)
 ```
 </details>
 
-**Notes:**
-- `record` is designed to help type inference as much as possible, but
+> **Notes:** 
+> - `record` is designed to help type inference as much as possible, but
   you **have** to specify which type your schema is for, either with an
   ascription or an annotation. If you don't do that, your
-  accessor functions inside `field` will not infer.
-  ```scala
-  val good = Schema.record[Foo] { field => ???}
-  val alsoGood: Schema[Foo] = Schema.record { field => ??? }
-  val bad = Schema.record { field => ??? }
-  ```
-- You can name the builder that `record` gives you however you want
+  accessor functions inside `field` will not infer:
+    ```scala
+      val good = Schema.record[Foo] { field => ???}
+      val alsoGood: Schema[Foo] = Schema.record { field => ??? }
+      val bad = Schema.record { field => ??? }
+    ```
+> - You can name the builder that `record` gives you however you want
   obviously, but `field` is nice and descriptive.
 
+## Implicit vs explicit schemas in `field`
+
+In general, `Schema` is not a typeclass since there often are multiple
+different encodings for the same type, but at the same time typing
+`Schema.str` everywhere gets old quickly.
+The `field` builder is designed to take the schema of the field as its
+sole implicit argument, so that you can pass schemas implicitly or
+explicitly at ease.  
+
+> The recommended guideline is to pass schemas for primitives
+implicitly, and schemas for your own datatypes explicitly.
+
+This is how the previous schema would look like with the proposed
+guideline:
+
+```scala mdoc:compile-only
+Schema.record[Bar] { field =>
+ (
+   field("n", _.n),
+   field("foo", _.foo) {
+     Schema.record { field =>
+       (
+         field("a", _.a),
+         field("b", _.b)
+       ).mapN(Foo.apply)
+     }
+   }
+ ).mapN(Bar.apply)
+}
+```
+
+Additionally, `Schema.apply` can be used to fetch a schema from the
+implicit scope, for example:
+
+```scala mdoc:compile-only
+Schema[String].imap(EventId.apply)(_.value)
+```
 
 ## Extra information (TODO show nested version, + tagging, + empty record, renmae to additional structure through monad)
 

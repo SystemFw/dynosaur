@@ -85,12 +85,12 @@ class SchemaSpec extends UnitSpec {
       val role = Role("admin", User(203, "tim"))
       val schema: Schema[Role] = Schema.record { field =>
         (
-          field("capability", _.capability)(Schema.str),
+          field("capability", _.capability),
           field("user", _.user) { // nesting
             Schema.record { field =>
               (
-                field("id", _.id)(Schema.num),
-                field("firstName", _.name)(Schema.str) // renaming
+                field("id", _.id),
+                field("firstName", _.name) // renaming
               ).mapN(User.apply)
             }
           }
@@ -111,13 +111,12 @@ class SchemaSpec extends UnitSpec {
       val user = User(203, "tim")
       val schema = Schema.record[User] { field =>
         (
-          field("id", _.id)(Schema.num),
-          field("name", _.name)(Schema.str)
+          field("id", _.id),
+          field("name", _.name)
         ).mapN(User.apply)
       }
       val versionedSchema: Schema[User] = Schema.record[User] { field =>
-        field.const("version", "1.0")(Schema.str) *>
-          field("payload", x => x)(schema)
+        field.const("version", "1.0") *> field("payload", x => x)(schema)
       }
       val expected = Value.m(
         Name("version") -> Value.s("1.0"),
@@ -160,29 +159,29 @@ class SchemaSpec extends UnitSpec {
       val bigSchema = Schema.record[Big](
         field =>
           for {
-            a <- field("1", _.one)(Schema.str)
-            b <- field("2", _.two)(Schema.str)
-            c <- field("3", _.three)(Schema.str)
-            d <- field("4", _.four)(Schema.str)
-            e <- field("5", _.five)(Schema.str)
-            f <- field("6", _.six)(Schema.str)
-            g <- field("7", _.seven)(Schema.str)
-            h <- field("8", _.eight)(Schema.str)
-            i <- field("9", _.nine)(Schema.str)
-            j <- field("10", _.ten)(Schema.str)
-            k <- field("11", _.eleven)(Schema.str)
-            l <- field("12", _.twelve)(Schema.str)
-            m <- field("13", _.thirteen)(Schema.str)
-            n <- field("14", _.fourteen)(Schema.str)
-            o <- field("15", _.fifteen)(Schema.str)
-            p <- field("16", _.sixteen)(Schema.str)
-            q <- field("17", _.seventeen)(Schema.str)
-            r <- field("18", _.eighteen)(Schema.str)
-            s <- field("19", _.nineteen)(Schema.str)
-            t <- field("20", _.twenty)(Schema.str)
-            u <- field("21", _.twentyOne)(Schema.str)
-            v <- field("22", _.twentyTwo)(Schema.str)
-            w <- field("23", _.twentyThree)(Schema.str)
+            a <- field("1", _.one)
+            b <- field("2", _.two)
+            c <- field("3", _.three)
+            d <- field("4", _.four)
+            e <- field("5", _.five)
+            f <- field("6", _.six)
+            g <- field("7", _.seven)
+            h <- field("8", _.eight)
+            i <- field("9", _.nine)
+            j <- field("10", _.ten)
+            k <- field("11", _.eleven)
+            l <- field("12", _.twelve)
+            m <- field("13", _.thirteen)
+            n <- field("14", _.fourteen)
+            o <- field("15", _.fifteen)
+            p <- field("16", _.sixteen)
+            q <- field("17", _.seventeen)
+            r <- field("18", _.eighteen)
+            s <- field("19", _.nineteen)
+            t <- field("20", _.twenty)
+            u <- field("21", _.twentyOne)
+            v <- field("22", _.twentyTwo)
+            w <- field("23", _.twentyThree)
           } yield
             Big(
               a,
@@ -259,14 +258,14 @@ class SchemaSpec extends UnitSpec {
         case _ => none
       }
 
-      val stateSchema: Schema[EventType] = Schema.str.imapErr { s =>
+      val stateSchema: Schema[EventType] = Schema[String].imapErr { s =>
         parser(s) toRight ReadError()
       }(_.toString)
 
       val eventSchema: Schema[Event] = Schema.record { field =>
         (
           field("type", _.state)(stateSchema),
-          field("value", _.value)(Schema.str)
+          field("value", _.value)
         ).mapN(Event.apply)
       }
 
@@ -289,8 +288,8 @@ class SchemaSpec extends UnitSpec {
         val error = Schema
           .record[Error] { field =>
             (
-              field("msg", _.msg)(Schema.str),
-              field("cause", _.cause)(Schema.str)
+              field("msg", _.msg),
+              field("cause", _.cause)
             ).mapN(Error.apply)
           }
           .tag("error")
@@ -298,8 +297,8 @@ class SchemaSpec extends UnitSpec {
         val warning = Schema
           .record[Warning] { field =>
             (
-              field("msg", _.msg)(Schema.str),
-              field("cause", _.cause)(Schema.str)
+              field("msg", _.msg),
+              field("cause", _.cause)
             ).mapN(Warning.apply)
           }
           .tag("warning")
@@ -314,15 +313,15 @@ class SchemaSpec extends UnitSpec {
         val successful = Schema
           .record[Successful] { field =>
             (
-              field("link", _.link)(Schema.str),
-              field("expires", _.expires)(Schema.num)
+              field("link", _.link),
+              field("expires", _.expires)
             ).mapN(Successful.apply)
           }
           .tag("successful")
 
         Schema.record[Upload] { field =>
           (
-            field("id", _.id)(Schema.str),
+            field("id", _.id),
             field("status", _.status) {
               Schema.oneOf { alt =>
                 alt(error) |+| alt(warning) |+| alt(unknown) |+| alt(successful)
@@ -384,36 +383,36 @@ class SchemaSpec extends UnitSpec {
       val schema: Schema[Upload] = {
         val error = Schema
           .record[Error] { field =>
-            field.const("type", "error")(Schema.str) *> (
-              field("msg", _.msg)(Schema.str),
-              field("cause", _.cause)(Schema.str)
+            field.const("type", "error") *> (
+              field("msg", _.msg),
+              field("cause", _.cause)
             ).mapN(Error.apply)
           }
 
         val warning = Schema
           .record[Warning] { field =>
-            field.const("type", "warning")(Schema.str) *> (
-              field("msg", _.msg)(Schema.str),
-              field("cause", _.cause)(Schema.str)
+            field.const("type", "warning") *> (
+              field("msg", _.msg),
+              field("cause", _.cause)
             ).mapN(Warning.apply)
           }
 
         val unknown =
           Schema.record[Unknown.type](
-            _.const("type", "unknown")(Schema.str).as(Unknown)
+            _.const("type", "unknown").as(Unknown)
           )
 
         val successful = Schema
           .record[Successful] { field =>
-            field.const("type", "successful")(Schema.str) *> (
-              field("link", _.link)(Schema.str),
-              field("expires", _.expires)(Schema.num)
+            field.const("type", "successful") *> (
+              field("link", _.link),
+              field("expires", _.expires)
             ).mapN(Successful.apply)
           }
 
         Schema.record[Upload] { field =>
           (
-            field("id", _.id)(Schema.str),
+            field("id", _.id),
             field("status", _.status) {
               Schema.oneOf { alt =>
                 alt(error) |+| alt(warning) |+| alt(unknown) |+| alt(successful)
@@ -472,23 +471,23 @@ class SchemaSpec extends UnitSpec {
   val compileTimeInferenceSpec = {
     val userSchema: Schema[User] = Schema.record { field =>
       (
-        field("id", _.id)(Schema.num),
-        field("name", _.name)(Schema.str)
+        field("id", _.id),
+        field("name", _.name)
       ).mapN(User.apply)
     }
 
     val userSchema2 = Schema.record[User] { field =>
       (
-        field("id", _.id)(Schema.num),
-        field("name", _.name)(Schema.str)
+        field("id", _.id),
+        field("name", _.name)
       ).mapN(User.apply)
     }
 
     // random impl but it does not matter
     def completedSchema: Schema[Completed.type] =
-      Schema.record(_("foo", _.toString)(Schema.str).as(Completed))
+      Schema.record(_("foo", _.toString).as(Completed))
     def startedSchema: Schema[Started.type] =
-      Schema.record(_("foo", _.toString)(Schema.str).as(Started))
+      Schema.record(_("foo", _.toString).as(Started))
 
     val eventTypeSchema: Schema[EventType] = Schema.oneOf { alt =>
       alt(completedSchema) |+| alt(startedSchema)
@@ -505,7 +504,7 @@ class SchemaSpec extends UnitSpec {
       alt(startedSchema) |+| alt(completedSchema)(p2)
     }
 
-    val traceTokenSchema = Schema.str.imap(TraceToken.apply)(_.value)
+    val traceTokenSchema = Schema[String].imap(TraceToken.apply)(_.value)
 
     val (_, _, _, _, _, _) =
       (

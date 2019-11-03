@@ -88,13 +88,14 @@ object Schema {
 
   import structure._
 
-  def str: Schema[String] = Str
-  def num: Schema[Int] = Num
+  def apply[A](implicit schema: Schema[A]): Schema[A] = schema
+
+  implicit def str: Schema[String] = Str
+  implicit def num: Schema[Int] = Num
 
   def fields[R](p: Free[Field[R, ?], R]): Schema[R] = Rec(p)
   def record[R](b: FieldBuilder[R] => Free[Field[R, ?], R]): Schema[R] =
     fields(b(field))
-  def unit: Schema[Unit] = record(_.pure(()))
 
   def alternatives[A](cases: Chain[Alt[A]]): Schema[A] =
     Sum(cases)
@@ -108,7 +109,7 @@ object Schema {
     def apply[E](
         name: String,
         get: R => E
-    )(elemSchema: Schema[E]): Free[Field[R, ?], E] =
+    )(implicit elemSchema: Schema[E]): Free[Field[R, ?], E] =
       Free.liftF(Field(name, elemSchema, get))
 
     def pure[A](a: A): Free[Field[R, ?], A] = Free.pure(a)
@@ -116,7 +117,7 @@ object Schema {
     def const[V](
         name: String,
         value: V
-    )(valueSchema: Schema[V]): Free[Field[R, ?], Unit] =
+    )(implicit valueSchema: Schema[V]): Free[Field[R, ?], Unit] =
       apply(name, _ => ()) {
         valueSchema.xmap { r =>
           Either.cond((r == value), (), ReadError())
