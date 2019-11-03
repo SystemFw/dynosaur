@@ -20,31 +20,30 @@ package codec
 import cats.implicits._
 
 import model.{AttributeName => Name, AttributeValue => Value}
-import Schema.{num, record, str, unit} // TODO try `Schema => S` rename?
 
 // TODO change this to flatSpec
 class SchemaSpec extends UnitSpec {
-  // simple case class
+  /* simple case class */
   case class User(id: Int, name: String)
-  // nested case class
+  /* nested case class */
   case class Role(capability: String, user: User)
-  // newtype
+  /* newtype */
   case class TraceToken(value: String)
-  // enum
+  /* enum */
   sealed trait EventType
   case object Started extends EventType
   case object Completed extends EventType
-  // case class with enum
+  /* case class with enum */
   case class Event(state: EventType, value: String)
-  // ADT with case classes, objects and ambiguous cases
+  /* ADT with case classes, objects and ambiguous cases */
   sealed trait Status
-  case class Error(msg: String) extends Status
-  case class Warning(msg: String) extends Status
+  case class Error(msg: String, cause: String) extends Status
+  case class Warning(msg: String, cause: String) extends Status
   case object Unknown extends Status
   case class Successful(link: String, expires: Int) extends Status
-
+  /* top level wrapper for ADT */
   case class Upload(id: String, status: Status)
-  // more than 22 fields, above tuple and function restriction
+  /* more than 22 fields, above tuple and function restriction */
   case class Big(
       one: String,
       two: String,
@@ -80,17 +79,16 @@ class SchemaSpec extends UnitSpec {
   }
 
   "schema" should {
-    // TODO, nesting, change field names (keep id instead of userName, change name to firstName)
     "encode/decode a product" in {
       val role = Role("admin", User(203, "tim"))
-      val schema: Schema[Role] = record { field =>
+      val schema: Schema[Role] = Schema.record { field =>
         (
-          field("capability", _.capability)(str),
+          field("capability", _.capability)(Schema.str),
           field("user", _.user) { // nesting
-            record { field =>
+            Schema.record { field =>
               (
-                field("id", _.id)(num),
-                field("firstName", _.name)(str) // renaming
+                field("id", _.id)(Schema.num),
+                field("firstName", _.name)(Schema.str) // renaming
               ).mapN(User.apply)
             }
           }
@@ -109,14 +107,14 @@ class SchemaSpec extends UnitSpec {
 
     "encode/decode a product including additional structure" in {
       val user = User(203, "tim")
-      val schema = record[User] { field =>
+      val schema = Schema.record[User] { field =>
         (
-          field("id", _.id)(num),
-          field("name", _.name)(str)
+          field("id", _.id)(Schema.num),
+          field("name", _.name)(Schema.str)
         ).mapN(User.apply)
       }
-      val versionedSchema: Schema[User] = record[User] { field =>
-        field.const("version", "1.0")(str) *>
+      val versionedSchema: Schema[User] = Schema.record[User] { field =>
+        field.const("version", "1.0")(Schema.str) *>
           field("payload", x => x)(schema)
       }
       val expected = Value.m(
@@ -157,32 +155,32 @@ class SchemaSpec extends UnitSpec {
         "f"
       )
 
-      val bigSchema = record[Big](
+      val bigSchema = Schema.record[Big](
         field =>
           for {
-            a <- field("1", _.one)(str)
-            b <- field("2", _.two)(str)
-            c <- field("3", _.three)(str)
-            d <- field("4", _.four)(str)
-            e <- field("5", _.five)(str)
-            f <- field("6", _.six)(str)
-            g <- field("7", _.seven)(str)
-            h <- field("8", _.eight)(str)
-            i <- field("9", _.nine)(str)
-            j <- field("10", _.ten)(str)
-            k <- field("11", _.eleven)(str)
-            l <- field("12", _.twelve)(str)
-            m <- field("13", _.thirteen)(str)
-            n <- field("14", _.fourteen)(str)
-            o <- field("15", _.fifteen)(str)
-            p <- field("16", _.sixteen)(str)
-            q <- field("17", _.seventeen)(str)
-            r <- field("18", _.eighteen)(str)
-            s <- field("19", _.nineteen)(str)
-            t <- field("20", _.twenty)(str)
-            u <- field("21", _.twentyOne)(str)
-            v <- field("22", _.twentyTwo)(str)
-            w <- field("23", _.twentyThree)(str)
+            a <- field("1", _.one)(Schema.str)
+            b <- field("2", _.two)(Schema.str)
+            c <- field("3", _.three)(Schema.str)
+            d <- field("4", _.four)(Schema.str)
+            e <- field("5", _.five)(Schema.str)
+            f <- field("6", _.six)(Schema.str)
+            g <- field("7", _.seven)(Schema.str)
+            h <- field("8", _.eight)(Schema.str)
+            i <- field("9", _.nine)(Schema.str)
+            j <- field("10", _.ten)(Schema.str)
+            k <- field("11", _.eleven)(Schema.str)
+            l <- field("12", _.twelve)(Schema.str)
+            m <- field("13", _.thirteen)(Schema.str)
+            n <- field("14", _.fourteen)(Schema.str)
+            o <- field("15", _.fifteen)(Schema.str)
+            p <- field("16", _.sixteen)(Schema.str)
+            q <- field("17", _.seventeen)(Schema.str)
+            r <- field("18", _.eighteen)(Schema.str)
+            s <- field("19", _.nineteen)(Schema.str)
+            t <- field("20", _.twenty)(Schema.str)
+            u <- field("21", _.twentyOne)(Schema.str)
+            v <- field("22", _.twentyTwo)(Schema.str)
+            w <- field("23", _.twentyThree)(Schema.str)
           } yield
             Big(
               a,
@@ -266,7 +264,7 @@ class SchemaSpec extends UnitSpec {
       val eventSchema: Schema[Event] = Schema.record { field =>
         (
           field("type", _.state)(stateSchema),
-          field("value", _.value)(str)
+          field("value", _.value)(Schema.str)
         ).mapN(Event.apply)
       }
 
@@ -284,8 +282,96 @@ class SchemaSpec extends UnitSpec {
       test(eventSchema, completed, expectedCompleted)
     }
 
-    "encode/decode an ADT using a discriminator key" ignore {
-      ???
+    "encode/decode an ADT using a discriminator key" in {
+      val schema: Schema[Upload] = {
+        val error = Schema
+          .record[Error] { field =>
+            (
+              field("msg", _.msg)(Schema.str),
+              field("cause", _.cause)(Schema.str)
+            ).mapN(Error.apply)
+          }
+          .tag("error")
+
+        val warning = Schema
+          .record[Warning] { field =>
+            (
+              field("msg", _.msg)(Schema.str),
+              field("cause", _.cause)(Schema.str)
+            ).mapN(Warning.apply)
+          }
+          .tag("warning")
+
+        val unknown: Schema[Unknown.type] =
+          Schema.unit.tag("unknown").imap(_ => Unknown)(_ => ())
+
+        val successful = Schema
+          .record[Successful] { field =>
+            (
+              field("link", _.link)(Schema.str),
+              field("expires", _.expires)(Schema.num)
+            ).mapN(Successful.apply)
+          }
+          .tag("successful")
+
+        Schema.record[Upload] { field =>
+          (
+            field("id", _.id)(Schema.str),
+            field("status", _.status) {
+              Schema.oneOf { alt =>
+                alt(error) |+| alt(warning) |+| alt(unknown) |+| alt(successful)
+              }
+            }
+          ).mapN(Upload.apply)
+        }
+      }
+
+      val error = Error("error msg", "error cause")
+      val errorUp = Upload("error id", error)
+      val warning = Warning("warning msg", "warning cause")
+      val warningUp = Upload("warning id", warning)
+      val unknownUp = Upload("unknown id", Unknown)
+      val successful = Successful("link", 150)
+      val successfulUp = Upload("successful id", successful)
+
+      val expectedError = Value.m(
+        Name("id") -> Value.s(errorUp.id),
+        Name("status") -> Value.m(
+          Name("error") -> Value.m(
+            Name("msg") -> Value.s(error.msg),
+            Name("cause") -> Value.s(error.cause)
+          )
+        )
+      )
+      val expectedWarning = Value.m(
+        Name("id") -> Value.s(warningUp.id),
+        Name("status") -> Value.m(
+          Name("warning") -> Value.m(
+            Name("msg") -> Value.s(warning.msg),
+            Name("cause") -> Value.s(warning.cause)
+          )
+        )
+      )
+      val expectedUnknown = Value.m(
+        Name("id") -> Value.s(unknownUp.id),
+        Name("status") -> Value.m(
+          Name("unknown") -> Value.m()
+        )
+      )
+      val expectedSuccessful = Value.m(
+        Name("id") -> Value.s(successfulUp.id),
+        Name("status") -> Value.m(
+          Name("successful") -> Value.m(
+            Name("link") -> Value.s(successful.link),
+            Name("expires") -> Value.n(successful.expires)
+          )
+        )
+      )
+
+      test(schema, errorUp, expectedError)
+      test(schema, warningUp, expectedWarning)
+      test(schema, unknownUp, expectedUnknown)
+      test(schema, successfulUp, expectedSuccessful)
     }
 
     "encode/decode an ADT using a discriminator field" ignore {
@@ -456,25 +542,25 @@ class SchemaSpec extends UnitSpec {
   }
 
   val compileTimeInferenceSpec = {
-    val userSchema: Schema[User] = record { field =>
+    val userSchema: Schema[User] = Schema.record { field =>
       (
-        field("id", _.id)(num),
-        field("name", _.name)(str)
+        field("id", _.id)(Schema.num),
+        field("name", _.name)(Schema.str)
       ).mapN(User.apply)
     }
 
-    val userSchema2 = record[User] { field =>
+    val userSchema2 = Schema.record[User] { field =>
       (
-        field("id", _.id)(num),
-        field("name", _.name)(str)
+        field("id", _.id)(Schema.num),
+        field("name", _.name)(Schema.str)
       ).mapN(User.apply)
     }
 
     // random impl but it does not matter
     def completedSchema: Schema[Completed.type] =
-      record(_("foo", _.toString)(str).as(Completed))
+      Schema.record(_("foo", _.toString)(Schema.str).as(Completed))
     def startedSchema: Schema[Started.type] =
-      record(_("foo", _.toString)(str).as(Started))
+      Schema.record(_("foo", _.toString)(Schema.str).as(Started))
 
     val eventTypeSchema: Schema[EventType] = Schema.oneOf { alt =>
       alt(completedSchema) |+| alt(startedSchema)
