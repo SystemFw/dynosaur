@@ -42,6 +42,8 @@ class SchemaSpec extends UnitSpec {
   case object Unknown extends Status
   case class Successful(link: String, expires: Int) extends Status
   /* top level wrapper for ADT */
+  // Used to test the discriminator key encoding, since in real life
+  // you cannot have a Map as partition key
   case class Upload(id: String, status: Status)
   /* more than 22 fields, above tuple and function restriction */
   case class Big(
@@ -302,7 +304,7 @@ class SchemaSpec extends UnitSpec {
           }
           .tag("warning")
 
-        val unknown: Schema[Unknown.type] =
+        val unknown =
           Schema.unit.tag("unknown").imap(_ => Unknown)(_ => ())
 
         val successful = Schema
@@ -374,171 +376,93 @@ class SchemaSpec extends UnitSpec {
       test(schema, successfulUp, expectedSuccessful)
     }
 
-    "encode/decode an ADT using a discriminator field" ignore {
-      ???
+    "encode/decode an ADT using a discriminator field" in {
+      val schema: Schema[Upload] = {
+        val error = Schema
+          .record[Error] { field =>
+            field.const("type", "error")(Schema.str) *> (
+              field("msg", _.msg)(Schema.str),
+              field("cause", _.cause)(Schema.str)
+            ).mapN(Error.apply)
+          }
+
+        val warning = Schema
+          .record[Warning] { field =>
+            field.const("type", "warning")(Schema.str) *> (
+              field("msg", _.msg)(Schema.str),
+              field("cause", _.cause)(Schema.str)
+            ).mapN(Warning.apply)
+          }
+
+        val unknown =
+          Schema.record[Unknown.type](
+            _.const("type", "unknown")(Schema.str).as(Unknown)
+          )
+
+        val successful = Schema
+          .record[Successful] { field =>
+            field.const("type", "successful")(Schema.str) *> (
+              field("link", _.link)(Schema.str),
+              field("expires", _.expires)(Schema.num)
+            ).mapN(Successful.apply)
+          }
+
+        Schema.record[Upload] { field =>
+          (
+            field("id", _.id)(Schema.str),
+            field("status", _.status) {
+              Schema.oneOf { alt =>
+                alt(error) |+| alt(warning) |+| alt(unknown) |+| alt(successful)
+              }
+            }
+          ).mapN(Upload.apply)
+        }
+      }
+
+      val error = Error("error msg", "error cause")
+      val errorUp = Upload("error id", error)
+      val warning = Warning("warning msg", "warning cause")
+      val warningUp = Upload("warning id", warning)
+      val unknownUp = Upload("unknown id", Unknown)
+      val successful = Successful("link", 150)
+      val successfulUp = Upload("successful id", successful)
+
+      val expectedError = Value.m(
+        Name("id") -> Value.s(errorUp.id),
+        Name("status") -> Value.m(
+          Name("type") -> Value.s("error"),
+          Name("msg") -> Value.s(error.msg),
+          Name("cause") -> Value.s(error.cause)
+        )
+      )
+      val expectedWarning = Value.m(
+        Name("id") -> Value.s(warningUp.id),
+        Name("status") -> Value.m(
+          Name("type") -> Value.s("warning"),
+          Name("msg") -> Value.s(warning.msg),
+          Name("cause") -> Value.s(warning.cause)
+        )
+      )
+      val expectedUnknown = Value.m(
+        Name("id") -> Value.s(unknownUp.id),
+        Name("status") -> Value.m(
+          Name("type") -> Value.s("unknown")
+        )
+      )
+      val expectedSuccessful = Value.m(
+        Name("id") -> Value.s(successfulUp.id),
+        Name("status") -> Value.m(
+          Name("type") -> Value.s("successful"),
+          Name("link") -> Value.s(successful.link),
+          Name("expires") -> Value.n(successful.expires)
+        )
+      )
+
+      test(schema, errorUp, expectedError)
+      test(schema, warningUp, expectedWarning)
+      test(schema, unknownUp, expectedUnknown)
+      test(schema, successfulUp, expectedSuccessful)
     }
-
-    // "encode/decode nested ADTs using a discriminator" in {
-    //   val user = User(203, "tim")
-    //   val role = Role("admin", user)
-    //   val error = Error("MyError")
-    //   val auth = Auth(role, 1)
-
-    //   val userSchema: Schema[User] = record[User] { field =>
-    //     (
-    //       field("id", _.id)(num),
-    //       field("name", _.name)(str)
-    //     ).mapN(User.apply)
-    //   }
-    //   val roleSchema: Schema[Role] = record[Role] { field =>
-    //     (
-    //       field("capability", _.capability)(str),
-    //       field("user", _.user)(userSchema)
-    //     ).mapN(Role.apply)
-    //   }
-    //   val statusSchema: Schema[Status] = Schema.oneOf[Status] { alt =>
-    //     val errorSchema = record[Error] { field =>
-    //       field("message", _.message)(str).map(Error.apply)
-    //     }
-
-    //     val authSchema = record[Auth] { field =>
-    //       (
-    //         field("role", _.role)(roleSchema),
-    //         field("token", _.token)(num)
-    //       ).mapN(Auth.apply)
-    //     }
-
-    //     alt(errorSchema tag "error") |+| alt(authSchema tag "auth")
-    //   }
-
-    //   val expectedError = Value.m(
-    //     Name("error") -> Value.m(
-    //       Name("message") -> Value.s(error.message)
-    //     )
-    //   )
-    //   val expectedAuth = Value.m(
-    //     Name("auth") -> Value.m(
-    //       Name("role") -> Value.m(
-    //         Name("capability") -> Value.s(role.capability),
-    //         Name("user") -> Value.m(
-    //           Name("id") -> Value.n(role.user.id),
-    //           Name("name") -> Value.s(role.user.name)
-    //         )
-    //       ),
-    //       Name("token") -> Value.n(auth.token)
-    //     )
-    //   )
-
-    //   test(statusSchema, error, expectedError)
-    //   test(statusSchema, auth, expectedAuth)
-    // }
-
-    // """encode/decode ADTs using an embedded "type" field""" in {
-    //   // TODO remove the tagging here, a bit more orthogonal testing
-    //   val user = User(203, "tim")
-    //   val one = One(user)
-    //   val two = Two(user)
-
-    //   val userSchema: Schema[User] = record { field =>
-    //     (
-    //       field("id", _.id)(num),
-    //       field("name", _.name)(str)
-    //     ).mapN(User.apply)
-    //   }
-
-    //   val sameSchema: Schema[Same] = Schema.oneOf { alt =>
-    //     val oneSchema = record[One] { field =>
-    //       field.const("type", "one")(str) *>
-    //         field("user", _.user)(userSchema).map(One.apply)
-    //     }
-
-    //     val twoSchema = record[Two] { field =>
-    //       field.const("type", "two")(str) *>
-    //         field("user", _.user)(userSchema).map(Two.apply)
-    //     }
-
-    //     alt(oneSchema) |+| alt(twoSchema)
-    //   }
-
-    //   val expectedOne = Value.m(
-    //     Name("type") -> Value.s("one"),
-    //     Name("user") -> Value.m(
-    //       Name("id") -> Value.n(one.user.id),
-    //       Name("name") -> Value.s(one.user.name)
-    //     )
-    //   )
-
-    //   val expectedTwo = Value.m(
-    //     Name("type") -> Value.s("two"),
-    //     Name("user") -> Value.m(
-    //       Name("id") -> Value.n(one.user.id),
-    //       Name("name") -> Value.s(one.user.name)
-    //     )
-    //   )
-
-    //   test(sameSchema, one, expectedOne)
-    //   test(sameSchema, two, expectedTwo)
-    // }
-
-    // "encode/decode objects as empty records (e.g. for use in mixed ADTs)" in {
-    //   // TODO rename to encode decode objects as empty records or Strings, remove const
-    //   // revamp ADT tests altogether
-    //   val openDoor = Door(Open)
-    //   val closedDoor = Door(Closed)
-
-    //   val stateSchema: Schema[State] = {
-    //     val openSchema =
-    //       unit.tag("open").imap(_ => Open)(_ => ())
-    //     val closedSchema = unit.tag("closed").imap(_ => Open)(_ => ())
-
-    //     Schema.oneOf[State] { alt =>
-    //       alt(openSchema) |+| alt(closedSchema)
-    //     }
-    //   }
-
-    //   val doorSchema = record[Door] { field =>
-    //     field("state", _.state)(stateSchema).map(Door.apply)
-    //   }
-
-    //   val expectedOpen = Value.m(
-    //     Name("state") -> Value.m(
-    //       Name("open") -> Value.m()
-    //     )
-    //   )
-    //   val expectedClosed = Value.m(
-    //     Name("state") -> Value.m(
-    //       Name("closed") -> Value.m()
-    //     )
-    //   )
-
-    //   test(doorSchema, openDoor, expectedOpen)
-    //   test(doorSchema, closedDoor, expectedClosed)
-    // }
-
-    // "encode/decode objects as strings" in {
-    //   // TODO merge with the above
-    //   val openDoor = Door(Open)
-    //   val closedDoor = Door(Closed)
-    //   val state = Schema.oneOf[State] { alt =>
-    //     alt { str.const("open", Open) } |+| alt {
-    //       str.const("closed", Closed)
-    //     }
-    //   }
-
-    //   val doorSchema: Schema[Door] = record { field =>
-    //     field("state", _.state)(state).map(Door.apply)
-    //   }
-    //   val expectedOpen = Value.m(
-    //     Name("state") -> Value.s("open")
-    //   )
-    //   val expectedClosed = Value.m(
-    //     Name("state") -> Value.s("closed")
-    //   )
-
-    //   test(doorSchema, openDoor, expectedOpen)
-    //   test(doorSchema, closedDoor, expectedClosed)
-    // }
-
   }
 
   val compileTimeInferenceSpec = {
