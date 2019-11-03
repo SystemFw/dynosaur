@@ -202,13 +202,13 @@ object Switch {
   def parse: String => Option[Switch] = _.trim.toLowerCase match {
     case "on" => On.some
     case "off" => Off.some
-    case _ => None
+    case _ => none
   }
 }
 
 def switchSchema = Schema.str.imapErr { s =>
    Switch.parse(s).toRight(ReadError()) // TODO s"$s is not a valid Switch"
- }{_.toString}
+ }(_.toString)
 ```
 
 <details>

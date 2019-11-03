@@ -19,7 +19,7 @@ package codec
 
 import cats.implicits._
 
-import model.{AttributeName, AttributeValue}
+import model.{AttributeName => Name, AttributeValue => Value}
 import Schema.{num, record, str, emptyRecord} // TODO try `Schema => S` rename?
 
 class SchemaSpec extends UnitSpec {
@@ -69,7 +69,7 @@ class SchemaSpec extends UnitSpec {
 
   case class TraceToken(value: String)
 
-  def test[A](schema: Schema[A], data: A, expected: AttributeValue) = {
+  def test[A](schema: Schema[A], data: A, expected: Value) = {
     def output = Encoder.fromSchema(schema).write(data).toOption.get
     def roundTrip = Decoder.fromSchema(schema).read(output).toOption.get
 
@@ -78,58 +78,23 @@ class SchemaSpec extends UnitSpec {
   }
 
   "schema" should {
-    "encode/decode a product" in {
+    "encode/decode a product (using arbitrary field names)" in {
       val user = User(203, "tim")
       val schema = record[User] { field =>
         (
-          field("id", _.id)(num),
+          field("userId", _.id)(num),
           field("name", _.name)(str)
         ).mapN(User.apply)
       }
-      val expected = AttributeValue.m(
-        AttributeName("id") -> AttributeValue.n(user.id),
-        AttributeName("name") -> AttributeValue.s(user.name)
+      val expected = Value.m(
+        Name("userId") -> Value.n(user.id),
+        Name("name") -> Value.s(user.name)
       )
 
       test(schema, user, expected)
     }
 
-    "encode/decode a product using arbitrary field names" in {
-      // TODO merge with the above
-      val user = User(203, "tim")
-      val schema = record[User] { field =>
-        (
-          field("number", _.id)(num),
-          field("label", _.name)(str)
-        ).mapN(User.apply)
-      }
-      val expected = AttributeValue.m(
-        AttributeName("number") -> AttributeValue.n(user.id),
-        AttributeName("label") -> AttributeValue.s(user.name)
-      )
-
-      test(schema, user, expected)
-    }
-
-    "encode/decode a product including additional info" in {
-      val user = User(203, "tim")
-      val versionedSchema = record[User] { field =>
-        field.const("version", "1.0")(str) *> (
-          field("id", _.id)(num),
-          field("name", _.name)(str)
-        ).mapN(User.apply)
-      }
-      val expected = AttributeValue.m(
-        AttributeName("version") -> AttributeValue.s("1.0"),
-        AttributeName("id") -> AttributeValue.n(user.id),
-        AttributeName("name") -> AttributeValue.s(user.name)
-      )
-
-      test(versionedSchema, user, expected)
-    }
-
-    "encode/decode a product including additional info, nested" in {
-      // TODO merge with the above
+    "encode/decode a product including additional structure" in {
       val user = User(203, "tim")
       val schema = record[User] { field =>
         (
@@ -139,13 +104,13 @@ class SchemaSpec extends UnitSpec {
       }
       val versionedSchema: Schema[User] = record[User] { field =>
         field.const("version", "1.0")(str) *>
-          field("body", x => x)(schema)
+          field("payload", x => x)(schema)
       }
-      val expected = AttributeValue.m(
-        AttributeName("version") -> AttributeValue.s("1.0"),
-        AttributeName("body") -> AttributeValue.m(
-          AttributeName("id") -> AttributeValue.n(user.id),
-          AttributeName("name") -> AttributeValue.s(user.name)
+      val expected = Value.m(
+        Name("version") -> Value.s("1.0"),
+        Name("payload") -> Value.m(
+          Name("id") -> Value.n(user.id),
+          Name("name") -> Value.s(user.name)
         )
       )
 
@@ -155,7 +120,7 @@ class SchemaSpec extends UnitSpec {
     "encode a newtype with no wrapping" in {
       val token = TraceToken("1234")
       val schema = Schema.str.imap(TraceToken.apply)(_.value)
-      val expected = AttributeValue.s(token.value)
+      val expected = Value.s(token.value)
 
       test(schema, token, expected)
     }
@@ -241,30 +206,30 @@ class SchemaSpec extends UnitSpec {
             )
       )
 
-      val expected = AttributeValue.m(
-        AttributeName("1") -> AttributeValue.s(big.one),
-        AttributeName("2") -> AttributeValue.s(big.two),
-        AttributeName("3") -> AttributeValue.s(big.three),
-        AttributeName("4") -> AttributeValue.s(big.four),
-        AttributeName("5") -> AttributeValue.s(big.five),
-        AttributeName("6") -> AttributeValue.s(big.six),
-        AttributeName("7") -> AttributeValue.s(big.seven),
-        AttributeName("8") -> AttributeValue.s(big.eight),
-        AttributeName("9") -> AttributeValue.s(big.nine),
-        AttributeName("10") -> AttributeValue.s(big.ten),
-        AttributeName("11") -> AttributeValue.s(big.eleven),
-        AttributeName("12") -> AttributeValue.s(big.twelve),
-        AttributeName("13") -> AttributeValue.s(big.thirteen),
-        AttributeName("14") -> AttributeValue.s(big.fourteen),
-        AttributeName("15") -> AttributeValue.s(big.fifteen),
-        AttributeName("16") -> AttributeValue.s(big.sixteen),
-        AttributeName("17") -> AttributeValue.s(big.seventeen),
-        AttributeName("18") -> AttributeValue.s(big.eighteen),
-        AttributeName("19") -> AttributeValue.s(big.nineteen),
-        AttributeName("20") -> AttributeValue.s(big.twenty),
-        AttributeName("21") -> AttributeValue.s(big.twentyOne),
-        AttributeName("22") -> AttributeValue.s(big.twentyTwo),
-        AttributeName("23") -> AttributeValue.s(big.twentyThree)
+      val expected = Value.m(
+        Name("1") -> Value.s(big.one),
+        Name("2") -> Value.s(big.two),
+        Name("3") -> Value.s(big.three),
+        Name("4") -> Value.s(big.four),
+        Name("5") -> Value.s(big.five),
+        Name("6") -> Value.s(big.six),
+        Name("7") -> Value.s(big.seven),
+        Name("8") -> Value.s(big.eight),
+        Name("9") -> Value.s(big.nine),
+        Name("10") -> Value.s(big.ten),
+        Name("11") -> Value.s(big.eleven),
+        Name("12") -> Value.s(big.twelve),
+        Name("13") -> Value.s(big.thirteen),
+        Name("14") -> Value.s(big.fourteen),
+        Name("15") -> Value.s(big.fifteen),
+        Name("16") -> Value.s(big.sixteen),
+        Name("17") -> Value.s(big.seventeen),
+        Name("18") -> Value.s(big.eighteen),
+        Name("19") -> Value.s(big.nineteen),
+        Name("20") -> Value.s(big.twenty),
+        Name("21") -> Value.s(big.twentyOne),
+        Name("22") -> Value.s(big.twentyTwo),
+        Name("23") -> Value.s(big.twentyThree)
       )
 
       test(bigSchema, big, expected)
@@ -303,21 +268,21 @@ class SchemaSpec extends UnitSpec {
         alt(errorSchema tag "error") |+| alt(authSchema tag "auth")
       }
 
-      val expectedError = AttributeValue.m(
-        AttributeName("error") -> AttributeValue.m(
-          AttributeName("message") -> AttributeValue.s(error.message)
+      val expectedError = Value.m(
+        Name("error") -> Value.m(
+          Name("message") -> Value.s(error.message)
         )
       )
-      val expectedAuth = AttributeValue.m(
-        AttributeName("auth") -> AttributeValue.m(
-          AttributeName("role") -> AttributeValue.m(
-            AttributeName("capability") -> AttributeValue.s(role.capability),
-            AttributeName("user") -> AttributeValue.m(
-              AttributeName("id") -> AttributeValue.n(role.user.id),
-              AttributeName("name") -> AttributeValue.s(role.user.name)
+      val expectedAuth = Value.m(
+        Name("auth") -> Value.m(
+          Name("role") -> Value.m(
+            Name("capability") -> Value.s(role.capability),
+            Name("user") -> Value.m(
+              Name("id") -> Value.n(role.user.id),
+              Name("name") -> Value.s(role.user.name)
             )
           ),
-          AttributeName("token") -> AttributeValue.n(auth.token)
+          Name("token") -> Value.n(auth.token)
         )
       )
 
@@ -341,34 +306,30 @@ class SchemaSpec extends UnitSpec {
       val sameSchema: Schema[Same] = Schema.oneOf { alt =>
         val oneSchema = record[One] { field =>
           field.const("type", "one")(str) *>
-            field("payload", _.user)(userSchema tag "user").map(One.apply)
+            field("user", _.user)(userSchema).map(One.apply)
         }
 
         val twoSchema = record[Two] { field =>
           field.const("type", "two")(str) *>
-            field("payload", _.user)(userSchema tag "user").map(Two.apply)
+            field("user", _.user)(userSchema).map(Two.apply)
         }
 
         alt(oneSchema) |+| alt(twoSchema)
       }
 
-      val expectedOne = AttributeValue.m(
-        AttributeName("type") -> AttributeValue.s("one"),
-        AttributeName("payload") -> AttributeValue.m(
-          AttributeName("user") -> AttributeValue.m(
-            AttributeName("id") -> AttributeValue.n(one.user.id),
-            AttributeName("name") -> AttributeValue.s(one.user.name)
-          )
+      val expectedOne = Value.m(
+        Name("type") -> Value.s("one"),
+        Name("user") -> Value.m(
+          Name("id") -> Value.n(one.user.id),
+          Name("name") -> Value.s(one.user.name)
         )
       )
 
-      val expectedTwo = AttributeValue.m(
-        AttributeName("type") -> AttributeValue.s("two"),
-        AttributeName("payload") -> AttributeValue.m(
-          AttributeName("user") -> AttributeValue.m(
-            AttributeName("id") -> AttributeValue.n(one.user.id),
-            AttributeName("name") -> AttributeValue.s(one.user.name)
-          )
+      val expectedTwo = Value.m(
+        Name("type") -> Value.s("two"),
+        Name("user") -> Value.m(
+          Name("id") -> Value.n(one.user.id),
+          Name("name") -> Value.s(one.user.name)
         )
       )
 
@@ -376,19 +337,21 @@ class SchemaSpec extends UnitSpec {
       test(sameSchema, two, expectedTwo)
     }
 
-    "encode/decode ADTs inside a case class using isos" in {
-      // TODO use isos here, rename to encode/decode enums
+    "encode/decode enums" in {
       val closed = Event(Closed, "closed event")
       val open = Event(Open, "open event")
 
-      val stateSchema: Schema[State] = {
-        val openSchema = emptyRecord.const((), Open).tag("open")
-        val closedSchema = emptyRecord.const((), Closed).tag("closed")
-
-        Schema.oneOf[State] { alt =>
-          alt(openSchema) |+| alt(closedSchema)
-        }
+      // Similar to the one provided by enumeratum
+      def parser: String => Option[State] = {
+        case "Open" => Open.some
+        case "Closed" => Closed.some
+        case _ => none
       }
+
+      val stateSchema: Schema[State] = Schema.str.imapErr { s =>
+        parser(s) toRight ReadError()
+      }(_.toString)
+
       val eventSchema: Schema[Event] = Schema.record { field =>
         (
           field("state", _.state)(stateSchema),
@@ -396,18 +359,14 @@ class SchemaSpec extends UnitSpec {
         ).mapN(Event.apply)
       }
 
-      val expectedClosed = AttributeValue.m(
-        AttributeName("state") -> AttributeValue.m(
-          AttributeName("closed") -> AttributeValue.m()
-        ),
-        AttributeName("value") -> AttributeValue.s(closed.value)
+      val expectedClosed = Value.m(
+        Name("state") -> Value.s("Closed"),
+        Name("value") -> Value.s(closed.value)
       )
 
-      val expectedOpen = AttributeValue.m(
-        AttributeName("state") -> AttributeValue.m(
-          AttributeName("open") -> AttributeValue.m()
-        ),
-        AttributeName("value") -> AttributeValue.s(open.value)
+      val expectedOpen = Value.m(
+        Name("state") -> Value.s("Open"),
+        Name("value") -> Value.s(open.value)
       )
 
       test(eventSchema, closed, expectedClosed)
@@ -432,14 +391,14 @@ class SchemaSpec extends UnitSpec {
         field("state", _.state)(stateSchema).map(Door.apply)
       }
 
-      val expectedOpen = AttributeValue.m(
-        AttributeName("state") -> AttributeValue.m(
-          AttributeName("open") -> AttributeValue.m()
+      val expectedOpen = Value.m(
+        Name("state") -> Value.m(
+          Name("open") -> Value.m()
         )
       )
-      val expectedClosed = AttributeValue.m(
-        AttributeName("state") -> AttributeValue.m(
-          AttributeName("closed") -> AttributeValue.m()
+      val expectedClosed = Value.m(
+        Name("state") -> Value.m(
+          Name("closed") -> Value.m()
         )
       )
 
@@ -460,11 +419,11 @@ class SchemaSpec extends UnitSpec {
       val doorSchema: Schema[Door] = record { field =>
         field("state", _.state)(state).map(Door.apply)
       }
-      val expectedOpen = AttributeValue.m(
-        AttributeName("state") -> AttributeValue.s("open")
+      val expectedOpen = Value.m(
+        Name("state") -> Value.s("open")
       )
-      val expectedClosed = AttributeValue.m(
-        AttributeName("state") -> AttributeValue.s("closed")
+      val expectedClosed = Value.m(
+        Name("state") -> Value.s("closed")
       )
 
       test(doorSchema, openDoor, expectedOpen)
