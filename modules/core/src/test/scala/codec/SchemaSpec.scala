@@ -22,6 +22,7 @@ import cats.implicits._
 import model.{AttributeName => Name, AttributeValue => Value}
 import Schema.{num, record, str, unit} // TODO try `Schema => S` rename?
 
+// TODO change this to flatSpec
 class SchemaSpec extends UnitSpec {
   // simple case class
   case class User(id: Int, name: String)
@@ -36,22 +37,14 @@ class SchemaSpec extends UnitSpec {
   // case class with enum
   case class Event(state: EventType, value: String)
   // ADT with case classes, objects and ambiguous cases
-
-  /* TODO  revamp ADT example
-     - needs to be wrapped in case class (no Map for partition key)
-     - mixed case classes and objects
-     - two cases should be ambiguous
-     - do I need any nesting?
-   */
-
   sealed trait Status
-  case class Error(message: String) extends Status
-  case class Auth(role: Role, token: Int) extends Status
+  case class Error(msg: String) extends Status
+  case class Warning(msg: String) extends Status
+  case object Unknown extends Status
+  case class Successful(link: String, expires: Int) extends Status
 
-  sealed trait Same
-  case class One(user: User) extends Same
-  case class Two(user: User) extends Same
-
+  case class Upload(id: String, status: Status)
+  // more than 22 fields, above tuple and function restriction
   case class Big(
       one: String,
       two: String,
@@ -87,20 +80,31 @@ class SchemaSpec extends UnitSpec {
   }
 
   "schema" should {
-    "encode/decode a product (using arbitrary field names)" in {
-      val user = User(203, "tim")
-      val schema = record[User] { field =>
+    // TODO, nesting, change field names (keep id instead of userName, change name to firstName)
+    "encode/decode a product" in {
+      val role = Role("admin", User(203, "tim"))
+      val schema: Schema[Role] = record { field =>
         (
-          field("userId", _.id)(num),
-          field("name", _.name)(str)
-        ).mapN(User.apply)
+          field("capability", _.capability)(str),
+          field("user", _.user) { // nesting
+            record { field =>
+              (
+                field("id", _.id)(num),
+                field("firstName", _.name)(str) // renaming
+              ).mapN(User.apply)
+            }
+          }
+        ).mapN(Role.apply)
       }
       val expected = Value.m(
-        Name("userId") -> Value.n(user.id),
-        Name("name") -> Value.s(user.name)
+        Name("capability") -> Value.s(role.capability),
+        Name("user") -> Value.m(
+          Name("id") -> Value.n(role.user.id),
+          Name("firstName") -> Value.s(role.user.name)
+        )
       )
 
-      test(schema, user, expected)
+      test(schema, role, expected)
     }
 
     "encode/decode a product including additional structure" in {
@@ -280,107 +284,115 @@ class SchemaSpec extends UnitSpec {
       test(eventSchema, completed, expectedCompleted)
     }
 
-    "encode/decode nested ADTs using a discriminator" in {
-      val user = User(203, "tim")
-      val role = Role("admin", user)
-      val error = Error("MyError")
-      val auth = Auth(role, 1)
-
-      val userSchema: Schema[User] = record[User] { field =>
-        (
-          field("id", _.id)(num),
-          field("name", _.name)(str)
-        ).mapN(User.apply)
-      }
-      val roleSchema: Schema[Role] = record[Role] { field =>
-        (
-          field("capability", _.capability)(str),
-          field("user", _.user)(userSchema)
-        ).mapN(Role.apply)
-      }
-      val statusSchema: Schema[Status] = Schema.oneOf[Status] { alt =>
-        val errorSchema = record[Error] { field =>
-          field("message", _.message)(str).map(Error.apply)
-        }
-
-        val authSchema = record[Auth] { field =>
-          (
-            field("role", _.role)(roleSchema),
-            field("token", _.token)(num)
-          ).mapN(Auth.apply)
-        }
-
-        alt(errorSchema tag "error") |+| alt(authSchema tag "auth")
-      }
-
-      val expectedError = Value.m(
-        Name("error") -> Value.m(
-          Name("message") -> Value.s(error.message)
-        )
-      )
-      val expectedAuth = Value.m(
-        Name("auth") -> Value.m(
-          Name("role") -> Value.m(
-            Name("capability") -> Value.s(role.capability),
-            Name("user") -> Value.m(
-              Name("id") -> Value.n(role.user.id),
-              Name("name") -> Value.s(role.user.name)
-            )
-          ),
-          Name("token") -> Value.n(auth.token)
-        )
-      )
-
-      test(statusSchema, error, expectedError)
-      test(statusSchema, auth, expectedAuth)
+    "encode/decode an ADT using a discriminator key" ignore {
+      ???
     }
 
-    """encode/decode ADTs using an embedded "type" field""" in {
-      // TODO remove the tagging here, a bit more orthogonal testing
-      val user = User(203, "tim")
-      val one = One(user)
-      val two = Two(user)
-
-      val userSchema: Schema[User] = record { field =>
-        (
-          field("id", _.id)(num),
-          field("name", _.name)(str)
-        ).mapN(User.apply)
-      }
-
-      val sameSchema: Schema[Same] = Schema.oneOf { alt =>
-        val oneSchema = record[One] { field =>
-          field.const("type", "one")(str) *>
-            field("user", _.user)(userSchema).map(One.apply)
-        }
-
-        val twoSchema = record[Two] { field =>
-          field.const("type", "two")(str) *>
-            field("user", _.user)(userSchema).map(Two.apply)
-        }
-
-        alt(oneSchema) |+| alt(twoSchema)
-      }
-
-      val expectedOne = Value.m(
-        Name("type") -> Value.s("one"),
-        Name("user") -> Value.m(
-          Name("id") -> Value.n(one.user.id),
-          Name("name") -> Value.s(one.user.name)
-        )
-      )
-
-      val expectedTwo = Value.m(
-        Name("type") -> Value.s("two"),
-        Name("user") -> Value.m(
-          Name("id") -> Value.n(one.user.id),
-          Name("name") -> Value.s(one.user.name)
-        )
-      )
-
-      test(sameSchema, one, expectedOne)
-      test(sameSchema, two, expectedTwo)
+    "encode/decode an ADT using a discriminator field" ignore {
+      ???
     }
+
+    // "encode/decode nested ADTs using a discriminator" in {
+    //   val user = User(203, "tim")
+    //   val role = Role("admin", user)
+    //   val error = Error("MyError")
+    //   val auth = Auth(role, 1)
+
+    //   val userSchema: Schema[User] = record[User] { field =>
+    //     (
+    //       field("id", _.id)(num),
+    //       field("name", _.name)(str)
+    //     ).mapN(User.apply)
+    //   }
+    //   val roleSchema: Schema[Role] = record[Role] { field =>
+    //     (
+    //       field("capability", _.capability)(str),
+    //       field("user", _.user)(userSchema)
+    //     ).mapN(Role.apply)
+    //   }
+    //   val statusSchema: Schema[Status] = Schema.oneOf[Status] { alt =>
+    //     val errorSchema = record[Error] { field =>
+    //       field("message", _.message)(str).map(Error.apply)
+    //     }
+
+    //     val authSchema = record[Auth] { field =>
+    //       (
+    //         field("role", _.role)(roleSchema),
+    //         field("token", _.token)(num)
+    //       ).mapN(Auth.apply)
+    //     }
+
+    //     alt(errorSchema tag "error") |+| alt(authSchema tag "auth")
+    //   }
+
+    //   val expectedError = Value.m(
+    //     Name("error") -> Value.m(
+    //       Name("message") -> Value.s(error.message)
+    //     )
+    //   )
+    //   val expectedAuth = Value.m(
+    //     Name("auth") -> Value.m(
+    //       Name("role") -> Value.m(
+    //         Name("capability") -> Value.s(role.capability),
+    //         Name("user") -> Value.m(
+    //           Name("id") -> Value.n(role.user.id),
+    //           Name("name") -> Value.s(role.user.name)
+    //         )
+    //       ),
+    //       Name("token") -> Value.n(auth.token)
+    //     )
+    //   )
+
+    //   test(statusSchema, error, expectedError)
+    //   test(statusSchema, auth, expectedAuth)
+    // }
+
+    // """encode/decode ADTs using an embedded "type" field""" in {
+    //   // TODO remove the tagging here, a bit more orthogonal testing
+    //   val user = User(203, "tim")
+    //   val one = One(user)
+    //   val two = Two(user)
+
+    //   val userSchema: Schema[User] = record { field =>
+    //     (
+    //       field("id", _.id)(num),
+    //       field("name", _.name)(str)
+    //     ).mapN(User.apply)
+    //   }
+
+    //   val sameSchema: Schema[Same] = Schema.oneOf { alt =>
+    //     val oneSchema = record[One] { field =>
+    //       field.const("type", "one")(str) *>
+    //         field("user", _.user)(userSchema).map(One.apply)
+    //     }
+
+    //     val twoSchema = record[Two] { field =>
+    //       field.const("type", "two")(str) *>
+    //         field("user", _.user)(userSchema).map(Two.apply)
+    //     }
+
+    //     alt(oneSchema) |+| alt(twoSchema)
+    //   }
+
+    //   val expectedOne = Value.m(
+    //     Name("type") -> Value.s("one"),
+    //     Name("user") -> Value.m(
+    //       Name("id") -> Value.n(one.user.id),
+    //       Name("name") -> Value.s(one.user.name)
+    //     )
+    //   )
+
+    //   val expectedTwo = Value.m(
+    //     Name("type") -> Value.s("two"),
+    //     Name("user") -> Value.m(
+    //       Name("id") -> Value.n(one.user.id),
+    //       Name("name") -> Value.s(one.user.name)
+    //     )
+    //   )
+
+    //   test(sameSchema, one, expectedOne)
+    //   test(sameSchema, two, expectedTwo)
+    // }
 
     // "encode/decode objects as empty records (e.g. for use in mixed ADTs)" in {
     //   // TODO rename to encode decode objects as empty records or Strings, remove const
