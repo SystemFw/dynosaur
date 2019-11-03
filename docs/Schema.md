@@ -153,8 +153,7 @@ The most general way is using the `xmap` method on `Schema`:
 ```scala
 class Schema[A] {
   def xmap[B](f: A => Either[ReadError, B])(g: B => Either[WriteError, A]): Schema[B]
-  ...
-}
+
 ```
 
 although in many cases its two specialised variants `imap` and
@@ -162,18 +161,16 @@ although in many cases its two specialised variants `imap` and
 
 ```scala
 class Schema[A] {
-  ...
   def imap[B](f: A => B)(g: B => A): Schema[B]
   def imapErr[B](f: A => Either[ReadError, B])(g: B => A): Schema[B]
-  ...
-}
+
 ```
 
 `imap` defines an isomorphism between `A` and `B`, which often arises
 when using newtypes such as:
 
 ```scala mdoc
-case class EventId(id: String)
+case class EventId(value: String)
 ```
 
 We would like to keep the specialised representation of `EventId` in
@@ -209,16 +206,16 @@ object Switch {
   }
 }
 
-def switchSchema = Schema.str.imapErr(_.toString) { s =>
+def switchSchema = Schema.str.imapErr { s =>
    Switch.parse(s).toRight(ReadError()) // TODO s"$s is not a valid Switch"
- }
+ }{_.toString}
 ```
 
 <details>
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-val a = switchSchema.write(On)
+val a = switchSchema.write(Switch.On)
 ```
 </details>
 
@@ -293,16 +290,18 @@ These definitions nest in the obvious way:
 ```scala mdoc:silent
 case class Bar(n: Int, foo: Foo)
 val nestedSchema: Schema[Bar] =
-  record[Bar] { field =>
-    field("n", _.n)(Schema.num)
-    field("foo", _.foo) {
-      record[Foo]{ field =>
-        (
-         field("a", _.a)(str),
-         field("b",_.b)(num)
-        ).mapN(Foo.apply)
-      }
-    }
+  Schema.record { field =>
+   (
+     field("n", _.n)(Schema.num),
+     field("foo", _.foo) {
+       Schema.record { field =>
+         (
+          field("a", _.a)(Schema.str),
+          field("b",_.b)(Schema.num)
+         ).mapN(Foo.apply)
+       }
+     }
+    ).mapN(Bar.apply)
   }
 ```
 <details>

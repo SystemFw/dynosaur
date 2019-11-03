@@ -95,6 +95,7 @@ class SchemaSpec extends UnitSpec {
     }
 
     "encode/decode a product using arbitrary field names" in {
+      // TODO merge with the above
       val user = User(203, "tim")
       val schema = record[User] { field =>
         (
@@ -128,6 +129,7 @@ class SchemaSpec extends UnitSpec {
     }
 
     "encode/decode a product including additional info, nested" in {
+      // TODO merge with the above
       val user = User(203, "tim")
       val schema = record[User] { field =>
         (
@@ -152,7 +154,7 @@ class SchemaSpec extends UnitSpec {
 
     "encode a newtype with no wrapping" in {
       val token = TraceToken("1234")
-      val schema = ??? // TODO
+      val schema = Schema.str.imap(TraceToken.apply)(_.value)
       val expected = AttributeValue.s(token.value)
 
       test(schema, token, expected)
@@ -324,6 +326,7 @@ class SchemaSpec extends UnitSpec {
     }
 
     """encode/decode ADTs using an embedded "type" field""" in {
+      // TODO remove the tagging here, a bit more orthogonal testing
       val user = User(203, "tim")
       val one = One(user)
       val two = Two(user)
@@ -374,7 +377,7 @@ class SchemaSpec extends UnitSpec {
     }
 
     "encode/decode ADTs inside a case class using isos" in {
-      // TODO use isos here
+      // TODO use isos here, rename to encode/decode enums
       val closed = Event(Closed, "closed event")
       val open = Event(Open, "open event")
 
@@ -412,6 +415,7 @@ class SchemaSpec extends UnitSpec {
     }
 
     "encode/decode objects as empty records" in {
+      // TODO rename to encode decode objects as empty records or Strings, remove const
       val openDoor = Door(Open)
       val closedDoor = Door(Closed)
 
@@ -444,6 +448,7 @@ class SchemaSpec extends UnitSpec {
     }
 
     "encode/decode objects as strings" in {
+      // TODO merge with the above
       val openDoor = Door(Open)
       val closedDoor = Door(Closed)
       val state = Schema.oneOf[State] { alt =>
@@ -504,7 +509,16 @@ class SchemaSpec extends UnitSpec {
       alt(openSchema) |+| alt(closedSchema)(p2)
     }
 
-    val (_, _, _, _, _) =
-      (userSchema, userSchema2, stateSchema, stateSchema2, stateSchema3)
+    val traceTokenSchema = Schema.str.imap(TraceToken.apply)(_.value)
+
+    val (_, _, _, _, _, _) =
+      (
+        userSchema,
+        userSchema2,
+        stateSchema,
+        stateSchema2,
+        stateSchema3,
+        traceTokenSchema
+      )
   }
 }

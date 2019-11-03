@@ -21,20 +21,57 @@ import cats.implicits._
 import cats.free.Free
 import cats.data.Chain
 
-sealed trait Schema[A] {
+sealed trait Schema[A] { self =>
+  import Schema._
+  import structure._
+
   override def toString = "Schema(..)"
 
-  def tag(name: String): Schema[A] = Schema.record { field =>
+  def tag(name: String): Schema[A] = record { field =>
     field(name, x => x)(this)
   }
 
+  def xmap[B](
+      f: A => Either[ReadError, B]
+  )(g: B => Either[WriteError, A]): Schema[B] =
+    Isos {
+      new XMap[B] {
+        type Repr = A
+        def schema = self
+        def r = f
+        def w = g
+      }
+    }
+
+  def imap[B](f: A => B)(g: B => A): Schema[B] =
+    Isos {
+      new XMap[B] {
+        type Repr = A
+        def schema = self
+        def r = f.map(_.asRight)
+        def w = g.map(_.asRight)
+      }
+    }
+
+  def imapErr[B](f: A => Either[ReadError, B])(g: B => A): Schema[B] =
+    Isos {
+      new XMap[B] {
+        type Repr = A
+        def schema = self
+        def r = f
+        def w = g.map(_.asRight)
+      }
+    }
+
+  // TODO remove this and inline it into field const?
   def const[B](repr: A, v: B): Schema[B] =
-    Schema.xmap(
-      this,
-      _ => repr.asRight,
-      (r: A) => (r == repr).guard[Option].toRight(ReadError()).as(v)
-    )
+    this.xmap { r =>
+      (r == repr).guard[Option].toRight(ReadError()).as(v)
+    } { _ =>
+      repr.asRight
+    }
 }
+
 object Schema {
   object structure {
     case object Num extends Schema[Int]
@@ -45,15 +82,15 @@ object Schema {
 
     case class Field[R, E](name: String, elemSchema: Schema[E], get: R => E)
     trait Alt[A] {
-      type B
-      def caseSchema: Schema[B]
-      def prism: Prism[A, B]
+      type Case
+      def caseSchema: Schema[Case]
+      def prism: Prism[A, Case]
     }
     trait XMap[A] {
-      type B
-      def schema: Schema[B]
-      def w: A => Either[WriteError, B]
-      def r: B => Either[ReadError, A]
+      type Repr
+      def schema: Schema[Repr]
+      def w: A => Either[WriteError, Repr]
+      def r: Repr => Either[ReadError, A]
     }
   }
 
@@ -75,19 +112,6 @@ object Schema {
   def field[R] = new FieldBuilder[R]
   def alt[A] = new AltBuilder[A]
 
-  def xmap[A, B_](
-      schema_ : Schema[B_],
-      w_ : A => Either[WriteError, B_],
-      r_ : B_ => Either[ReadError, A]
-  ): Schema[A] = Isos {
-    new XMap[A] {
-      type B = B_
-      def schema = schema_
-      def w = w_
-      def r = r_
-    }
-  }
-
   class FieldBuilder[R] {
     def apply[E](
         name: String,
@@ -105,12 +129,12 @@ object Schema {
   }
 
   class AltBuilder[A] {
-    def apply[B_](
-        caseSchema_ : Schema[B_]
-    )(implicit prism_ : Prism[A, B_]): Chain[Alt[A]] =
+    def apply[B](
+        caseSchema_ : Schema[B]
+    )(implicit prism_ : Prism[A, B]): Chain[Alt[A]] =
       Chain.one {
         new Alt[A] {
-          type B = B_
+          type Case = B
           def caseSchema = caseSchema_
           def prism = prism_
         }
