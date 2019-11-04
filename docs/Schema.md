@@ -238,7 +238,7 @@ val fooSchema = Schema.record[Foo] { field =>
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-fooSchema.write(Foo("a", 1))
+fooSchema.write(Foo("value of Foo", 1))
 ```
 </details>
 
@@ -261,7 +261,7 @@ Schema.record[Foo] { field =>
  ???
 }
 ```
-it takes three arguments:
+which takes three arguments:
 
 1. the name of the field in the resulting `AttributeValue`
 2. A function to access the field during the encoding phase, in this case `Foo => Int`
@@ -304,7 +304,7 @@ val nestedSchema: Schema[Bar] =
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-val bar = Bar(10, Foo("value", 40))
+val bar = Bar(10, Foo("value of Foo", 40))
 nestedSchema.write(bar)
 ```
 </details>
@@ -360,28 +360,71 @@ implicit scope, for example:
 Schema[String].imap(EventId.apply)(_.value)
 ```
 
-## Extra information (TODO show nested version, + tagging, + empty record, renmae to additional structure through monad)
+## Additional structure
 
-It's easy to add data to the serialised record that isn't present in
-the code representation, because we have the entire `Monad` api
-at our disposal.   
-For example let's say we want to add a random `eventId` to our record,
-that we don't care about in our model: we can use `*>`, a variant of
-`mapN` (also provided by `cats`) which discards the left-hand side.
+The monadic nature of the `field` builder allows to give additional
+structure to the serialised record without affecting the code
+representation. For example, given our `Foo`:
 
-```scala mdoc:to-string
-val randomEventId = "14tafet143ba"
+```scala mdoc:compile-only
+case class Foo(a: String, b: Int)
 
-Schema.record[Foo] { field =>
-  field("eventId", _ => randomEventId)(Schema.str) *>
-  (
-    field("a", _.a)(Schema.str),
-    field("b", _.b)(Schema.num)
-  ).mapN(Foo.apply)
-}.write(Foo("foo", 345))
+val fooSchema = Schema.record[Foo] { field =>
+ (
+   field("a", _.a),
+   field("b", _.b)
+ ).mapN(Foo.apply)
+}
 ```
 
-## Constants
+We would like to produce a record that wraps `Foo` in an envelope
+containing an `eventId` and a `payload`. We will take advantage of `*>`, a
+variant of `mapN` from `cats` which discards the left-hand side of an
+applicative computation:
+
+```scala mdoc:silent
+val randomEventId = "14tafet143ba"
+val envelopeSchema = Schema.record[Foo] { field =>
+  field("eventId", _ => randomEventId) *> field("payload", x => x)(fooSchema)
+}
+```
+
+<details>
+<summary>Click to show the resulting AttributeValue</summary>
+
+```scala mdoc:to-string
+envelopeSchema.write(Foo("value of Foo", 150))
+```
+</details>
+
+A particularly common scenario is wrapping an entire schema in a
+record with a single key, so `dynosaur` exposed a `tag` method on
+`Schema` for this purpose.
+
+```scala mdoc:silent
+val taggedSchema = envelopeSchema.tag("event")
+```
+
+<details>
+<summary>Click to show the resulting AttributeValue</summary>
+
+```scala mdoc:to-string
+taggedSchema.write(Foo("value of Foo", 150))
+```
+</details>
+
+Finally, it's worth specifying the meaning of `pure`, e.g. :
+```scala mdoc:compile-only
+Schema.record[Foo](_.pure(Foo("a", 1)))
+```
+
+because we have never called `field.apply`, the resulting schema will
+output the empty record during the encoding phase, and always succeed
+with `Foo("a", 1)` during the decoding phase. As we will see later in
+this document, this behaviour will prove useful when dealing with
+objects in ADTs.
+
+## Constant fields
 
 field.const
 
