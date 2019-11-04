@@ -426,7 +426,36 @@ objects in ADTs.
 
 ## Constant fields
 
-field.const
+So far, decoding records has been entirely based on the _key_ of each
+field, letting the value be anything that can be converted to the
+desired type. However, sometimes we need to assert that a field
+contains a specific constant, and fail decoding if any other value is
+found.  
+Although this logic can be expressed entirely in terms of `field` and
+`imapErr`, `field` offers a dedicated method for this scenario,
+`field.const`.  
+For example, asserting that our `Foo` has `version: 1.0` is as simple as:
+
+```scala mdoc:silent
+val versionedFooSchema = Schema.record[Foo] { field =>
+ field.const("version", "1.0") *> (
+   field("a", _.a),
+   field("b", _.b)
+ ).mapN(Foo.apply)
+}
+```
+
+<details>
+<summary>Click to show the resulting AttributeValue</summary>
+
+```scala mdoc:to-string
+versionedFooSchema.write(Foo("value of Foo", 300))
+```
+</details>
+
+Note how the resulting record has a `version` field set to `1.0`, the
+use of `const` guarantees that any other value will result in a
+`ReadError`. Equality is performed using `==`.
 
 ## Optional fields
 
