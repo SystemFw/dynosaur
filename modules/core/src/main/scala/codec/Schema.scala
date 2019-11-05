@@ -72,7 +72,17 @@ object Schema {
     case class Sum[A](alt: Chain[Alt[A]]) extends Schema[A]
     case class Isos[A](x: XMap[A]) extends Schema[A]
 
-    case class Field[R, E](name: String, elemSchema: Schema[E], get: R => E)
+    trait Field[R, E]
+    object Field {
+      case class Req[R, E](name: String, elemSchema: Schema[E], get: R => E)
+          extends Field[R, E]
+      case class Opt[R, E](
+          name: String,
+          elemSchema: Schema[E],
+          get: R => Option[E]
+      ) extends Field[R, Option[E]]
+    }
+
     trait Alt[A] {
       type Case
       def caseSchema: Schema[Case]
@@ -110,7 +120,7 @@ object Schema {
         name: String,
         get: R => E
     )(implicit elemSchema: Schema[E]): Free[Field[R, ?], E] =
-      Free.liftF(Field(name, elemSchema, get))
+      Free.liftF(Field.Req(name, elemSchema, get))
 
     def pure[A](a: A): Free[Field[R, ?], A] = Free.pure(a)
 
@@ -123,6 +133,12 @@ object Schema {
           Either.cond((r == value), (), ReadError())
         }(_ => value.asRight)
       }
+
+    def opt[E](
+        name: String,
+        get: R => Option[E]
+    )(implicit elemSchema: Schema[E]): Free[Field[R, ?], Option[E]] =
+      Free.liftF(Field.Opt(name, elemSchema, get): Field[R, Option[E]])
   }
 
   class AltBuilder[A] {

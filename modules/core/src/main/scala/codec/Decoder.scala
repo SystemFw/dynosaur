@@ -47,17 +47,24 @@ object Decoder {
       _.s.toRight(ReadError()).map(_.value)
 
     def decodeObject[R](
-        record: Free[Field[R, ?], R],
+        recordSchema: Free[Field[R, ?], R],
         v: AttributeValue.M
     ): Res[R] =
-      record.foldMap {
-        λ[Field[R, ?] ~> Res] { field =>
-          v.values
-            .get(AttributeName(field.name))
-            .toRight(ReadError())
-            .flatMap { v =>
-              fromSchema(field.elemSchema).read(v)
-            }
+      recordSchema.foldMap {
+        λ[Field[R, ?] ~> Res] {
+          case field: Field.Req[R, e] =>
+            v.values
+              .get(AttributeName(field.name))
+              .toRight(ReadError())
+              .flatMap { v =>
+                fromSchema(field.elemSchema).read(v)
+              }
+          case field: Field.Opt[R, e] =>
+            v.values
+              .get(AttributeName(field.name))
+              .traverse { v =>
+                fromSchema(field.elemSchema).read(v)
+              }
         }
       }
 

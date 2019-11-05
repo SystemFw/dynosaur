@@ -131,9 +131,18 @@ class SchemaSpec extends UnitSpec {
       test(versionedSchema, user, expected)
     }
 
-    "encode/decode a product containing optional fields" ignore {
+    "encode/decode a product containing optional fields" in {
       val complete = Log("complete log", TraceToken("token").some)
       val noToken = Log("incomplete log", None)
+
+      val schema = Schema.record[Log] { field =>
+        (
+          field("msg", _.msg),
+          field.opt("traceToken", _.traceToken) {
+            Schema[String].imap(TraceToken.apply)(_.value)
+          }
+        ).mapN(Log.apply)
+      }
 
       val expectedComplete = Value.m(
         Name("msg") -> Value.s(complete.msg),
@@ -141,15 +150,13 @@ class SchemaSpec extends UnitSpec {
       )
 
       val expectedNoToken = Value.m(
-        Name("msg") -> Value.s(complete.msg)
+        Name("msg") -> Value.s(noToken.msg)
       )
 
       val incorrectNoToken = Value.m(
-        Name("msg") -> Value.s(complete.msg),
+        Name("msg") -> Value.s(noToken.msg),
         Name("traceToken") -> Value.`null`
       )
-
-      val schema = ???
 
       test(schema, complete, expectedComplete)
       test(schema, noToken, expectedNoToken)
@@ -162,21 +169,28 @@ class SchemaSpec extends UnitSpec {
       val complete = Log("complete log", TraceToken("token").some)
       val noToken = Log("incomplete log", None)
 
+      val schema = Schema.record[Log] { field =>
+        (
+          field("msg", _.msg),
+          field.opt("traceToken", _.traceToken) {
+            Schema[String].imap(TraceToken.apply)(_.value)
+          }
+        ).mapN(Log.apply)
+      }
+
       val expectedComplete = Value.m(
         Name("msg") -> Value.s(complete.msg),
         Name("traceToken") -> Value.s(complete.traceToken.get.value)
       )
 
       val expectedNoToken = Value.m(
-        Name("msg") -> Value.s(complete.msg),
+        Name("msg") -> Value.s(noToken.msg),
         Name("traceToken") -> Value.`null`
       )
 
       val incorrectNoToken = Value.m(
-        Name("msg") -> Value.s(complete.msg)
+        Name("msg") -> Value.s(noToken.msg)
       )
-
-      val schema = ???
 
       test(schema, complete, expectedComplete)
       test(schema, noToken, expectedNoToken)

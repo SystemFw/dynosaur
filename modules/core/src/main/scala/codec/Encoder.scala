@@ -39,37 +39,47 @@ object Encoder {
     type Res = Either[WriteError, AttributeValue]
 
     def encodeInt: Int => Res = AttributeValue.n(_).asRight
+
     def encodeString: String => Res = AttributeValue.s(_).asRight
-    def encodeObject[R](record: Free[Field[R, ?], R], v: R): Res =
-      record
+
+    def encodeObject[R](recordSchema: Free[Field[R, ?], R], record: R): Res = {
+      def write[E](name: String, schema: Schema[E])(elem: E) =
+        fromSchema(schema).write(elem).map { av =>
+          AttributeValue.M(Map(AttributeName(name) -> av))
+        }
+
+      recordSchema
         .foldMap {
           λ[Field[R, ?] ~> WriterT[Either[WriteError, ?], AttributeValue.M, ?]] {
-            field =>
-              val r = field.get(v)
+            case field: Field.Req[R, e] =>
               WriterT {
-                fromSchema(field.elemSchema)
-                  .write(r)
-                  .map(
-                    av => AttributeValue.M(Map(AttributeName(field.name) -> av))
-                  )
-                  .tupleRight(r)
+                val elem: e = field.get(record)
+                write(field.name, field.elemSchema)(elem).tupleRight(elem)
+              }
+            case field: Field.Opt[R, e] =>
+              WriterT {
+                val elem: Option[e] = field.get(record)
+                elem
+                  .foldMap(write(field.name, field.elemSchema))
+                  .tupleRight(elem)
               }
           }
         }
         .written
         .widen[AttributeValue]
+    }
 
-    def encodeSum[C](cases: Chain[Alt[C]], v: C): Res =
+    def encodeSum[C](cases: Chain[Alt[C]], coproduct: C): Res =
       cases
         .foldMapK { alt =>
-          alt.prism.tryGet(v).map { e =>
-            fromSchema(alt.caseSchema).write(e)
+          alt.prism.tryGet(coproduct).map { elem =>
+            fromSchema(alt.caseSchema).write(elem)
           }
         }
         .getOrElse(WriteError().asLeft)
 
-    def encodeIsos[V](xmap: XMap[V], v: V): Res =
-      xmap.w(v).flatMap(v => fromSchema(xmap.schema).write(v))
+    def encodeIsos[V](xmap: XMap[V], value: V): Res =
+      xmap.w(value).flatMap(v => fromSchema(xmap.schema).write(v))
 
     s match {
       case Num => Encoder.instance(encodeInt)
