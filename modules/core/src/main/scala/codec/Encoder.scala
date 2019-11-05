@@ -51,12 +51,12 @@ object Encoder {
       recordSchema
         .foldMap {
           λ[Field[R, ?] ~> WriterT[Either[WriteError, ?], AttributeValue.M, ?]] {
-            case field: Field.Req[R, e] =>
+            case field: Field.Required[R, e] =>
               WriterT {
                 val elem: e = field.get(record)
                 write(field.name, field.elemSchema)(elem).tupleRight(elem)
               }
-            case field: Field.Opt[R, e] =>
+            case field: Field.Optional[R, e] =>
               WriterT {
                 val elem: Option[e] = field.get(record)
                 elem
@@ -84,7 +84,7 @@ object Encoder {
     s match {
       case Num => Encoder.instance(encodeInt)
       case Str => Encoder.instance(encodeString)
-      case Rec(rec) =>
+      case Record(rec) =>
         Encoder.instance(v => encodeObject(rec, v))
       case Sum(cases) => Encoder.instance(v => encodeSum(cases, v))
       case Isos(x) =>

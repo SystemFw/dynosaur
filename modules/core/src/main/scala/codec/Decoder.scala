@@ -52,14 +52,14 @@ object Decoder {
     ): Res[R] =
       recordSchema.foldMap {
         λ[Field[R, ?] ~> Res] {
-          case field: Field.Req[R, e] =>
+          case field: Field.Required[R, e] =>
             v.values
               .get(AttributeName(field.name))
               .toRight(ReadError())
               .flatMap { v =>
                 fromSchema(field.elemSchema).read(v)
               }
-          case field: Field.Opt[R, e] =>
+          case field: Field.Optional[R, e] =>
             v.values
               .get(AttributeName(field.name))
               .traverse { v =>
@@ -83,7 +83,7 @@ object Decoder {
     s match {
       case Num => Decoder.instance(decodeInt)
       case Str => Decoder.instance(decodeString)
-      case Rec(rec) =>
+      case Record(rec) =>
         Decoder.instance {
           _.m.toRight(ReadError()).flatMap(decodeObject(rec, _))
         }

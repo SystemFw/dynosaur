@@ -68,15 +68,18 @@ object Schema {
   object structure {
     case object Num extends Schema[Int]
     case object Str extends Schema[String]
-    case class Rec[R](p: Free[Field[R, ?], R]) extends Schema[R]
+    case class Record[R](p: Free[Field[R, ?], R]) extends Schema[R]
     case class Sum[A](alt: Chain[Alt[A]]) extends Schema[A]
     case class Isos[A](x: XMap[A]) extends Schema[A]
 
     trait Field[R, E]
     object Field {
-      case class Req[R, E](name: String, elemSchema: Schema[E], get: R => E)
-          extends Field[R, E]
-      case class Opt[R, E](
+      case class Required[R, E](
+          name: String,
+          elemSchema: Schema[E],
+          get: R => E
+      ) extends Field[R, E]
+      case class Optional[R, E](
           name: String,
           elemSchema: Schema[E],
           get: R => Option[E]
@@ -103,7 +106,7 @@ object Schema {
   implicit def str: Schema[String] = Str
   implicit def num: Schema[Int] = Num
 
-  def fields[R](p: Free[Field[R, ?], R]): Schema[R] = Rec(p)
+  def fields[R](p: Free[Field[R, ?], R]): Schema[R] = Record(p)
   def record[R](b: FieldBuilder[R] => Free[Field[R, ?], R]): Schema[R] =
     fields(b(field))
 
@@ -120,7 +123,7 @@ object Schema {
         name: String,
         get: R => E
     )(implicit elemSchema: Schema[E]): Free[Field[R, ?], E] =
-      Free.liftF(Field.Req(name, elemSchema, get))
+      Free.liftF(Field.Required(name, elemSchema, get))
 
     def pure[A](a: A): Free[Field[R, ?], A] = Free.pure(a)
 
@@ -138,7 +141,7 @@ object Schema {
         name: String,
         get: R => Option[E]
     )(implicit elemSchema: Schema[E]): Free[Field[R, ?], Option[E]] =
-      Free.liftF(Field.Opt(name, elemSchema, get): Field[R, Option[E]])
+      Free.liftF(Field.Optional(name, elemSchema, get): Field[R, Option[E]])
   }
 
   class AltBuilder[A] {
