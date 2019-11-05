@@ -242,7 +242,7 @@ fooSchema.write(Foo("value of Foo", 1))
 ```
 </details>
 
-The central component is the record builder:
+The central component is `Schema.record`:
 
 ```scala mdoc:compile-only
 Schema.record[Foo] { field =>
@@ -322,7 +322,7 @@ nestedSchema.write(bar)
 > - You can name the builder that `record` gives you however you want
   obviously, but `field` is nice and descriptive.
 
-## Implicit vs explicit schemas in `field`
+### Implicit vs explicit schemas in `field`
 
 In general, `Schema` is not a typeclass since there often are multiple
 different encodings for the same type, but at the same time typing
@@ -360,7 +360,7 @@ implicit scope, for example:
 Schema[String].imap(EventId.apply)(_.value)
 ```
 
-## Additional structure
+### Additional structure
 
 The monadic nature of the `field` builder allows to give additional
 structure to the serialised record without affecting the code
@@ -398,7 +398,7 @@ envelopeSchema.write(Foo("value of Foo", 150))
 </details>
 
 A particularly common scenario is wrapping an entire schema in a
-record with a single key, so `dynosaur` exposed a `tag` method on
+record with a single key, so `dynosaur` exposes a `tag` method on
 `Schema` for this purpose.
 
 ```scala mdoc:silent
@@ -424,14 +424,14 @@ with `Foo("a", 1)` during the decoding phase. As we will see later in
 this document, this behaviour will prove useful when dealing with
 objects in ADTs.
 
-## Constant fields
+### Constant fields
 
 So far, decoding records has been entirely based on the _key_ of each
 field, letting the value be anything that can be converted to the
 desired type. However, sometimes we need to assert that a field
 contains a specific constant, and fail decoding if any other value is
 found.  
-Although this logic can be expressed entirely in terms of `field` and
+Although this logic can be expressed entirely in terms of `field.apply` and
 `imapErr`, `field` offers a dedicated method for this scenario,
 `field.const`.  
 For example, asserting that our `Foo` has `version: 1.0` is as simple as:
@@ -457,12 +457,7 @@ Note how the resulting record has a `version` field set to `1.0`, the
 use of `const` guarantees that any other value will result in a
 `ReadError`. Equality is performed using `==`.
 
-## Optional fields
-
-field.optional
-make the point about optional fields vs optional values
-
-## Case classes with more than 22 fields
+### Case classes with more than 22 fields
 
 Scala's tuples have a hard limit of 22 elements, so if your case class has
 more than 22 fields you won't be able to call `(f1, ..., f23).mapN`.  
@@ -478,28 +473,259 @@ record[BigClass] { field =>
 }
 ```
 
+### Optional fields & nullable values (and defaults?)
+
+field.optional
+make the point about optional fields vs optional values
+
+## Sequences
+
+TODO
+
 ## Coproducts
-example, show oneOf builder, show |+|, talk about how to merge and Prisms
 
-## Tagging
-    
-How about moving tagging to the record section as "additional structure", then 
-we could have a "ambiguity" section here showing tagging or type fields with tools already used
+Let's now move on to coproducts, by looking at this basic ADT:
 
-## type field
-moved above
+```scala mdoc:silent
+sealed trait Basic
+case class One(s: String) extends Basic
+case class Two(n: Int) extends Basic
+```
 
-## detail choice for objects
-we've seen enums (all obj) and hierarchies with case classes, what about mixed?
-show to use empty records, add a combinator probably
-incorporate this in the ambiguity section:
-naive |+| works, but what about ambiguity and what about objects?
+with the corresponding schema:
 
-For the `type` encoding, objects just use field.const("type").as(object) and no other fields
-for the map encoding, just `unit.tag("thing").imap...`, abbreviated as `singleton...`
+```scala mdoc:silent
+val basicADTSchema = Schema.oneOf[Basic] { alt =>
+  val one = Schema.record[One]{ field => field("s", _.s).map(One.apply) }
+  val two = Schema.record[Two]{ field => field("n", _.n).map(Two.apply) }
 
-## withDefault
+  alt(one) |+| alt(two)
+}
+```
 
-## sequences
-    hello
+<details>
+<summary>Click to show the resulting AttributeValue</summary>
+
+```scala mdoc:to-string
+val one = One("this is one")
+val two = Two(4)
+
+basicADTSchema.write(one)
+basicADTSchema.read(basicADTSchema.write(one))
+basicADTSchema.write(two)
+basicADTSchema.read(basicADTSchema.write(two))
+
+```
+</details>
+
+
+The definitions of `one` and `two` should be unsurprising, but we need
+an additional combinator to express the concept of _choice_,
+`Schema.oneOf`:
+
+```scala
+Schema.oneOf[Basic] { alt => }
+```
+
+Which states that `Basic` is a coproducts of several alternatives,
+defined through the `alt` builder. The computations returned by `alt`
+are monoids, so we can combine them through `|+|` to mean "orElse".
+The `alt` builder takes two arguments:
+- The schema of the alternative, for example `Schema[One]`
+- An implicit `Prism[Basic, One]`, where `Prism` is defined by
+   ```scala mdoc:compile-only
+       case class Prism[A, B](tryGet: A => Option[B], inject: B => A)
+   ```
+
+> **Notes:**
+> - `dynosaur` derives prisms automatically for ADTs, you don't need to do anything.
+> - The same inference considerations of `record[Foo]` apply to `oneOf[Basic] `.
+> - You need to make sure you handle all cases in `oneOf`, if you
+>   forget to handle one, encoding will gracefully fail with a `WriteError`.
+
+To see how the `Prism` shape arises when dealing with choice, consider this:
+-  When decoding, we need to always transform the variant we have
+   successfully decoded (e.g. `One`) into the coproduct (in this case
+   `Basic`). This can be expressed as `B => A`
+- When encoding, for each case we need to check whether the coproduct
+  actually matches the given case (e.g. if it's `One` or not).  This
+  can be expressed as `A => Option[B]`.
+- A `Prism` packages these two functions into one entity, and gives us
+  a structure for composition: when encoding, we will do the
+  equivalent of pattern matching to select the right encoder. When
+  decoding, we will try each decoder until we find a successful one,
+  or fail if none of the alternatives successfully decodes our data.
+
+The semantics described above are enough to encode _choice_, but there
+is a final issue to solve: _ambiguity_. Consider this:
+
+```scala mdoc:silent
+sealed trait A
+case class B(v: String) extends A
+case class C(v: String) extends A
+
+val ambiguous: Schema[A] = Schema.oneOf { alt =>
+  val b: Schema[B] = Schema.record { field => field("v", _.v).map(B.apply) }
+  val c: Schema[C] = Schema.record { field => field("v", _.v).map(C.apply) }
+
+  alt(b) |+| alt(c)
+}
+```
+
+`a` needs to distinguish between `b` and `c` when decoding, but their
+encoded form is the same:
+
+<details>
+<summary>Click to show the resulting AttributeValue</summary>
+
+```scala mdoc:to-string
+ambiguous.write(B("hello"))
+ambiguous.write(C("hello"))
+ambiguous.read(ambiguous.write(C("hello"))) // gives incorrect result
+```
+</details>
+
+`dynosaur` is expressing enough to solve this problem in several ways,
+in this document we will have a look at two possible strategies:
+**discriminator keys** and **discriminator fields**.
+
+### Discriminator keys
+
+We will use this ADT as our running example:
+
+```scala mdoc:silent
+sealed trait Problem
+case class Error(msg: String) extends Problem
+case class Warning(msg: String) extends Problem
+case object Unknown extends Problem
+```
+
+and once again, `Error` and `Warning` exhibit ambiguity:
+
+```scala mdoc:compile-only
+val err = Schema.record[Error] { field =>
+  field("msg", _.msg).map(Error.apply)
+}
+val warn = Schema.record[Warning] { field =>
+  field("msg", _.msg).map(Warning.apply)
+}
+```
+
+The discriminator key strategy simply consists in wrapping each case
+in a single-field record, whose key is the name of the case.
+We have already seen a combinator that can do this, the `tag` method
+on `Schema`:
+
+```scala mdoc:compile-only
+val err = Schema.record[Error] { field =>
+  field("msg", _.msg).map(Error.apply)
+}.tag("error")
+
+val warn = Schema.record[Warning] { field =>
+  field("msg", _.msg).map(Warning.apply)
+}.tag("warning")
+```
+
+Now the two records have different keys ("error" vs "warning"), and
+decoding is no longer ambiguous.  
+The final question is how to encode `Unknown`, we need to `tag` a
+schema that produces an empty record on encoding, and always succeeds
+with `Unknown` on decoding, but as we saw in the `Additional
+structure` section, these are _exactly_ the semantics of `field.pure`:
+
+```scala mdoc:compile-only
+val unknown = Schema.record[Unknown.type](_.pure(Unknown)).tag("unknown")
+```
+
+The final schema looks like this:
+
+```scala mdoc:silent
+val schemaWithKey = Schema.oneOf[Problem] { alt =>
+  val err = Schema.record[Error] { field =>
+    field("msg", _.msg).map(Error.apply)
+  }.tag("error")
+
+  val warn = Schema.record[Warning] { field =>
+    field("msg", _.msg).map(Warning.apply)
+  }.tag("warning")
+
+  val unknown = Schema.record[Unknown.type] { field =>
+    field.pure(Unknown)
+  }.tag("unknown")
+
+  alt(err) |+| alt(warn) |+| alt(unknown)
+}
+
+```
+
+<details>
+<summary>Click to show the resulting AttributeValue</summary>
+
+```scala mdoc:to-string
+val error = Error("this is an error")
+val warning = Warning("this is a warning")
+
+schemaWithKey.write(error)
+schemaWithKey.read(schemaWithKey.write(error))
+schemaWithKey.write(warning)
+schemaWithKey.read(schemaWithKey.write(warning))
+schemaWithKey.write(Unknown)
+schemaWithKey.read(schemaWithKey.write(Unknown))
+```
+</details>
+
+
+> **Notes:**
+> - The discriminator key encoding is simple and convenient, but cannot
+>   be used if your ADT is at the top level in your table, because
+>   DynamoDB does not support attributes of type `M` as partition keys.
+
+### Discriminator field
+
+In the discriminator field approach, each record adds an additional
+field (for example called "type") to disambiguate.  
+The only thing to note is the use of `field.const` to make sure
+decoding succeeds or fails based on the _specific value_ of the field,
+and not just the fact that there is a field called "type" whose value
+is a `String`. The rest just uses straightforward combinators from cats:
+`map`, `*>`,`as`.
+
+The schema looks like this:
+
+```scala mdoc:silent
+val schemaWithField = Schema.oneOf[Problem] { alt =>
+  val err = Schema.record[Error] { field =>
+     field.const("type", "error") *> field("msg", _.msg).map(Error.apply)
+  }
+
+  val warn = Schema.record[Warning] { field =>
+    field.const("type", "warning") *> field("msg", _.msg).map(Warning.apply)
+  }
+
+  val unknown = Schema.record[Unknown.type] { field =>
+    field.const("type", "unknown").as(Unknown)
+  }
+
+  alt(err) |+| alt(warn) |+| alt(unknown)
+}
+```
+
+<details>
+<summary>Click to show the resulting AttributeValue</summary>
+
+```scala mdoc:to-string
+schemaWithField.write(error)
+schemaWithField.read(schemaWithField.write(error))
+schemaWithField.write(warning)
+schemaWithField.read(schemaWithField.write(warning))
+schemaWithField.write(Unknown)
+schemaWithField.read(schemaWithField.write(Unknown))
+```
+</details>
+
+> **Notes:**
+> - The same idea behind this encoding can be used for other scenarios
+>   as well, for example you could use a `version` field in conjuction
+>   with `alt` to support multiple versions of the same data in a
+>   single table.
 
