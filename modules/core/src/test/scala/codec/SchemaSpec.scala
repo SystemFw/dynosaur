@@ -27,6 +27,8 @@ class SchemaSpec extends UnitSpec {
   case class User(id: Int, name: String)
   /* nested case class */
   case class Role(capability: String, user: User)
+  /* case class with Options */
+  case class Log(msg: String, traceToken: Option[TraceToken])
   /* newtype */
   case class TraceToken(value: String)
   /* enum */
@@ -127,6 +129,60 @@ class SchemaSpec extends UnitSpec {
       )
 
       test(versionedSchema, user, expected)
+    }
+
+    "encode/decode a product containing optional fields" ignore {
+      val complete = Log("complete log", TraceToken("token").some)
+      val noToken = Log("incomplete log", None)
+
+      val expectedComplete = Value.m(
+        Name("msg") -> Value.s(complete.msg),
+        Name("traceToken") -> Value.s(complete.traceToken.get.value)
+      )
+
+      val expectedNoToken = Value.m(
+        Name("msg") -> Value.s(complete.msg)
+      )
+
+      val incorrectNoToken = Value.m(
+        Name("msg") -> Value.s(complete.msg),
+        Name("traceToken") -> Value.`null`
+      )
+
+      val schema = ???
+
+      test(schema, complete, expectedComplete)
+      test(schema, noToken, expectedNoToken)
+      Decoder
+        .fromSchema(schema)
+        .read(incorrectNoToken) shouldBe Left(ReadError())
+    }
+
+    "encode/decode a product containing nullable values" ignore {
+      val complete = Log("complete log", TraceToken("token").some)
+      val noToken = Log("incomplete log", None)
+
+      val expectedComplete = Value.m(
+        Name("msg") -> Value.s(complete.msg),
+        Name("traceToken") -> Value.s(complete.traceToken.get.value)
+      )
+
+      val expectedNoToken = Value.m(
+        Name("msg") -> Value.s(complete.msg),
+        Name("traceToken") -> Value.`null`
+      )
+
+      val incorrectNoToken = Value.m(
+        Name("msg") -> Value.s(complete.msg)
+      )
+
+      val schema = ???
+
+      test(schema, complete, expectedComplete)
+      test(schema, noToken, expectedNoToken)
+      Decoder
+        .fromSchema(schema)
+        .read(incorrectNoToken) shouldBe Left(ReadError())
     }
 
     "encode/decode a product with more than 22 fields" in {
