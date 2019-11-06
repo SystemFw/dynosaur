@@ -473,10 +473,89 @@ record[BigClass] { field =>
 }
 ```
 
-### Optional fields & nullable values (and defaults?)
+### Optional fields & nullable values
 
-field.optional
-make the point about optional fields vs optional values
+In order to fully capture the semantics of AttributeValue (which are
+like JSON in this case), `dynosaur` draws a distinction between
+_optional fields_ and _nullable values_:
+
+- An optional field may or may not be part of the serialised record,
+  but if it's there it cannot be `AttributeValue.NULL` for decoding to
+  succeed.
+- A nullable value can be `AttributeValue.NULL`, but it has to always
+  be part of the record for decoding to succeed. It can also appear
+  outside of records.
+
+As a general rule, optional fields should be preferred. They can be
+constructed by calling the `opt` method on the `field` builder, which
+is exactly like `field.apply` except for the accessor function which
+has type `Record => Option[Field]` instead of `Record => Field`.
+
+```scala mdoc:silent
+case class Msg(body: String, topic: Option[String])
+
+val msgSchemaOpt = Schema.record[Msg] { field =>
+ (
+   field("body", _.body),
+   field.opt("topic", _.topic)
+ ).mapN(Msg.apply)
+}
+
+```
+
+<details>
+<summary>Click to show the resulting AttributeValue</summary>
+
+```scala mdoc:to-string
+msgSchemaOpt.write(Msg("Topical message", "Interesting topic".some))
+msgSchemaOpt.write(Msg("Random message", None))
+```
+</details>
+
+To create a nullable value instead, use `field.apply` as normal, but
+call `_.nullable` on the schema passed to it. If you are passing the
+schema implicitly, just pass `Schema.nullable` instead:
+
+```scala mdoc:silent
+val msgSchemaNull = Schema.record[Msg] { field =>
+ (
+   field("body", _.body),
+   field("topic", _.topic)(Schema.nullable)
+ ).mapN(Msg.apply)
+}
+
+```
+
+In this case, the call to `Schema.nullable` translates to `Schema[String].nullable`.
+
+<details>
+<summary>Click to show the resulting AttributeValue</summary>
+
+```scala mdoc:to-string
+msgSchemaNull.write(Msg("Topical message", "Interesting topic".some))
+msgSchemaNull.write(Msg("Random message", None))
+```
+</details>
+
+> **Notes:**
+> - Because of the choice between optionality and nullability, there
+>   is no inductive implicit instance of `Schema` for `Option`. Schema
+>   has an implicitNotFound annotation to warn you to use `opt` or
+>   `nullable`
+> - If desired, one can be lenient and accept both missing and null fields.
+    The following code favours missing fields on writes, but accepts both on reads:
+      ```scala
+       field
+         .opt("topic", _.topic.map(_.some))(Schema.nullable)
+         .map(_.flatten)
+      ```
+    whereas this one favours null fields on writes, equally accepting both on reads:
+      ```scala
+       field
+         .opt("topic", _.topic.some)(Schema.nullable)
+         .map(_.flatten)
+      ```
+>   These cases are rare enough, and at moment `dynosaur` does not offer a shortcut for them.
 
 ## Sequences
 
