@@ -77,7 +77,7 @@ sealed trait Schema[A] { self =>
 
 object Schema {
   object structure {
-    case object Num extends Schema[Int]
+    case object Num extends Schema[String] // dynamo represents numbers as strings
     case object Str extends Schema[String]
     case object Bool extends Schema[Boolean]
     case object Identity extends Schema[AttributeValue]
@@ -121,7 +121,22 @@ object Schema {
 
   implicit def boolean: Schema[Boolean] = Bool
   implicit def string: Schema[String] = Str
-  implicit def num: Schema[Int] = Num
+
+  implicit def int: Schema[Int] =
+    Num.imapErr { v =>
+      Either.catchNonFatal(v.toInt).leftMap(_ => ReadError())
+    }(_.toString)
+
+  implicit def long: Schema[Long] =
+    Num.imapErr { v =>
+      Either.catchNonFatal(v.toLong).leftMap(_ => ReadError())
+    }(_.toString)
+
+  implicit def double: Schema[Double] =
+    Num.imapErr { v =>
+      Either.catchNonFatal(v.toDouble).leftMap(_ => ReadError())
+    }(_.toString)
+
   implicit def id: Schema[AttributeValue] = Identity
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 

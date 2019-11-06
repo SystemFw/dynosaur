@@ -40,7 +40,7 @@ object Encoder {
 
     def encodeBool: Boolean => Res = AttributeValue.bool(_).asRight
 
-    def encodeInt: Int => Res = AttributeValue.n(_).asRight
+    def encodeNum: String => Res = AttributeValue.N(_).asRight
 
     def encodeString: String => Res = AttributeValue.s(_).asRight
 
@@ -89,7 +89,7 @@ object Encoder {
       xmap.w(value).flatMap(v => fromSchema(xmap.schema).write(v))
 
     s match {
-      case Num => Encoder.instance(encodeInt)
+      case Num => Encoder.instance(encodeNum)
       case Str => Encoder.instance(encodeString)
       case Bool => Encoder.instance(encodeBool)
       case Identity => Encoder.instance(_.asRight)

@@ -44,10 +44,8 @@ object Decoder {
     def decodeString: AttributeValue => Res[String] =
       _.s.toRight(ReadError()).map(_.value)
 
-    def decodeInt: AttributeValue => Res[Int] =
-      _.n.toRight(ReadError()).flatMap { v =>
-        Either.catchNonFatal(v.value.toInt).leftMap(_ => ReadError())
-      }
+    def decodeNum: AttributeValue => Res[String] =
+      _.n.toRight(ReadError()).map(_.value)
 
     def decodeNullable[V](
         schema: Schema[V],
@@ -93,7 +91,7 @@ object Decoder {
         .flatMap(xmap.r)
 
     s match {
-      case Num => Decoder.instance(decodeInt)
+      case Num => Decoder.instance(decodeNum)
       case Str => Decoder.instance(decodeString)
       case Bool => Decoder.instance(decodeBool)
       case Identity => Decoder.instance(_.asRight)
