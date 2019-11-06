@@ -89,6 +89,7 @@ object Encoder {
     s match {
       case Num => Encoder.instance(encodeInt)
       case Str => Encoder.instance(encodeString)
+      case Identity => Encoder.instance(_.asRight)
       case Nullable(inner) => Encoder.instance(encodeNullable(inner, _))
       case Record(rec) => Encoder.instance(encodeObject(rec, _))
       case Sum(cases) => Encoder.instance(encodeSum(cases, _))

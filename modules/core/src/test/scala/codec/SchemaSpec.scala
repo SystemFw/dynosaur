@@ -20,6 +20,7 @@ package codec
 import cats.implicits._
 
 import model.{AttributeName => Name, AttributeValue => Value}
+import Arbitraries._
 
 // TODO change this to flatSpec
 class SchemaSpec extends UnitSpec {
@@ -375,7 +376,7 @@ class SchemaSpec extends UnitSpec {
 
     "encode a newtype with no wrapping" in {
       val token = TraceToken("1234")
-      val schema = Schema.str.imap(TraceToken.apply)(_.value)
+      val schema = Schema[String].imap(TraceToken.apply)(_.value)
       val expected = Value.s(token.value)
 
       test(schema, token, expected)
@@ -599,6 +600,10 @@ class SchemaSpec extends UnitSpec {
       test(schema, warningUp, expectedWarning)
       test(schema, unknownUp, expectedUnknown)
       test(schema, successfulUp, expectedSuccessful)
+    }
+
+    "pass through attribute value untouched" in forAll { v: Value =>
+      test(Schema[Value], v, v)
     }
   }
 

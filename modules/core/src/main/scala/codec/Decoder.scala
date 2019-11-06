@@ -92,6 +92,7 @@ object Decoder {
     s match {
       case Num => Decoder.instance(decodeInt)
       case Str => Decoder.instance(decodeString)
+      case Identity => Decoder.instance(_.asRight)
       case Nullable(inner) => Decoder.instance(decodeNullable(inner, _))
       case Record(rec) =>
         Decoder.instance {

@@ -21,6 +21,8 @@ import cats.implicits._
 import cats.free.Free
 import cats.data.Chain
 
+import model.AttributeValue
+
 @annotation.implicitNotFound(
   """
 Cannot find an implicit value for Schema[${A}].
@@ -77,6 +79,7 @@ object Schema {
   object structure {
     case object Num extends Schema[Int]
     case object Str extends Schema[String]
+    case object Identity extends Schema[AttributeValue]
     case class Nullable[A](s: Schema[A]) extends Schema[Option[A]]
     case class Record[R](p: Free[Field[R, ?], R]) extends Schema[R]
     case class Sum[A](alt: Chain[Alt[A]]) extends Schema[A]
@@ -115,8 +118,9 @@ object Schema {
 
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
-  implicit def str: Schema[String] = Str
+  implicit def string: Schema[String] = Str
   implicit def num: Schema[Int] = Num
+  implicit def id: Schema[AttributeValue] = Identity
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 
   def fields[R](p: Free[Field[R, ?], R]): Schema[R] = Record(p)
