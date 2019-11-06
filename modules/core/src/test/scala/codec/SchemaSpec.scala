@@ -165,15 +165,15 @@ class SchemaSpec extends UnitSpec {
         .read(incorrectNoToken) shouldBe Left(ReadError())
     }
 
-    "encode/decode a product containing nullable values" ignore {
+    "encode/decode a product containing nullable values" in {
       val complete = Log("complete log", TraceToken("token").some)
       val noToken = Log("incomplete log", None)
 
       val schema = Schema.record[Log] { field =>
         (
           field("msg", _.msg),
-          field.opt("traceToken", _.traceToken) {
-            Schema[String].imap(TraceToken.apply)(_.value)
+          field("traceToken", _.traceToken) {
+            Schema[String].imap(TraceToken.apply)(_.value).nullable
           }
         ).mapN(Log.apply)
       }
@@ -553,6 +553,16 @@ class SchemaSpec extends UnitSpec {
       ).mapN(User.apply)
     }
 
+    implicit val traceTokenSchema =
+      Schema[String].imap(TraceToken.apply)(_.value)
+
+    val nullableSchema = Schema.record[Log] { field =>
+      (
+        field("msg", _.msg),
+        field("traceToken", _.traceToken)(Schema.nullable)
+      ).mapN(Log)
+    }
+
     // random impl but it does not matter
     def completedSchema: Schema[Completed.type] =
       Schema.record(_("foo", _.toString).as(Completed))
@@ -574,16 +584,15 @@ class SchemaSpec extends UnitSpec {
       alt(startedSchema) |+| alt(completedSchema)(p2)
     }
 
-    val traceTokenSchema = Schema[String].imap(TraceToken.apply)(_.value)
-
-    val (_, _, _, _, _, _) =
+    val (_, _, _, _, _, _, _) =
       (
         userSchema,
         userSchema2,
         eventTypeSchema,
         eventTypeSchema2,
         eventTypeSchema3,
-        traceTokenSchema
+        traceTokenSchema,
+        nullableSchema
       )
   }
 }

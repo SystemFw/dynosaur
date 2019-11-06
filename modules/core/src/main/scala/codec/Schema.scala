@@ -62,12 +62,15 @@ sealed trait Schema[A] { self =>
         def w = g.map(_.asRight)
       }
     }
+
+  def nullable: Schema[Option[A]] = Nullable(this)
 }
 
 object Schema {
   object structure {
     case object Num extends Schema[Int]
     case object Str extends Schema[String]
+    case class Nullable[A](s: Schema[A]) extends Schema[Option[A]]
     case class Record[R](p: Free[Field[R, ?], R]) extends Schema[R]
     case class Sum[A](alt: Chain[Alt[A]]) extends Schema[A]
     case class Isos[A](x: XMap[A]) extends Schema[A]
@@ -79,6 +82,7 @@ object Schema {
           elemSchema: Schema[E],
           get: R => E
       ) extends Field[R, E]
+
       case class Optional[R, E](
           name: String,
           elemSchema: Schema[E],
@@ -91,6 +95,7 @@ object Schema {
       def caseSchema: Schema[Case]
       def prism: Prism[A, Case]
     }
+
     trait XMap[A] {
       type Repr
       def schema: Schema[Repr]
@@ -105,6 +110,7 @@ object Schema {
 
   implicit def str: Schema[String] = Str
   implicit def num: Schema[Int] = Num
+  def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 
   def fields[R](p: Free[Field[R, ?], R]): Schema[R] = Record(p)
   def record[R](b: FieldBuilder[R] => Free[Field[R, ?], R]): Schema[R] =

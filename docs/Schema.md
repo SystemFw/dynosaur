@@ -729,3 +729,4 @@ schemaWithField.read(schemaWithField.write(Unknown))
 >   with `alt` to support multiple versions of the same data in a
 >   single table.
 
+## Section with expandable examples using `for` only

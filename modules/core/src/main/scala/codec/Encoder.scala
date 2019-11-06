@@ -42,6 +42,11 @@ object Encoder {
 
     def encodeString: String => Res = AttributeValue.s(_).asRight
 
+    def encodeNullable[V](schema: Schema[V], value: Option[V]) =
+      value
+        .map(fromSchema(schema).write)
+        .getOrElse(AttributeValue.`null`.asRight)
+
     def encodeObject[R](recordSchema: Free[Field[R, ?], R], record: R): Res = {
       def write[E](name: String, schema: Schema[E])(elem: E) =
         fromSchema(schema).write(elem).map { av =>
@@ -84,11 +89,10 @@ object Encoder {
     s match {
       case Num => Encoder.instance(encodeInt)
       case Str => Encoder.instance(encodeString)
-      case Record(rec) =>
-        Encoder.instance(v => encodeObject(rec, v))
-      case Sum(cases) => Encoder.instance(v => encodeSum(cases, v))
-      case Isos(x) =>
-        Encoder.instance(v => encodeIsos(x, v))
+      case Nullable(inner) => Encoder.instance(encodeNullable(inner, _))
+      case Record(rec) => Encoder.instance(encodeObject(rec, _))
+      case Sum(cases) => Encoder.instance(encodeSum(cases, _))
+      case Isos(iso) => Encoder.instance(encodeIsos(iso, _))
     }
   }
 }

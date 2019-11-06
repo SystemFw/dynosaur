@@ -46,6 +46,15 @@ object Decoder {
     def decodeString: AttributeValue => Res[String] =
       _.s.toRight(ReadError()).map(_.value)
 
+    def decodeNullable[V](
+        schema: Schema[V],
+        v: AttributeValue
+    ): Res[Option[V]] =
+      v.`null`
+        .toRight(ReadError())
+        .as(none[V])
+        .handleErrorWith(_ => fromSchema(schema).read(v).map(_.some))
+
     def decodeObject[R](
         recordSchema: Free[Field[R, ?], R],
         v: AttributeValue.M
@@ -83,15 +92,13 @@ object Decoder {
     s match {
       case Num => Decoder.instance(decodeInt)
       case Str => Decoder.instance(decodeString)
+      case Nullable(inner) => Decoder.instance(decodeNullable(inner, _))
       case Record(rec) =>
         Decoder.instance {
           _.m.toRight(ReadError()).flatMap(decodeObject(rec, _))
         }
-      case Sum(cases) =>
-        Decoder.instance { v =>
-          decodeSum(cases, v)
-        }
-      case Isos(x) => Decoder.instance(decodeIsos(x, _))
+      case Sum(cases) => Decoder.instance(decodeSum(cases, _))
+      case Isos(iso) => Decoder.instance(decodeIsos(iso, _))
     }
   }
 }
