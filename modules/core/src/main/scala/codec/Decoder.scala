@@ -41,11 +41,19 @@ object Decoder {
     def decodeBool: AttributeValue => Res[Boolean] =
       _.bool.toRight(ReadError()).map(_.value)
 
+    def decodeNum: AttributeValue => Res[String] =
+      _.n.toRight(ReadError()).map(_.value)
+
     def decodeString: AttributeValue => Res[String] =
       _.s.toRight(ReadError()).map(_.value)
 
-    def decodeNum: AttributeValue => Res[String] =
-      _.n.toRight(ReadError()).map(_.value)
+    def decodeSequence[V](
+        schema: Schema[V],
+        value: AttributeValue
+    ): Res[Vector[V]] =
+      value.l
+        .toRight(ReadError())
+        .flatMap(_.values.traverse(fromSchema(schema).read))
 
     def decodeNullable[V](
         schema: Schema[V],
@@ -95,6 +103,7 @@ object Decoder {
       case Str => Decoder.instance(decodeString)
       case Bool => Decoder.instance(decodeBool)
       case Identity => Decoder.instance(_.asRight)
+      case Sequence(elem) => Decoder.instance(decodeSequence(elem, _))
       case Nullable(inner) => Decoder.instance(decodeNullable(inner, _))
       case Record(rec) =>
         Decoder.instance {

@@ -44,6 +44,9 @@ object Encoder {
 
     def encodeString: String => Res = AttributeValue.s(_).asRight
 
+    def encodeSequences[V](schema: Schema[V], value: Vector[V]) =
+      value.traverse(fromSchema(schema).write).map(AttributeValue.L)
+
     def encodeNullable[V](schema: Schema[V], value: Option[V]) =
       value
         .map(fromSchema(schema).write)
@@ -93,6 +96,7 @@ object Encoder {
       case Str => Encoder.instance(encodeString)
       case Bool => Encoder.instance(encodeBool)
       case Identity => Encoder.instance(_.asRight)
+      case Sequence(elem) => Encoder.instance(encodeSequences(elem, _))
       case Nullable(inner) => Encoder.instance(encodeNullable(inner, _))
       case Record(rec) => Encoder.instance(encodeObject(rec, _))
       case Sum(cases) => Encoder.instance(encodeSum(cases, _))

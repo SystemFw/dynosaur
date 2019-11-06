@@ -73,6 +73,10 @@ sealed trait Schema[A] { self =>
     }
 
   def nullable: Schema[Option[A]] = Nullable(this)
+
+  def asVector: Schema[Vector[A]] = Sequence(this)
+
+  def asList: Schema[List[A]] = asVector.imap(_.toList)(_.toVector)
 }
 
 object Schema {
@@ -81,10 +85,11 @@ object Schema {
     case object Str extends Schema[String]
     case object Bool extends Schema[Boolean]
     case object Identity extends Schema[AttributeValue]
-    case class Nullable[A](s: Schema[A]) extends Schema[Option[A]]
-    case class Record[R](p: Free[Field[R, ?], R]) extends Schema[R]
-    case class Sum[A](alt: Chain[Alt[A]]) extends Schema[A]
-    case class Isos[A](x: XMap[A]) extends Schema[A]
+    case class Nullable[A](value: Schema[A]) extends Schema[Option[A]]
+    case class Sequence[A](value: Schema[A]) extends Schema[Vector[A]]
+    case class Record[R](value: Free[Field[R, ?], R]) extends Schema[R]
+    case class Sum[A](value: Chain[Alt[A]]) extends Schema[A]
+    case class Isos[A](value: XMap[A]) extends Schema[A]
 
     trait Field[R, E]
     object Field {
@@ -138,6 +143,11 @@ object Schema {
     }(_.toString)
 
   implicit def id: Schema[AttributeValue] = Identity
+
+  implicit def vector[A](implicit s: Schema[A]): Schema[Vector[A]] = s.asVector
+
+  implicit def list[A](implicit s: Schema[A]): Schema[List[A]] = s.asList
+
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 
   def fields[R](p: Free[Field[R, ?], R]): Schema[R] = Record(p)
