@@ -199,7 +199,7 @@ object codec {
 
     val decodeL: Decoder[AttributeValue] = Decoder.instance { hc =>
       for {
-        xs <- hc.get[List[AttributeValue]]("L")
+        xs <- hc.get[Vector[AttributeValue]]("L")
       } yield AttributeValue.L(xs)
     }
 

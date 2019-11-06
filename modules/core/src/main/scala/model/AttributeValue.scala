@@ -92,7 +92,7 @@ object AttributeValue {
   case class BOOL(value: Boolean) extends AttributeValue
   case class M(values: Map[AttributeName, AttributeValue])
       extends AttributeValue
-  case class L(values: List[AttributeValue]) extends AttributeValue
+  case class L(values: Vector[AttributeValue]) extends AttributeValue
   case class SS(values: Set[String]) extends AttributeValue
   case class NS(values: Set[String]) extends AttributeValue
   case class BS(values: Set[ByteVector]) extends AttributeValue
@@ -136,7 +136,7 @@ object AttributeValue {
   def bool(value: Boolean): AttributeValue = AttributeValue.BOOL(value)
 
   def l(values: AttributeValue*): AttributeValue =
-    AttributeValue.L(values.toList)
+    AttributeValue.L(values.toVector)
   def l(values: List[AttributeValue]): AttributeValue =
-    AttributeValue.L(values.toList)
+    AttributeValue.L(values.toVector)
 }

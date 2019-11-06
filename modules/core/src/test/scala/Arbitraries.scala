@@ -26,7 +26,6 @@ import org.scalacheck.Gen._
 import org.scalacheck.Arbitrary._
 
 trait Generators {
-
   def genNonEmptyString(genMaxSize: Gen[Int] = const(6)): Gen[String] =
     for {
       maxSize <- genMaxSize
@@ -114,7 +113,10 @@ trait Generators {
   ): Gen[AttributeValue.L] =
     for {
       size <- genSize
-      values <- listOfN(size, genAttributeValue(maxDeep.map(_ - 1)))
+      values <- containerOfN[Vector, AttributeValue](
+        size,
+        genAttributeValue(maxDeep.map(_ - 1))
+      )
     } yield AttributeValue.L(values)
 
   def genAttributeValueM(
