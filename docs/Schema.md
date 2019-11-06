@@ -137,7 +137,8 @@ The simplest instances of `Schema` are primitives, for example `str`
 represents the ability to encode and decode an arbitrary `String`.
 The following primitives are supported:
 ```scala
-def str: Schema[String]
+Schema[String]
+Schema[Int]
 ...
 ```
 
@@ -174,7 +175,7 @@ our code, but represent it as a simple `String` in Dynamo, without the
 extra nesting.
 
 ```scala mdoc:silent
-val eventIdSchema = Schema.str.imap(EventId.apply)(_.value)
+val eventIdSchema = Schema[String].imap(EventId.apply)(_.value)
 ```
 <details>
 <summary>Click to show the resulting AttributeValue</summary>
@@ -202,7 +203,7 @@ object Switch {
   }
 }
 
-def switchSchema = Schema.str.imapErr { s =>
+def switchSchema = Schema[String].imapErr { s =>
    Switch.parse(s).toRight(ReadError()) // TODO s"$s is not a valid Switch"
  }(_.toString)
 ```
@@ -227,8 +228,8 @@ whose `Schema[Foo]` can be defined as:
 ```scala mdoc:silent
 val fooSchema = Schema.record[Foo] { field =>
  (
-   field("a", _.a)(Schema.str),
-   field("b", _.b)(Schema.num)
+   field("a", _.a)(Schema[String]),
+   field("b", _.b)(Schema[Int])
  ).mapN(Foo.apply)
 }
 
@@ -256,7 +257,7 @@ methods. The primary method is `apply`
 
 ```scala mdoc:compile-only
 Schema.record[Foo] { field =>
- val b = field("b", _.b)(Schema.num)
+ val b = field("b", _.b)(Schema[Int])
   
  ???
 }
@@ -275,8 +276,8 @@ computations returned by `field.apply` are monadic, so we can use
 ```scala mdoc:silent
 Schema.record[Foo] { field =>
  (
-   field("a",_.a)(Schema.str),
-   field("b", _.b)(Schema.num)
+   field("a",_.a)(Schema[String]),
+   field("b", _.b)(Schema[Int])
  ).mapN(Foo.apply)
 }
 ```
@@ -288,12 +289,12 @@ case class Bar(n: Int, foo: Foo)
 val nestedSchema: Schema[Bar] =
   Schema.record { field =>
    (
-     field("n", _.n)(Schema.num),
+     field("n", _.n)(Schema[Int]),
      field("foo", _.foo) {
        Schema.record { field =>
          (
-          field("a", _.a)(Schema.str),
-          field("b",_.b)(Schema.num)
+          field("a", _.a)(Schema[String]),
+          field("b",_.b)(Schema[Int])
          ).mapN(Foo.apply)
        }
      }
@@ -326,7 +327,8 @@ nestedSchema.write(bar)
 
 In general, `Schema` is not a typeclass since there often are multiple
 different encodings for the same type, but at the same time typing
-`Schema.str` everywhere gets old quickly.
+`Schema[String]` everywhere for primitive types whose encoding hardly
+if ever changes gets old quickly.
 The `field` builder is designed to take the schema of the field as its
 sole implicit argument, so that you can pass schemas implicitly or
 explicitly at ease.  
@@ -351,13 +353,6 @@ Schema.record[Bar] { field =>
    }
  ).mapN(Bar.apply)
 }
-```
-
-Additionally, `Schema.apply` can be used to fetch a schema from the
-implicit scope, for example:
-
-```scala mdoc:compile-only
-Schema[String].imap(EventId.apply)(_.value)
 ```
 
 ### Additional structure
