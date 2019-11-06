@@ -28,7 +28,7 @@ class SchemaSpec extends UnitSpec {
   /* nested case class */
   case class Role(capability: String, user: User)
   /* case class with Options */
-  case class Log(msg: String, traceToken: Option[TraceToken])
+  case class Log(msg: String, tag: Option[String])
   /* newtype */
   case class TraceToken(value: String)
   /* enum */
@@ -132,71 +132,135 @@ class SchemaSpec extends UnitSpec {
     }
 
     "encode/decode a product containing optional fields" in {
-      val complete = Log("complete log", TraceToken("token").some)
-      val noToken = Log("incomplete log", None)
+      val complete = Log("complete log", "tag".some)
+      val noTag = Log("incomplete log", None)
 
       val schema = Schema.record[Log] { field =>
         (
           field("msg", _.msg),
-          field.opt("traceToken", _.traceToken) {
-            Schema[String].imap(TraceToken.apply)(_.value)
-          }
+          field.opt("tag", _.tag)
         ).mapN(Log.apply)
       }
 
       val expectedComplete = Value.m(
         Name("msg") -> Value.s(complete.msg),
-        Name("traceToken") -> Value.s(complete.traceToken.get.value)
+        Name("tag") -> Value.s(complete.tag.get)
       )
 
-      val expectedNoToken = Value.m(
-        Name("msg") -> Value.s(noToken.msg)
+      val expectedNoTag = Value.m(
+        Name("msg") -> Value.s(noTag.msg)
       )
 
-      val incorrectNoToken = Value.m(
-        Name("msg") -> Value.s(noToken.msg),
-        Name("traceToken") -> Value.`null`
+      val incorrectNoTag = Value.m(
+        Name("msg") -> Value.s(noTag.msg),
+        Name("tag") -> Value.`null`
       )
 
       test(schema, complete, expectedComplete)
-      test(schema, noToken, expectedNoToken)
+      test(schema, noTag, expectedNoTag)
       Decoder
         .fromSchema(schema)
-        .read(incorrectNoToken) shouldBe Left(ReadError())
+        .read(incorrectNoTag) shouldBe Left(ReadError())
     }
 
     "encode/decode a product containing nullable values" in {
-      val complete = Log("complete log", TraceToken("token").some)
-      val noToken = Log("incomplete log", None)
+      val complete = Log("complete log", "tag".some)
+      val noTag = Log("incomplete log", None)
 
       val schema = Schema.record[Log] { field =>
         (
           field("msg", _.msg),
-          field("traceToken", _.traceToken) {
-            Schema[String].imap(TraceToken.apply)(_.value).nullable
-          }
+          field("tag", _.tag)(Schema.nullable)
         ).mapN(Log.apply)
       }
 
       val expectedComplete = Value.m(
         Name("msg") -> Value.s(complete.msg),
-        Name("traceToken") -> Value.s(complete.traceToken.get.value)
+        Name("tag") -> Value.s(complete.tag.get)
       )
 
-      val expectedNoToken = Value.m(
-        Name("msg") -> Value.s(noToken.msg),
-        Name("traceToken") -> Value.`null`
+      val expectedNoTag = Value.m(
+        Name("msg") -> Value.s(noTag.msg),
+        Name("tag") -> Value.`null`
       )
 
-      val incorrectNoToken = Value.m(
-        Name("msg") -> Value.s(noToken.msg)
+      val incorrectNoTag = Value.m(
+        Name("msg") -> Value.s(noTag.msg)
       )
 
       test(schema, complete, expectedComplete)
-      test(schema, noToken, expectedNoToken)
+      test(schema, noTag, expectedNoTag)
       Decoder
         .fromSchema(schema)
-        .read(incorrectNoToken) shouldBe Left(ReadError())
+        .read(incorrectNoTag) shouldBe Left(ReadError())
+    }
+
+    "encode/decode a product containing optional fields, with leniency to nullability" in {
+      val complete = Log("complete log", "tag".some)
+      val noTag = Log("incomplete log", None)
+
+      val schema = Schema.record[Log] { field =>
+        (
+          field("msg", _.msg),
+          field
+            .opt("tag", _.tag.map(_.some))(Schema.nullable)
+            .map(_.flatten)
+        ).mapN(Log.apply)
+      }
+
+      val expectedComplete = Value.m(
+        Name("msg") -> Value.s(complete.msg),
+        Name("tag") -> Value.s(complete.tag.get)
+      )
+
+      val expectedNoTag = Value.m(
+        Name("msg") -> Value.s(noTag.msg)
+      )
+
+      val acceptedNoTag = Value.m(
+        Name("msg") -> Value.s(noTag.msg),
+        Name("tag") -> Value.`null`
+      )
+
+      test(schema, complete, expectedComplete)
+      test(schema, noTag, expectedNoTag)
+      Decoder
+        .fromSchema(schema)
+        .read(acceptedNoTag) shouldBe Right(noTag)
+    }
+
+    "encode/decode a product containing nullable values, with leniency to optionality" in {
+      val complete = Log("complete log", "tag".some)
+      val noTag = Log("incomplete log", None)
+
+      val schema = Schema.record[Log] { field =>
+        (
+          field("msg", _.msg),
+          field
+            .opt("tag", _.tag.some)(Schema.nullable)
+            .map(_.flatten)
+        ).mapN(Log.apply)
+      }
+
+      val expectedComplete = Value.m(
+        Name("msg") -> Value.s(complete.msg),
+        Name("tag") -> Value.s(complete.tag.get)
+      )
+
+      val expectedNoTag = Value.m(
+        Name("msg") -> Value.s(noTag.msg),
+        Name("tag") -> Value.`null`
+      )
+
+      val acceptedtNoTag = Value.m(
+        Name("msg") -> Value.s(noTag.msg)
+      )
+
+      test(schema, complete, expectedComplete)
+      test(schema, noTag, expectedNoTag)
+      Decoder
+        .fromSchema(schema)
+        .read(acceptedtNoTag) shouldBe Right(noTag)
     }
 
     "encode/decode a product with more than 22 fields" in {
@@ -556,13 +620,6 @@ class SchemaSpec extends UnitSpec {
     implicit val traceTokenSchema =
       Schema[String].imap(TraceToken.apply)(_.value)
 
-    val nullableSchema = Schema.record[Log] { field =>
-      (
-        field("msg", _.msg),
-        field("traceToken", _.traceToken)(Schema.nullable)
-      ).mapN(Log)
-    }
-
     // random impl but it does not matter
     def completedSchema: Schema[Completed.type] =
       Schema.record(_("foo", _.toString).as(Completed))
@@ -584,15 +641,14 @@ class SchemaSpec extends UnitSpec {
       alt(startedSchema) |+| alt(completedSchema)(p2)
     }
 
-    val (_, _, _, _, _, _, _) =
+    val (_, _, _, _, _, _) =
       (
         userSchema,
         userSchema2,
         eventTypeSchema,
         eventTypeSchema2,
         eventTypeSchema3,
-        traceTokenSchema,
-        nullableSchema
+        traceTokenSchema
       )
   }
 }
