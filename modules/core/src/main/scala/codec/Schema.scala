@@ -21,6 +21,13 @@ import cats.implicits._
 import cats.free.Free
 import cats.data.Chain
 
+@annotation.implicitNotFound(
+  """
+Cannot find an implicit value for Schema[${A}].
+ If you are trying to resolve a Schema for Option, note that there are no implicit instances for it because of the difference between missing fields, which can be absent from a record but cannot be NULL, and nullable fields, which can be NULL but have to be present.
+Please use `field.opt(_, _)` or `field.apply(_, _)(Schema.nullable)` to tell `dynosaur` which semantics you want.
+"""
+)
 sealed trait Schema[A] { self =>
   import Schema._
   import structure._
