@@ -38,6 +38,8 @@ object Encoder {
   def fromSchema[A](s: Schema[A]): Encoder[A] = {
     type Res = Either[WriteError, AttributeValue]
 
+    def encodeBool: Boolean => Res = AttributeValue.bool(_).asRight
+
     def encodeInt: Int => Res = AttributeValue.n(_).asRight
 
     def encodeString: String => Res = AttributeValue.s(_).asRight
@@ -89,6 +91,7 @@ object Encoder {
     s match {
       case Num => Encoder.instance(encodeInt)
       case Str => Encoder.instance(encodeString)
+      case Bool => Encoder.instance(encodeBool)
       case Identity => Encoder.instance(_.asRight)
       case Nullable(inner) => Encoder.instance(encodeNullable(inner, _))
       case Record(rec) => Encoder.instance(encodeObject(rec, _))

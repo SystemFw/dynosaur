@@ -38,13 +38,16 @@ object Decoder {
   def fromSchema[A](s: Schema[A]): Decoder[A] = {
     type Res[B] = Either[ReadError, B]
 
+    def decodeBool: AttributeValue => Res[Boolean] =
+      _.bool.toRight(ReadError()).map(_.value)
+
+    def decodeString: AttributeValue => Res[String] =
+      _.s.toRight(ReadError()).map(_.value)
+
     def decodeInt: AttributeValue => Res[Int] =
       _.n.toRight(ReadError()).flatMap { v =>
         Either.catchNonFatal(v.value.toInt).leftMap(_ => ReadError())
       }
-
-    def decodeString: AttributeValue => Res[String] =
-      _.s.toRight(ReadError()).map(_.value)
 
     def decodeNullable[V](
         schema: Schema[V],
@@ -92,6 +95,7 @@ object Decoder {
     s match {
       case Num => Decoder.instance(decodeInt)
       case Str => Decoder.instance(decodeString)
+      case Bool => Decoder.instance(decodeBool)
       case Identity => Decoder.instance(_.asRight)
       case Nullable(inner) => Decoder.instance(decodeNullable(inner, _))
       case Record(rec) =>

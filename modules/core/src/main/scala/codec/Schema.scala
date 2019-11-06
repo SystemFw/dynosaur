@@ -79,6 +79,7 @@ object Schema {
   object structure {
     case object Num extends Schema[Int]
     case object Str extends Schema[String]
+    case object Bool extends Schema[Boolean]
     case object Identity extends Schema[AttributeValue]
     case class Nullable[A](s: Schema[A]) extends Schema[Option[A]]
     case class Record[R](p: Free[Field[R, ?], R]) extends Schema[R]
@@ -118,6 +119,7 @@ object Schema {
 
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
+  implicit def boolean: Schema[Boolean] = Bool
   implicit def string: Schema[String] = Str
   implicit def num: Schema[Int] = Num
   implicit def id: Schema[AttributeValue] = Identity

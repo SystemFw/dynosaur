@@ -84,6 +84,8 @@ class SchemaSpec extends UnitSpec {
   }
 
   "schema" should {
+    "encode/decode primitives" ignore {}
+
     "encode/decode a product" in {
       val role = Role("admin", User(203, "tim"))
       val schema: Schema[Role] = Schema.record { field =>
