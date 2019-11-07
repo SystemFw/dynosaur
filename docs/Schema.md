@@ -133,14 +133,27 @@ low level representation.
 
 ## Primitives
 
-The simplest instances of `Schema` are primitives, for example `str`
+The simplest instances of `Schema` are primitives, for example `Schema[String]`
 represents the ability to encode and decode an arbitrary `String`.
 The following primitives are supported:
 ```scala
-Schema[String]
-Schema[Int]
-...
+  Schema[Boolean]
+  Schema[String]
+  Schema[Int]
+  Schema[Long]
+  Schema[Double]
+  Schema[Float]
+  Schema[Short]
+  Schema[AttributeValue]
 ```
+
+
+> **Notes:**
+> - Infamously, DynamoDB does not support empty strings. `dynosaur`
+>   currently does not introduce any magic to deal with this
+>   automatically.
+> - `Schema[AttributeValue]` is the identity schema that writes and
+>   reads `AttributeValue` without touching it
 
 ## Bidirectional mappings
 
