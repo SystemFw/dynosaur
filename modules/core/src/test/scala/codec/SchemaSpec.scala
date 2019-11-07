@@ -84,7 +84,55 @@ class SchemaSpec extends UnitSpec {
   }
 
   "schema" should {
-    "encode/decode primitives" ignore {}
+    "encode/decode ints" in forAll { i: Int =>
+      val expected = Value.n(i)
+      test(Schema[Int], i, expected)
+    }
+
+    "encode/decode longs" in forAll { l: Long =>
+      val expected = Value.n(l)
+      test(Schema[Long], l, expected)
+    }
+
+    "encode/decode doubles" in forAll { d: Double =>
+      val expected = Value.n(d)
+      test(Schema[Double], d, expected)
+    }
+
+    "encode/decode floats" in forAll { f: Float =>
+      val expected = Value.n(f)
+      test(Schema[Float], f, expected)
+    }
+
+    "encode/decode shorts" in forAll { s: Short =>
+      val expected = Value.n(s)
+      test(Schema[Short], s, expected)
+    }
+
+    "encode/decode single bytes" in forAll { b: Byte =>
+      val expected = Value.n(s)
+      test(Schema[Byte], s, expected)
+    }
+
+    "encode/decode strings" in forAll { s: String =>
+      val expected = Value.s(s)
+      test(Schema[String], s, expected)
+    }
+
+    "encode/decode booleans" in forAll { b: Boolean =>
+      val expected = Value.bool(b)
+      test(Schema[Boolean], b, expected)
+    }
+
+    "encode/decode lists" in forAll { l: List[Int] =>
+      val expected = Value.l(l.map(Value.n))
+      test(Schema[List[Int]], l, expected)
+    }
+
+    "encode/decode vectors" in forAll { l: Vector[Int] =>
+      val expected = Value.l(l.map(Value.n))
+      test(Schema[Vector[Int]], l, expected)
+    }
 
     "encode/decode a product" in {
       val role = Role("admin", User(203, "tim"))

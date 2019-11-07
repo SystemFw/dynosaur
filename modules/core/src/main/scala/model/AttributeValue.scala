@@ -19,6 +19,7 @@ package model
 
 import cats._, implicits._
 import scodec.bits.ByteVector
+import scala.collection.immutable
 
 /**
   * TODO
@@ -130,13 +131,11 @@ object AttributeValue {
   def b(value: ByteVector): AttributeValue = AttributeValue.B(value)
   def b(value: Array[Byte]): AttributeValue =
     AttributeValue.B(ByteVector(value))
-  def b(value: Seq[Byte]): AttributeValue =
+  def b(value: immutable.Seq[Byte]): AttributeValue =
     AttributeValue.B(ByteVector(value))
 
   def bool(value: Boolean): AttributeValue = AttributeValue.BOOL(value)
 
-  def l(values: AttributeValue*): AttributeValue =
-    AttributeValue.L(values.toVector)
-  def l(values: List[AttributeValue]): AttributeValue =
+  def l(values: immutable.Seq[AttributeValue]): AttributeValue =
     AttributeValue.L(values.toVector)
 }

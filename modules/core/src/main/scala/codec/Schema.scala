@@ -21,6 +21,8 @@ import cats.implicits._
 import cats.free.Free
 import cats.data.Chain
 
+import scala.collection.immutable
+
 import model.AttributeValue
 
 @annotation.implicitNotFound(
@@ -73,10 +75,6 @@ sealed trait Schema[A] { self =>
     }
 
   def nullable: Schema[Option[A]] = Nullable(this)
-
-  def asVector: Schema[Vector[A]] = Sequence(this)
-
-  def asList: Schema[List[A]] = asVector.imap(_.toList)(_.toVector)
 }
 
 object Schema {
@@ -142,11 +140,30 @@ object Schema {
       Either.catchNonFatal(v.toDouble).leftMap(_ => ReadError())
     }(_.toString)
 
+  implicit def float: Schema[Float] =
+    Num.imapErr { v =>
+      Either.catchNonFatal(v.toFloat).leftMap(_ => ReadError())
+    }(_.toString)
+
+  implicit def short: Schema[Short] =
+    Num.imapErr { v =>
+      Either.catchNonFatal(v.toShort).leftMap(_ => ReadError())
+    }(_.toString)
+
+  implicit def byte: Schema[Byte] =
+    Num.imapErr { v =>
+      Either.catchNonFatal(v.toByte).leftMap(_ => ReadError())
+    }(_.toString)
+
   implicit def id: Schema[AttributeValue] = Identity
 
-  implicit def vector[A](implicit s: Schema[A]): Schema[Vector[A]] = s.asVector
-
-  implicit def list[A](implicit s: Schema[A]): Schema[List[A]] = s.asList
+  // Seq is not enough on its own for implicit search to work
+  implicit def vector[A](implicit s: Schema[A]): Schema[Vector[A]] =
+    Sequence(s)
+  implicit def list[A](implicit s: Schema[A]): Schema[List[A]] =
+    vector(s).imap(_.toList)(_.toVector)
+  implicit def seq[A](implicit s: Schema[A]): Schema[immutable.Seq[A]] =
+    vector(s).imap(_.toSeq)(_.toVector)
 
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 
