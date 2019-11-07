@@ -21,6 +21,8 @@ import cats._, implicits._
 import cats.data.{Chain, WriterT}
 import cats.free.Free
 
+import scodec.bits.ByteVector
+
 import model.{AttributeName, AttributeValue}
 import Schema.structure._
 
@@ -43,6 +45,8 @@ object Encoder {
     def encodeNum: String => Res = AttributeValue.N(_).asRight
 
     def encodeString: String => Res = AttributeValue.s(_).asRight
+
+    def encodeBytes: ByteVector => Res = AttributeValue.b(_).asRight
 
     def encodeSequences[V](schema: Schema[V], value: Vector[V]) =
       value.traverse(fromSchema(schema).write).map(AttributeValue.L)
@@ -95,6 +99,7 @@ object Encoder {
       case Num => Encoder.instance(encodeNum)
       case Str => Encoder.instance(encodeString)
       case Bool => Encoder.instance(encodeBool)
+      case Bytes => Encoder.instance(encodeBytes)
       case Identity => Encoder.instance(_.asRight)
       case Sequence(elem) => Encoder.instance(encodeSequences(elem, _))
       case Nullable(inner) => Encoder.instance(encodeNullable(inner, _))

@@ -18,8 +18,9 @@ package dynosaur
 package codec
 
 import cats._, implicits._
-import cats.data.Chain
 import cats.free.Free
+import cats.data.Chain
+import scodec.bits.ByteVector
 
 import model.{AttributeName, AttributeValue}
 import Schema.structure._
@@ -46,6 +47,9 @@ object Decoder {
 
     def decodeString: AttributeValue => Res[String] =
       _.s.toRight(ReadError()).map(_.value)
+
+    def decodeBytes: AttributeValue => Res[ByteVector] =
+      _.b.toRight(ReadError()).map(_.value)
 
     def decodeSequence[V](
         schema: Schema[V],
@@ -102,6 +106,7 @@ object Decoder {
       case Num => Decoder.instance(decodeNum)
       case Str => Decoder.instance(decodeString)
       case Bool => Decoder.instance(decodeBool)
+      case Bytes => Decoder.instance(decodeBytes)
       case Identity => Decoder.instance(_.asRight)
       case Sequence(elem) => Decoder.instance(decodeSequence(elem, _))
       case Nullable(inner) => Decoder.instance(decodeNullable(inner, _))

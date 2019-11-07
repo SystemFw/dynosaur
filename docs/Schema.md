@@ -827,6 +827,7 @@ implicit inductive instances for lists, vectors and seqs. You can use as* on exp
 all represented as L
 
 Note no instance for byte so it won't do the wrong thing, there are instances for Array and ByteVector that map to binary blobs
+, they already encode to base 64
 
 implicit inductive instance for Map[String, V: Schema], use asMap with
 implicit schema. If your keys are not Strings but can be represented

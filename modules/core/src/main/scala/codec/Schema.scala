@@ -21,6 +21,7 @@ import cats.implicits._
 import cats.free.Free
 import cats.data.Chain
 
+import scodec.bits.ByteVector
 import scala.collection.immutable
 
 import model.AttributeValue
@@ -86,6 +87,7 @@ object Schema {
     case object Num extends Schema[String] // dynamo represents numbers as strings
     case object Str extends Schema[String]
     case object Bool extends Schema[Boolean]
+    case object Bytes extends Schema[ByteVector]
     case object Identity extends Schema[AttributeValue]
     case class Nullable[A](value: Schema[A]) extends Schema[Option[A]]
     case class Sequence[A](value: Schema[A]) extends Schema[Vector[A]]
@@ -165,6 +167,12 @@ object Schema {
   implicit def vector[A](implicit s: Schema[A]): Schema[Vector[A]] = s.asVector
   implicit def list[A](implicit s: Schema[A]): Schema[List[A]] = s.asList
   implicit def seq[A](implicit s: Schema[A]): Schema[immutable.Seq[A]] = s.asSeq
+
+  implicit def bytevector: Schema[ByteVector] = Bytes
+  implicit def byteArray: Schema[Array[Byte]] =
+    Bytes.imap(_.toArray)(ByteVector.apply)
+  implicit def arraySeq: Schema[Seq[Byte]] =
+    Bytes.imap(_.toSeq)(ByteVector.apply)
 
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 

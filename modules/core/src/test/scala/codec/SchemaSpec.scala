@@ -19,6 +19,8 @@ package codec
 
 import cats.implicits._
 
+import scodec.bits.ByteVector
+
 import model.{AttributeName => Name, AttributeValue => Value}
 import Arbitraries._
 
@@ -127,6 +129,12 @@ class SchemaSpec extends UnitSpec {
     "encode/decode vectors" in forAll { l: Vector[String] =>
       val expected = Value.l(l.map(Value.s))
       test(Schema[Vector[String]], l, expected)
+    }
+
+    "encode/decode bytes" in forAll { b: Array[Byte] =>
+      val in = ByteVector(b)
+      val expected = Value.b(in)
+      test(Schema[ByteVector], in, expected)
     }
 
     "encode/decode a product" in {
