@@ -552,10 +552,6 @@ msgSchemaNull.write(Msg("Random message", None))
       ```
 >   These cases are rare enough, and at moment `dynosaur` does not offer a shortcut for them.
 
-## Sequences
-
-TODO
-
 ## Coproducts
 
 Let's now move on to coproducts, by looking at this basic ADT:
@@ -802,5 +798,30 @@ schemaWithField.read(schemaWithField.write(Unknown))
 >   as well, for example you could use a `version` field in conjuction
 >   with `alt` to support multiple versions of the same data in a
 >   single table.
+
+
+## Sequences and Maps
+
+implicit inductive instances for lists, vectors and seqs. You can use as* on explicit schema.
+all represented as L
+
+Note no instance for byte so it won't do the wrong thing, there are instances for Array and ByteVector that map to binary blobs
+
+implicit inductive instance for Map[String, V: Schema], use asMap with
+implicit schema. If your keys are not Strings but can be represented
+as such, use imap appropriately to convert to the shape you need
+
+maybe should provide implicit only helpers, taking functions, on Schema[Set[Number]],
+Schema[Set[String]], and Schema[Map[K, V]] for the imap bits
+keep the iso stuff in its own paragraph in the end
+add helpers for map.withkeys and the various  neset bullshit?, nah fuck it, just docs (show a combinator that takes any Schema[Map[YourThing, A]] to Schema[Map[String, A]])
+
+## ByteSet, StringSet and NumberSet
+
+TODO what to do about SS BS and NS?
+NonEmpty vs what scanamo does (puts NULL, can conflict with Option)
+implicit inductive instances on NonEmptySet[String], and NonEmptySet(numeric stuff), with corresponding as* methods
+only on the appropriate schemas. If you have something you wish to represent as NS or SS, e.g. a
+Set of newtypes, use imap appropriately on it (example with string sets?)
 
 ## Section with expandable examples using `for` only

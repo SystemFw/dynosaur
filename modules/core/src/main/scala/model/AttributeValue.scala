@@ -126,7 +126,6 @@ object AttributeValue {
   def n(value: Double): AttributeValue = AttributeValue.N(value.toString)
   def n(value: Float): AttributeValue = AttributeValue.N(value.toString)
   def n(value: Short): AttributeValue = AttributeValue.N(value.toString)
-  def n(value: Byte): AttributeValue = AttributeValue.N(value.toString)
 
   def b(value: ByteVector): AttributeValue = AttributeValue.B(value)
   def b(value: Array[Byte]): AttributeValue =

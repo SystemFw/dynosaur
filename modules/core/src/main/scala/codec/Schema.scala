@@ -75,6 +75,10 @@ sealed trait Schema[A] { self =>
     }
 
   def nullable: Schema[Option[A]] = Nullable(this)
+
+  def asVector: Schema[Vector[A]] = Sequence(this)
+  def asList: Schema[List[A]] = vector(this).imap(_.toList)(_.toVector)
+  def asSeq: Schema[immutable.Seq[A]] = vector(this).imap(_.toSeq)(_.toVector)
 }
 
 object Schema {
@@ -125,6 +129,11 @@ object Schema {
   implicit def boolean: Schema[Boolean] = Bool
   implicit def string: Schema[String] = Str
 
+  /*
+   * Note:
+   * No instance of Schema[Byte] bytes to avoid ambiguity between e.g
+   * Vector[Byte] and dynamo BinarySet
+   */
   implicit def int: Schema[Int] =
     Num.imapErr { v =>
       Either.catchNonFatal(v.toInt).leftMap(_ => ReadError())
@@ -150,20 +159,12 @@ object Schema {
       Either.catchNonFatal(v.toShort).leftMap(_ => ReadError())
     }(_.toString)
 
-  implicit def byte: Schema[Byte] =
-    Num.imapErr { v =>
-      Either.catchNonFatal(v.toByte).leftMap(_ => ReadError())
-    }(_.toString)
-
   implicit def id: Schema[AttributeValue] = Identity
 
   // Seq is not enough on its own for implicit search to work
-  implicit def vector[A](implicit s: Schema[A]): Schema[Vector[A]] =
-    Sequence(s)
-  implicit def list[A](implicit s: Schema[A]): Schema[List[A]] =
-    vector(s).imap(_.toList)(_.toVector)
-  implicit def seq[A](implicit s: Schema[A]): Schema[immutable.Seq[A]] =
-    vector(s).imap(_.toSeq)(_.toVector)
+  implicit def vector[A](implicit s: Schema[A]): Schema[Vector[A]] = s.asVector
+  implicit def list[A](implicit s: Schema[A]): Schema[List[A]] = s.asList
+  implicit def seq[A](implicit s: Schema[A]): Schema[immutable.Seq[A]] = s.asSeq
 
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 

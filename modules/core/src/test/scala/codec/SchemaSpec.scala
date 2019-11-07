@@ -109,11 +109,6 @@ class SchemaSpec extends UnitSpec {
       test(Schema[Short], s, expected)
     }
 
-    "encode/decode single bytes" in forAll { b: Byte =>
-      val expected = Value.n(s)
-      test(Schema[Byte], s, expected)
-    }
-
     "encode/decode strings" in forAll { s: String =>
       val expected = Value.s(s)
       test(Schema[String], s, expected)
@@ -129,9 +124,9 @@ class SchemaSpec extends UnitSpec {
       test(Schema[List[Int]], l, expected)
     }
 
-    "encode/decode vectors" in forAll { l: Vector[Int] =>
-      val expected = Value.l(l.map(Value.n))
-      test(Schema[Vector[Int]], l, expected)
+    "encode/decode vectors" in forAll { l: Vector[String] =>
+      val expected = Value.l(l.map(Value.s))
+      test(Schema[Vector[String]], l, expected)
     }
 
     "encode/decode a product" in {
