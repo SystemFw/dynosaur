@@ -3,10 +3,8 @@ id: schema
 title: Encoding and decoding
 ---
 
-`Dynosaur` design for codecs (pioneered by the
-[xenomorph](https://github.com/nuttycom/xenomorph) library) is based
-on defining _schemas_ for your data, rather than your typical
-`Encoder/Decoder` typeclasses.
+`Dynosaur` design for codecs is based on defining _schemas_ for your
+data, rather than your typical `Encoder/Decoder` typeclasses.
 The central type of the DSL is `Schema[A]`, which you can think of as
 either a representation of `A`, or a recipe for _both_ encoding and
 decoding `A`s to and from `AttributeValue`.
@@ -111,13 +109,19 @@ the behaviour of the decoder.
 The typical approach most libraries use for codecs involves
 `Encoder/Decoder` typeclasses, sometimes including automatic derivation.
 This approach has the following drawbacks:
-- Automatic derivation is useful, but it's not flexible enough to
-  cover many potential transformations you want to do on the serialised
-  data, like changing field names, flattening some records, adding
-  extra information, or have different encodings for sums types.
-- Writing explicit encoders and decoders is annoying because you need
-  to keep them in sync, and the required code is similar enough to be
-  tedious, but different enough to be error prone.  
+- Automatic derivation is _opaque_ : you cannot easily read how your
+  format looks like, you need to recall the implicit mapping rules
+  between your data and the format.
+- Automatic derivation is _brittle_: generally harmless
+  transformations like rename refactoring on your data can break your
+  format.
+- Automatic derivation is _inflexible_ : it cannot cover many useful
+  transformations on your format like different naming, encoding of
+  ADTs, flattening some records, approach to optionality and so on.
+- Juggling different formats for the same data is cumbersome.
+- On the other hand, writing explicit encoders and decoders is
+  annoying because you need to keep them in sync, and the required
+  code is similar enough to be tedious, but different enough to be error prone.  
   Even without this duplication, the process is still made hard by the
   fact that you are dealing with the practical details of traversing a
   low level data structure like Json or AttributeValue.
@@ -149,11 +153,15 @@ The following primitives are supported:
 
 
 > **Notes:**
-> - Infamously, DynamoDB does not support empty strings. `dynosaur`
->   currently does not introduce any magic to deal with this
->   automatically.
 > - `Schema[AttributeValue]` is the identity schema that writes and
 >   reads `AttributeValue` without touching it
+> - Infamously, DynamoDB does not support empty strings. `dynosaur`
+>    does not introduce any magic to deal with this automatically, but
+>    it's flexible enough to allow you to handle this case in several
+>    ways, including putting `NULL` or a special
+>   value.  
+>   Read on to learn about `imapErr`, `nullable` and all the other
+>   combinators you can use to mold your data to fit your needs.
 
 ## Bidirectional mappings
 
@@ -838,3 +846,22 @@ only on the appropriate schemas. If you have something you wish to represent as 
 Set of newtypes, use imap appropriately on it (example with string sets?)
 
 ## Section with expandable examples using `for` only
+
+
+## Inspiration
+
+The approach of using `GADT`s for schemas and free constructions for
+records was pioneered by the
+[xenomorph](https://github.com/nuttycom/xenomorph) library, however
+the approach used here is different along at least two axes:
+
+- It focuses on representing data in a specific format
+  (AttributeValue) rather than providing a schema to be reused for
+  multiple formats. This results in much greater control over the
+  data, and a simpler api for users.
+- The implementation differs in several aspects including improved
+  inference and a more flexible encoding of sums.
+
+The invariant combinators (`imap`, `imapErr`, `xmap`) and the
+integration of implicit and explicit codecs is influenced by
+[scodec](https://github.com/scodec/scodec).
