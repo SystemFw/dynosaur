@@ -27,7 +27,9 @@ import scala.collection.immutable
   * even if they don't mirror the Dynamo spec 1-to-1, we could add the correspondence
   * in the scaladoc.
   *
-  * 2) We need to figure out what the hell to do with numbers in terms of the matchers.
+  * 2) We need to figure out what the hell to do with numbers in terms
+  * of the matchers. However using String like we do now works well
+  * with the Schema approach, so maybe what we have is good.
   *
   * 3) Add a zipper, possibly reusing the one from circe, to get errors
   */

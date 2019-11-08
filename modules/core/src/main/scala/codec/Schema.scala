@@ -80,17 +80,20 @@ sealed trait Schema[A] { self =>
   def asVector: Schema[Vector[A]] = Sequence(this)
   def asList: Schema[List[A]] = vector(this).imap(_.toList)(_.toVector)
   def asSeq: Schema[immutable.Seq[A]] = vector(this).imap(_.toSeq)(_.toVector)
+
+  def asMap: Schema[Map[String, A]] = Dictionary(this)
 }
 
 object Schema {
   object structure {
+    case object Identity extends Schema[AttributeValue]
     case object Num extends Schema[String] // dynamo represents numbers as strings
     case object Str extends Schema[String]
     case object Bool extends Schema[Boolean]
     case object Bytes extends Schema[ByteVector]
-    case object Identity extends Schema[AttributeValue]
-    case class Nullable[A](value: Schema[A]) extends Schema[Option[A]]
+    case class Dictionary[A](value: Schema[A]) extends Schema[Map[String, A]]
     case class Sequence[A](value: Schema[A]) extends Schema[Vector[A]]
+    case class Nullable[A](value: Schema[A]) extends Schema[Option[A]]
     case class Record[R](value: Free[Field[R, ?], R]) extends Schema[R]
     case class Sum[A](value: Chain[Alt[A]]) extends Schema[A]
     case class Isos[A](value: XMap[A]) extends Schema[A]
@@ -173,6 +176,8 @@ object Schema {
     Bytes.imap(_.toArray)(ByteVector.apply)
   implicit def arraySeq: Schema[Seq[Byte]] =
     Bytes.imap(_.toSeq)(ByteVector.apply)
+
+  implicit def dict[A](implicit s: Schema[A]): Schema[Map[String, A]] = s.asMap
 
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 

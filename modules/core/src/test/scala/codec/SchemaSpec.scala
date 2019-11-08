@@ -137,6 +137,13 @@ class SchemaSpec extends UnitSpec {
       test(Schema[ByteVector], in, expected)
     }
 
+    "encode/decode Maps" in forAll { m: Map[String, Int] =>
+      val expected = Value.m {
+        m.map { case (k, v) => Name(k) -> Value.n(v) }
+      }
+      test(Schema[Map[String, Int]], m, expected)
+    }
+
     "encode/decode a product" in {
       val role = Role("admin", User(203, "tim"))
       val schema: Schema[Role] = Schema.record { field =>

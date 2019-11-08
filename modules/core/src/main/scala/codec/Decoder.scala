@@ -18,6 +18,7 @@ package dynosaur
 package codec
 
 import cats._, implicits._
+import alleycats.std.map._
 import cats.free.Free
 import cats.data.Chain
 import scodec.bits.ByteVector
@@ -51,14 +52,6 @@ object Decoder {
     def decodeBytes: AttributeValue => Res[ByteVector] =
       _.b.toRight(ReadError()).map(_.value)
 
-    def decodeSequence[V](
-        schema: Schema[V],
-        value: AttributeValue
-    ): Res[Vector[V]] =
-      value.l
-        .toRight(ReadError())
-        .flatMap(_.values.traverse(fromSchema(schema).read))
-
     def decodeNullable[V](
         schema: Schema[V],
         v: AttributeValue
@@ -68,7 +61,27 @@ object Decoder {
         .as(none[V])
         .handleErrorWith(_ => fromSchema(schema).read(v).map(_.some))
 
-    def decodeObject[R](
+    def decodeSequence[V](
+        schema: Schema[V],
+        value: AttributeValue
+    ): Res[Vector[V]] =
+      value.l
+        .toRight(ReadError())
+        .flatMap(_.values.traverse(fromSchema(schema).read))
+
+    def decodeDictionary[V](
+        schema: Schema[V],
+        value: AttributeValue
+    ): Res[Map[String, V]] =
+      value.m
+        .toRight(ReadError())
+        .flatMap(
+          _.values
+            .map { case (k, v) => k.value -> v }
+            .traverse(fromSchema(schema).read)
+        )
+
+    def decodeRecord[R](
         recordSchema: Free[Field[R, ?], R],
         v: AttributeValue.M
     ): Res[R] =
@@ -103,16 +116,17 @@ object Decoder {
         .flatMap(xmap.r)
 
     s match {
+      case Identity => Decoder.instance(_.asRight)
       case Num => Decoder.instance(decodeNum)
       case Str => Decoder.instance(decodeString)
       case Bool => Decoder.instance(decodeBool)
       case Bytes => Decoder.instance(decodeBytes)
-      case Identity => Decoder.instance(_.asRight)
-      case Sequence(elem) => Decoder.instance(decodeSequence(elem, _))
       case Nullable(inner) => Decoder.instance(decodeNullable(inner, _))
+      case Sequence(elem) => Decoder.instance(decodeSequence(elem, _))
+      case Dictionary(elem) => Decoder.instance(decodeDictionary(elem, _))
       case Record(rec) =>
         Decoder.instance {
-          _.m.toRight(ReadError()).flatMap(decodeObject(rec, _))
+          _.m.toRight(ReadError()).flatMap(decodeRecord(rec, _))
         }
       case Sum(cases) => Decoder.instance(decodeSum(cases, _))
       case Isos(iso) => Decoder.instance(decodeIsos(iso, _))
