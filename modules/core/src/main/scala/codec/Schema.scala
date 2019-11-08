@@ -75,7 +75,22 @@ sealed trait Schema[A] { self =>
       }
     }
 
-  def nullable: Schema[Option[A]] = Nullable(this)
+  def nullable: Schema[Option[A]] = {
+    // These two could be derived, but we cannot rely on the macro
+    // because it is defined in the same compilation unit
+    val someP = Prism.fromPartial[Option[A], Some[A]] {
+      case v @ Some(_) => v
+    }(identity)
+
+    val noneP = Prism.fromPartial[Option[A], None.type] {
+      case v: None.type => v
+    }(identity)
+
+    Schema.oneOf[Option[A]] { alt =>
+      alt(this.imap(Some.apply)(_.value))(someP) |+|
+        alt(`null`.imap(_ => None)(_ => ()))(noneP)
+    }
+  }
 
   def asVector: Schema[Vector[A]] = Sequence(this)
   def asList: Schema[List[A]] = vector(this).imap(_.toList)(_.toVector)
@@ -91,9 +106,9 @@ object Schema {
     case object Str extends Schema[String]
     case object Bool extends Schema[Boolean]
     case object Bytes extends Schema[ByteVector]
+    case object NULL extends Schema[Unit]
     case class Dictionary[A](value: Schema[A]) extends Schema[Map[String, A]]
     case class Sequence[A](value: Schema[A]) extends Schema[Vector[A]]
-    case class Nullable[A](value: Schema[A]) extends Schema[Option[A]]
     case class Record[R](value: Free[Field[R, ?], R]) extends Schema[R]
     case class Sum[A](value: Chain[Alt[A]]) extends Schema[A]
     case class Isos[A](value: XMap[A]) extends Schema[A]
@@ -178,6 +193,8 @@ object Schema {
     Bytes.imap(_.toSeq)(ByteVector.apply)
 
   implicit def dict[A](implicit s: Schema[A]): Schema[Map[String, A]] = s.asMap
+
+  def `null`: Schema[Unit] = NULL
 
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 

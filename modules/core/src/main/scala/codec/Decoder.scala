@@ -52,14 +52,8 @@ object Decoder {
     def decodeBytes: AttributeValue => Res[ByteVector] =
       _.b.toRight(ReadError()).map(_.value)
 
-    def decodeNullable[V](
-        schema: Schema[V],
-        v: AttributeValue
-    ): Res[Option[V]] =
-      v.`null`
-        .toRight(ReadError())
-        .as(none[V])
-        .handleErrorWith(_ => fromSchema(schema).read(v).map(_.some))
+    def decodeNull: AttributeValue => Res[Unit] =
+      _.`null`.toRight(ReadError()).void
 
     def decodeSequence[V](
         schema: Schema[V],
@@ -121,7 +115,7 @@ object Decoder {
       case Str => Decoder.instance(decodeString)
       case Bool => Decoder.instance(decodeBool)
       case Bytes => Decoder.instance(decodeBytes)
-      case Nullable(inner) => Decoder.instance(decodeNullable(inner, _))
+      case NULL => Decoder.instance(decodeNull)
       case Sequence(elem) => Decoder.instance(decodeSequence(elem, _))
       case Dictionary(elem) => Decoder.instance(decodeDictionary(elem, _))
       case Record(rec) =>

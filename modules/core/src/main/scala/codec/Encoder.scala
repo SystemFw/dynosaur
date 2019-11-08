@@ -49,10 +49,7 @@ object Encoder {
 
     def encodeBytes: ByteVector => Res = AttributeValue.b(_).asRight
 
-    def encodeNullable[V](schema: Schema[V], value: Option[V]) =
-      value
-        .map(fromSchema(schema).write)
-        .getOrElse(AttributeValue.`null`.asRight)
+    def encodeNull: Unit => Res = _ => AttributeValue.`null`.asRight
 
     def encodeSequence[V](schema: Schema[V], value: Vector[V]) =
       value.traverse(fromSchema(schema).write).map(AttributeValue.L)
@@ -108,7 +105,7 @@ object Encoder {
       case Str => Encoder.instance(encodeString)
       case Bool => Encoder.instance(encodeBool)
       case Bytes => Encoder.instance(encodeBytes)
-      case Nullable(inner) => Encoder.instance(encodeNullable(inner, _))
+      case NULL => Encoder.instance(encodeNull)
       case Sequence(elem) => Encoder.instance(encodeSequence(elem, _))
       case Dictionary(elem) => Encoder.instance(encodeDictionary(elem, _))
       case Record(rec) => Encoder.instance(encodeRecord(rec, _))
