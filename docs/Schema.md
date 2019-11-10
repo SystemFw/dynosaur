@@ -823,20 +823,45 @@ schemaWithField.read(schemaWithField.write(Unknown))
 
 ## Sequences and Maps
 
-implicit inductive instances for lists, vectors and seqs. You can use as* on explicit schema.
-all represented as L
+`dynosaur` exposes implicit inductive instances for `List[A]`,
+`Vector[A]` and `Seq[A]`, provided there is a `Schema[A]` in scope.
+If you are passing schemas explicitly, you can call `asList`,
+`asVector` or `asSeq` on a `Schema[A]` to obtain the corresponding
+`Schema[Collection[A]]`.
+The are all represented as `L` in `AttributeValue`:
 
-Note no instance for byte so it won't do the wrong thing, there are instances for Array and ByteVector that map to binary blobs
-, they already encode to base 64
+<details>
+<summary>Click to show the resulting AttributeValue</summary>
 
-implicit inductive instance for Map[String, V: Schema], use asMap with
-implicit schema. If your keys are not Strings but can be represented
-as such, use imap appropriately to convert to the shape you need
+```scala mdoc:to-string
+Schema[Vector[Int]].write(Vector(1, 2, 3))
+fooSchema.asList.write(List(Foo("a", 1), Foo("b", 2), Foo("c", 3)))
+```
+</details>
 
-maybe should provide implicit only helpers, taking functions, on Schema[Set[Number]],
-Schema[Set[String]], and Schema[Map[K, V]] for the imap bits
-keep the iso stuff in its own paragraph in the end
-add helpers for map.withkeys and the various  neset bullshit?, nah fuck it, just docs (show a combinator that takes any Schema[Map[YourThing, A]] to Schema[Map[String, A]])
+Note that bytes do not fit the above description: the library has
+separate instances for `Array[Byte]` and `scodec.bits.ByteVector`, and
+both are represented as `B` in `AttributeValue`. This requires the
+bytes to be base 64 encoded/decoded , which is done automatically for
+you.
+
+As with sequences, there is an inductive instance of
+`Schema[Map[String, A]]` given `Schema[A]`, also available by calling
+`asMap` on a schema.
+
+<details>
+<summary>Click to show the resulting AttributeValue</summary>
+
+```scala mdoc:to-string
+Schema[Map[String, Int]].write(Map("hello" -> 1))
+fooSchema.asMap.write(Map("A foo" -> Foo("a", 1)))
+```
+</details>
+
+> **Notes:**
+> - If you need to represent a Map whose keys aren't directly
+>   `String`, but instead newtypes or enums, just use
+>   `imap`/`imapErr`/`xmap` on the Map schema.
 
 ## ByteSet, StringSet and NumberSet
 

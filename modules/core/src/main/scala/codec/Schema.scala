@@ -189,8 +189,6 @@ object Schema {
   implicit def bytevector: Schema[ByteVector] = Bytes
   implicit def byteArray: Schema[Array[Byte]] =
     Bytes.imap(_.toArray)(ByteVector.apply)
-  implicit def arraySeq: Schema[Seq[Byte]] =
-    Bytes.imap(_.toSeq)(ByteVector.apply)
 
   implicit def dict[A](implicit s: Schema[A]): Schema[Map[String, A]] = s.asMap
 
