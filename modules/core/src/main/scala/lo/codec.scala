@@ -18,6 +18,7 @@ package dynosaur
 package lo
 
 import cats.implicits._
+import cats.data.NonEmptyList
 
 import io.circe._
 import io.circe.syntax._
@@ -26,7 +27,7 @@ import io.circe.{Decoder, Encoder}
 
 import scodec.bits.ByteVector
 
-import dynosaur.model.{AttributeName, AttributeValue}
+import dynosaur.model.{AttributeName, AttributeValue, NonEmptySet}
 import model._
 
 object codec {
@@ -99,6 +100,16 @@ object codec {
   implicit val updateExpressionEncoder: Encoder[UpdateExpression] =
     Encoder.encodeString.contramap(_.value)
 
+  implicit def nonEmptySetEncoder[A: Encoder]: Encoder[NonEmptySet[A]] =
+    Encoder[NonEmptyList[A]].contramap { nes: NonEmptySet[A] =>
+      NonEmptyList.fromListUnsafe(nes.toSet.toList)
+    }
+
+  implicit def nonEmptySetDecoder[A: Decoder]: Decoder[NonEmptySet[A]] =
+    Decoder[NonEmptyList[A]].map { nel: NonEmptyList[A] =>
+      NonEmptySet.fromSetUnsafe(nel.toList.toSet)
+    }
+
   implicit lazy val encodeAttributeValueM: Encoder[AttributeValue.M] =
     encodeAttributeValue.contramap(identity)
 
@@ -111,7 +122,10 @@ object codec {
       case AttributeValue.B(value) =>
         json"""{"B": ${value.toBase64}}"""
       case AttributeValue.BS(values) =>
-        val encodedValues: Set[String] = values.map(_.toBase64)
+        val encodedValues: NonEmptySet[String] =
+          NonEmptySet.fromSetUnsafe {
+            values.toSet.map(_.toBase64)
+          }
         json"""{"BS": ${encodedValues}}"""
       case AttributeValue.N(value) =>
         json"""{"N": ${value}}"""
@@ -155,7 +169,7 @@ object codec {
         .widen[AttributeValue]
 
     val decodeNS: Decoder[AttributeValue] =
-      Decoder[Set[String]]
+      Decoder[NonEmptySet[String]]
         .map(AttributeValue.NS(_))
         .prepare(_.downField("NS"))
         .widen[AttributeValue]
@@ -167,7 +181,7 @@ object codec {
         .widen[AttributeValue]
 
     val decodeSS: Decoder[AttributeValue] =
-      Decoder[Set[String]]
+      Decoder[NonEmptySet[String]]
         .map(AttributeValue.SS(_))
         .prepare(_.downField("SS"))
         .widen[AttributeValue]
@@ -185,14 +199,15 @@ object codec {
         .widen[AttributeValue]
 
     val decodeBS: Decoder[AttributeValue] =
-      Decoder[List[String]]
-        .emap(
-          xs =>
-            xs.traverse(
+      Decoder[NonEmptySet[String]]
+        .emap { xs =>
+          import alleycats.std.set._
+          xs.toSet
+            .traverse(
               x => ByteVector.fromBase64(x).toRight(s"$x is not a valid base64")
             )
-        )
-        .map(_.toSet)
+            .map(NonEmptySet.fromSetUnsafe)
+        }
         .map(AttributeValue.BS(_))
         .prepare(_.downField("BS"))
         .widen[AttributeValue]

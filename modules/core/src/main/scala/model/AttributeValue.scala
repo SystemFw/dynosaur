@@ -96,9 +96,9 @@ object AttributeValue {
   case class M(values: Map[AttributeName, AttributeValue])
       extends AttributeValue
   case class L(values: Vector[AttributeValue]) extends AttributeValue
-  case class SS(values: Set[String]) extends AttributeValue
-  case class NS(values: Set[String]) extends AttributeValue
-  case class BS(values: Set[ByteVector]) extends AttributeValue
+  case class SS(values: NonEmptySet[String]) extends AttributeValue
+  case class NS(values: NonEmptySet[String]) extends AttributeValue
+  case class BS(values: NonEmptySet[ByteVector]) extends AttributeValue
 
   val `null`: AttributeValue = NULL
 
@@ -120,8 +120,10 @@ object AttributeValue {
 
   def s(value: String): AttributeValue = AttributeValue.S(value)
 
-  def ss(values: Set[String]): AttributeValue = AttributeValue.SS(values)
-  def ss(values: String*): AttributeValue = AttributeValue.SS(values.toSet)
+  def ss(values: NonEmptySet[String]): AttributeValue =
+    AttributeValue.SS(values)
+  def ss(value: String, values: String*): AttributeValue =
+    AttributeValue.SS(NonEmptySet(value, values.toSet))
 
   def n(value: Int): AttributeValue = AttributeValue.N(value.toString)
   def n(value: Long): AttributeValue = AttributeValue.N(value.toString)
