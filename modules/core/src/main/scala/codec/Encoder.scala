@@ -24,7 +24,7 @@ import cats.free.Free
 
 import scodec.bits.ByteVector
 
-import model.{AttributeName, AttributeValue}
+import model.{AttributeName, AttributeValue, NonEmptySet}
 import Schema.structure._
 
 case class WriteError() extends Exception
@@ -48,6 +48,13 @@ object Encoder {
     def encodeString: String => Res = AttributeValue.s(_).asRight
 
     def encodeBytes: ByteVector => Res = AttributeValue.b(_).asRight
+
+    def encodeByteSet: NonEmptySet[ByteVector] => Res =
+      AttributeValue.BS(_).asRight
+    def encodeNumberSet: NonEmptySet[String] => Res =
+      AttributeValue.NS(_).asRight
+    def encodeStringSet: NonEmptySet[String] => Res =
+      AttributeValue.ss(_).asRight
 
     def encodeNull: Unit => Res = _ => AttributeValue.`null`.asRight
 
@@ -105,6 +112,9 @@ object Encoder {
       case Str => Encoder.instance(encodeString)
       case Bool => Encoder.instance(encodeBool)
       case Bytes => Encoder.instance(encodeBytes)
+      case ByteSet => Encoder.instance(encodeByteSet)
+      case NumberSet => Encoder.instance(encodeNumberSet)
+      case StringSet => Encoder.instance(encodeStringSet)
       case NULL => Encoder.instance(encodeNull)
       case Sequence(elem) => Encoder.instance(encodeSequence(elem, _))
       case Dictionary(elem) => Encoder.instance(encodeDictionary(elem, _))

@@ -24,7 +24,7 @@ import cats.data.Chain
 import scodec.bits.ByteVector
 import scala.collection.immutable
 
-import model.AttributeValue
+import model.{AttributeValue, NonEmptySet}
 
 @annotation.implicitNotFound(
   """
@@ -107,6 +107,9 @@ object Schema {
     case object Bool extends Schema[Boolean]
     case object Bytes extends Schema[ByteVector]
     case object NULL extends Schema[Unit]
+    case object ByteSet extends Schema[NonEmptySet[ByteVector]]
+    case object NumberSet extends Schema[NonEmptySet[String]]
+    case object StringSet extends Schema[NonEmptySet[String]]
     case class Dictionary[A](value: Schema[A]) extends Schema[Map[String, A]]
     case class Sequence[A](value: Schema[A]) extends Schema[Vector[A]]
     case class Record[R](value: Free[Field[R, ?], R]) extends Schema[R]
@@ -146,6 +149,7 @@ object Schema {
 
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
+  implicit def id: Schema[AttributeValue] = Identity
   implicit def boolean: Schema[Boolean] = Bool
   implicit def string: Schema[String] = Str
 
@@ -179,16 +183,14 @@ object Schema {
       Either.catchNonFatal(v.toShort).leftMap(_ => ReadError())
     }(_.toString)
 
-  implicit def id: Schema[AttributeValue] = Identity
+  implicit def bytevector: Schema[ByteVector] = Bytes
+  implicit def byteArray: Schema[Array[Byte]] =
+    Bytes.imap(_.toArray)(ByteVector.apply)
 
   // Seq is not enough on its own for implicit search to work
   implicit def vector[A](implicit s: Schema[A]): Schema[Vector[A]] = s.asVector
   implicit def list[A](implicit s: Schema[A]): Schema[List[A]] = s.asList
   implicit def seq[A](implicit s: Schema[A]): Schema[immutable.Seq[A]] = s.asSeq
-
-  implicit def bytevector: Schema[ByteVector] = Bytes
-  implicit def byteArray: Schema[Array[Byte]] =
-    Bytes.imap(_.toArray)(ByteVector.apply)
 
   implicit def dict[A](implicit s: Schema[A]): Schema[Map[String, A]] = s.asMap
 

@@ -32,6 +32,10 @@ import scala.collection.immutable
   * with the Schema approach, so maybe what we have is good.
   *
   * 3) Add a zipper, possibly reusing the one from circe, to get errors
+  *
+  * 4) could maybe use typeclasses for the numbers overloads, and similarly to fill the gap
+  *    on bs and ns constructors
+  *
   */
 case class AttributeName(value: String)
 

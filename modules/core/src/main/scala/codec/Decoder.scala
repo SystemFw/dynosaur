@@ -23,7 +23,7 @@ import cats.free.Free
 import cats.data.Chain
 import scodec.bits.ByteVector
 
-import model.{AttributeName, AttributeValue}
+import model.{AttributeName, AttributeValue, NonEmptySet}
 import Schema.structure._
 
 case class ReadError() extends Exception
@@ -51,6 +51,15 @@ object Decoder {
 
     def decodeBytes: AttributeValue => Res[ByteVector] =
       _.b.toRight(ReadError()).map(_.value)
+
+    def decodeByteSet: AttributeValue => Res[NonEmptySet[ByteVector]] =
+      _.bs.toRight(ReadError()).map(_.values)
+
+    def decodeNumberSet: AttributeValue => Res[NonEmptySet[String]] =
+      _.ns.toRight(ReadError()).map(_.values)
+
+    def decodeStringSet: AttributeValue => Res[NonEmptySet[String]] =
+      _.ss.toRight(ReadError()).map(_.values)
 
     def decodeNull: AttributeValue => Res[Unit] =
       _.`null`.toRight(ReadError()).void
@@ -115,6 +124,9 @@ object Decoder {
       case Str => Decoder.instance(decodeString)
       case Bool => Decoder.instance(decodeBool)
       case Bytes => Decoder.instance(decodeBytes)
+      case ByteSet => Decoder.instance(decodeByteSet)
+      case NumberSet => Decoder.instance(decodeNumberSet)
+      case StringSet => Decoder.instance(decodeStringSet)
       case NULL => Decoder.instance(decodeNull)
       case Sequence(elem) => Decoder.instance(decodeSequence(elem, _))
       case Dictionary(elem) => Decoder.instance(decodeDictionary(elem, _))
