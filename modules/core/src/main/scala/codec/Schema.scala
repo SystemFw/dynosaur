@@ -107,9 +107,9 @@ object Schema {
     case object Bool extends Schema[Boolean]
     case object Bytes extends Schema[ByteVector]
     case object NULL extends Schema[Unit]
-    case object ByteSet extends Schema[NonEmptySet[ByteVector]]
-    case object NumberSet extends Schema[NonEmptySet[String]]
-    case object StringSet extends Schema[NonEmptySet[String]]
+    case object BytesSet extends Schema[NonEmptySet[ByteVector]]
+    case object NumSet extends Schema[NonEmptySet[String]]
+    case object StrSet extends Schema[NonEmptySet[String]]
     case class Dictionary[A](value: Schema[A]) extends Schema[Map[String, A]]
     case class Sequence[A](value: Schema[A]) extends Schema[Vector[A]]
     case class Record[R](value: Free[Field[R, ?], R]) extends Schema[R]
@@ -153,39 +153,56 @@ object Schema {
   implicit def boolean: Schema[Boolean] = Bool
   implicit def string: Schema[String] = Str
 
+  private def num[A: Numeric](convert: String => A): Schema[A] =
+    Num.imapErr { v =>
+      Either.catchNonFatal(convert(v)).leftMap(_ => ReadError())
+    }(_.toString)
+
+  private def numSet[A: Numeric](
+      convert: String => A
+  ): Schema[NonEmptySet[A]] = {
+    import alleycats.std.set._
+
+    NumSet.imapErr { nes =>
+      nes.toSet
+        .traverse { v =>
+          Either.catchNonFatal(convert(v)).leftMap(_ => ReadError())
+        }
+        .map(NonEmptySet.fromSetUnsafe)
+    }(nes => NonEmptySet.fromSetUnsafe(nes.toSet.map(_.toString)))
+  }
+
   /*
    * Note:
    * No instance of Schema[Byte] bytes to avoid ambiguity between e.g
    * Vector[Byte] and dynamo BinarySet
    */
-  implicit def int: Schema[Int] =
-    Num.imapErr { v =>
-      Either.catchNonFatal(v.toInt).leftMap(_ => ReadError())
-    }(_.toString)
 
-  implicit def long: Schema[Long] =
-    Num.imapErr { v =>
-      Either.catchNonFatal(v.toLong).leftMap(_ => ReadError())
-    }(_.toString)
+  implicit def int: Schema[Int] = num(_.toInt)
+  implicit def long: Schema[Long] = num(_.toLong)
+  implicit def double: Schema[Double] = num(_.toDouble)
+  implicit def float: Schema[Float] = num(_.toFloat)
+  implicit def short: Schema[Short] = num(_.toShort)
 
-  implicit def double: Schema[Double] =
-    Num.imapErr { v =>
-      Either.catchNonFatal(v.toDouble).leftMap(_ => ReadError())
-    }(_.toString)
-
-  implicit def float: Schema[Float] =
-    Num.imapErr { v =>
-      Either.catchNonFatal(v.toFloat).leftMap(_ => ReadError())
-    }(_.toString)
-
-  implicit def short: Schema[Short] =
-    Num.imapErr { v =>
-      Either.catchNonFatal(v.toShort).leftMap(_ => ReadError())
-    }(_.toString)
-
-  implicit def bytevector: Schema[ByteVector] = Bytes
+  implicit def byteVector: Schema[ByteVector] = Bytes
   implicit def byteArray: Schema[Array[Byte]] =
     Bytes.imap(_.toArray)(ByteVector.apply)
+
+  implicit def intSet: Schema[NonEmptySet[Int]] = numSet(_.toInt)
+  implicit def longSet: Schema[NonEmptySet[Long]] = numSet(_.toLong)
+  implicit def doubleSet: Schema[NonEmptySet[Double]] = numSet(_.toDouble)
+  implicit def floatSet: Schema[NonEmptySet[Float]] = numSet(_.toFloat)
+  implicit def shortSet: Schema[NonEmptySet[Short]] = numSet(_.toShort)
+
+  implicit def stringSet: Schema[NonEmptySet[String]] = StrSet
+
+  implicit def byteVectorset: Schema[NonEmptySet[ByteVector]] = BytesSet
+  implicit def byteArraySet: Schema[NonEmptySet[Array[Byte]]] =
+    BytesSet.imap { nes =>
+      NonEmptySet.fromSetUnsafe(nes.toSet.map(_.toArray))
+    } { nes =>
+      NonEmptySet.fromSetUnsafe(nes.toSet.map(ByteVector.apply))
+    }
 
   // Seq is not enough on its own for implicit search to work
   implicit def vector[A](implicit s: Schema[A]): Schema[Vector[A]] = s.asVector
