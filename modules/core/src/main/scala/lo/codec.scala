@@ -17,6 +17,7 @@
 package dynosaur
 package lo
 
+import cats.Id
 import cats.implicits._
 import cats.data.NonEmptyList
 
@@ -107,7 +108,7 @@ object codec {
 
   implicit def nonEmptySetDecoder[A: Decoder]: Decoder[NonEmptySet[A]] =
     Decoder[NonEmptyList[A]].map { nel: NonEmptyList[A] =>
-      NonEmptySet.fromSetUnsafe(nel.toList.toSet)
+      NonEmptySet.unsafeFromSet(nel.toList.toSet)
     }
 
   implicit lazy val encodeAttributeValueM: Encoder[AttributeValue.M] =
@@ -123,9 +124,7 @@ object codec {
         json"""{"B": ${value.toBase64}}"""
       case AttributeValue.BS(values) =>
         val encodedValues: NonEmptySet[String] =
-          NonEmptySet.fromSetUnsafe {
-            values.toSet.map(_.toBase64)
-          }
+          values.unsafeWithSet(_.map(_.toBase64).pure[Id])
         json"""{"BS": ${encodedValues}}"""
       case AttributeValue.N(value) =>
         json"""{"N": ${value}}"""
@@ -198,19 +197,21 @@ object codec {
         .prepare(_.downField("B"))
         .widen[AttributeValue]
 
-    val decodeBS: Decoder[AttributeValue] =
+    val decodeBS: Decoder[AttributeValue] = {
+      import alleycats.std.set._
+
       Decoder[NonEmptySet[String]]
-        .emap { xs =>
-          import alleycats.std.set._
-          xs.toSet
-            .traverse(
-              x => ByteVector.fromBase64(x).toRight(s"$x is not a valid base64")
-            )
-            .map(NonEmptySet.fromSetUnsafe)
+        .emap {
+          _.unsafeWithSet {
+            _.traverse { x =>
+              ByteVector.fromBase64(x).toRight(s"$x is not a valid base64")
+            }
+          }
         }
         .map(AttributeValue.BS(_))
         .prepare(_.downField("BS"))
         .widen[AttributeValue]
+    }
 
     val decodeL: Decoder[AttributeValue] = Decoder.instance { hc =>
       for {

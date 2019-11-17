@@ -33,12 +33,15 @@ object NonEmptySetImpl {
   def fromSet[A](as: Set[A]): Option[NonEmptySet[A]] =
     if (as.nonEmpty) create(as).some else none
 
+  def fromNonEmptySet[A: Order](as: cats.data.NonEmptySet[A]) =
+    create(as.toSortedSet.toSet)
+
   /**
     * Note:
     * It's up to you to ensure the non empty invariant is preserved
     *
     */
-  def fromSetUnsafe[A](set: Set[A]): NonEmptySet[A] =
+  def unsafeFromSet[A](set: Set[A]): NonEmptySet[A] =
     if (set.nonEmpty) create(set)
     else
       throw new IllegalArgumentException(
@@ -51,5 +54,13 @@ object NonEmptySetImpl {
   sealed implicit class Ops[A](value: NonEmptySet[A]) {
     def contains(a: A): Boolean = value.toSet.contains(a)
     def toSet: Set[A] = unwrap(value)
+    def unsafeWithSet[F[_]: Functor, B](
+        f: Set[A] => F[Set[B]]
+    ): F[NonEmptySet[B]] =
+      f(value.toSet).map(unsafeFromSet)
+
+    def toNonEmptySet(implicit ev: Ordering[A]): cats.data.NonEmptySet[A] =
+      cats.data.NonEmptySet
+        .fromSetUnsafe(toSet.to[collection.immutable.SortedSet])
   }
 }

@@ -17,6 +17,7 @@
 package dynosaur
 package codec
 
+import cats.Id
 import cats.implicits._
 import cats.free.Free
 import cats.data.Chain
@@ -164,12 +165,12 @@ object Schema {
     import alleycats.std.set._
 
     NumSet.imapErr { nes =>
-      nes.toSet
-        .traverse { v =>
+      nes.unsafeWithSet {
+        _.traverse { v =>
           Either.catchNonFatal(convert(v)).leftMap(_ => ReadError())
         }
-        .map(NonEmptySet.fromSetUnsafe)
-    }(nes => NonEmptySet.fromSetUnsafe(nes.toSet.map(_.toString)))
+      }
+    }(nes => nes.unsafeWithSet(_.map(_.toString).pure[Id]))
   }
 
   /*
@@ -199,9 +200,9 @@ object Schema {
   implicit def byteVectorset: Schema[NonEmptySet[ByteVector]] = BytesSet
   implicit def byteArraySet: Schema[NonEmptySet[Array[Byte]]] =
     BytesSet.imap { nes =>
-      NonEmptySet.fromSetUnsafe(nes.toSet.map(_.toArray))
+      nes.unsafeWithSet(_.map(_.toArray).pure[Id])
     } { nes =>
-      NonEmptySet.fromSetUnsafe(nes.toSet.map(ByteVector.apply))
+      nes.unsafeWithSet(_.map(ByteVector.apply).pure[Id])
     }
 
   // Seq is not enough on its own for implicit search to work

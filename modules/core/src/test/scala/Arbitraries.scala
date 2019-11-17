@@ -77,7 +77,7 @@ trait Generators {
         size,
         genByteVector(genByteVectorSize)
       )
-    } yield AttributeValue.BS(NonEmptySet.fromSetUnsafe(values))
+    } yield AttributeValue.BS(NonEmptySet.unsafeFromSet(values))
 
   def genAttributeValueS(genStringMaxSize: Gen[Int] = choose(1, 6)) =
     for {
@@ -94,7 +94,7 @@ trait Generators {
         size,
         genNonEmptyString(genStringMaxSize)
       )
-    } yield AttributeValue.SS(NonEmptySet.fromSetUnsafe(values))
+    } yield AttributeValue.SS(NonEmptySet.unsafeFromSet(values))
 
   def genAttributeValueN() =
     for {
@@ -105,7 +105,7 @@ trait Generators {
     for {
       size <- genSize
       values <- containerOfN[Set, String](size, genNumberAsString)
-    } yield AttributeValue.NS(NonEmptySet.fromSetUnsafe(values))
+    } yield AttributeValue.NS(NonEmptySet.unsafeFromSet(values))
 
   def genAttributeValueL(
       maxDeep: Gen[Int] = const(3),
