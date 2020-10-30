@@ -28,7 +28,8 @@ import io.circe.{Decoder, Encoder}
 
 import scodec.bits.ByteVector
 
-import dynosaur.model.{AttributeName, AttributeValue, NonEmptySet}
+
+import dynosaur.model.{AttributeName, AttributeRef, AttributeValue}
 import model._
 
 object codec {
@@ -79,6 +80,12 @@ object codec {
 
   implicit val attributeNameDecoder: Decoder[AttributeName] =
     Decoder.decodeString.map(AttributeName.apply)
+
+  implicit val attributeRefEncoder: Encoder[AttributeRef] =
+    Encoder.encodeNonEmptyList[AttributeName].contramap(_.path)
+
+  implicit val attributeRefDecoder: Decoder[AttributeRef] =
+    Decoder.decodeNonEmptyList[AttributeName].map(AttributeRef.apply)
 
   implicit val expressionPlaceholderEncoder: Encoder[ExpressionPlaceholder] =
     Encoder.encodeString.contramap(_.value)
