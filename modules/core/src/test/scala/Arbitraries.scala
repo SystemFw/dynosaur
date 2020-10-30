@@ -18,7 +18,7 @@ package dynosaur
 
 import scodec.bits._
 
-import dynosaur.model.{AttributeName, AttributeValue}
+import dynosaur.model.{AttributeName, AttributeValue, NonEmptySet}
 import lo.model._
 
 import org.scalacheck._
@@ -26,7 +26,6 @@ import org.scalacheck.Gen._
 import org.scalacheck.Arbitrary._
 
 trait Generators {
-
   def genNonEmptyString(genMaxSize: Gen[Int] = const(6)): Gen[String] =
     for {
       maxSize <- genMaxSize
@@ -69,7 +68,7 @@ trait Generators {
   } yield AttributeValue.BOOL(value)
 
   def genAttributeValueBS(
-      genSize: Gen[Int] = choose(0, 6),
+      genSize: Gen[Int] = choose(1, 6),
       genByteVectorSize: Gen[Int] = choose(0, 6)
   ) =
     for {
@@ -78,7 +77,7 @@ trait Generators {
         size,
         genByteVector(genByteVectorSize)
       )
-    } yield AttributeValue.BS(values)
+    } yield AttributeValue.BS(NonEmptySet.unsafeFromSet(values))
 
   def genAttributeValueS(genStringMaxSize: Gen[Int] = choose(1, 6)) =
     for {
@@ -86,7 +85,7 @@ trait Generators {
     } yield AttributeValue.S(value)
 
   def genAttributeValueSS(
-      genSize: Gen[Int] = choose(0, 6),
+      genSize: Gen[Int] = choose(1, 6),
       genStringMaxSize: Gen[Int] = choose(1, 6)
   ) =
     for {
@@ -95,18 +94,18 @@ trait Generators {
         size,
         genNonEmptyString(genStringMaxSize)
       )
-    } yield AttributeValue.SS(values)
+    } yield AttributeValue.SS(NonEmptySet.unsafeFromSet(values))
 
   def genAttributeValueN() =
     for {
       value <- genNumberAsString
     } yield AttributeValue.N(value)
 
-  def genAttributeValueNS(genSize: Gen[Int] = choose(0, 6)) =
+  def genAttributeValueNS(genSize: Gen[Int] = choose(1, 6)) =
     for {
       size <- genSize
       values <- containerOfN[Set, String](size, genNumberAsString)
-    } yield AttributeValue.NS(values)
+    } yield AttributeValue.NS(NonEmptySet.unsafeFromSet(values))
 
   def genAttributeValueL(
       maxDeep: Gen[Int] = const(3),
@@ -114,7 +113,10 @@ trait Generators {
   ): Gen[AttributeValue.L] =
     for {
       size <- genSize
-      values <- listOfN(size, genAttributeValue(maxDeep.map(_ - 1)))
+      values <- containerOfN[Vector, AttributeValue](
+        size,
+        genAttributeValue(maxDeep.map(_ - 1))
+      )
     } yield AttributeValue.L(values)
 
   def genAttributeValueM(

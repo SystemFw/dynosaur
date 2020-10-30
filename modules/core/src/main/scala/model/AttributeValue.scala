@@ -19,6 +19,7 @@ package model
 
 import cats._, implicits._, data._
 import scodec.bits.ByteVector
+import scala.collection.immutable
 
 /**
   * TODO
@@ -26,9 +27,15 @@ import scodec.bits.ByteVector
   * even if they don't mirror the Dynamo spec 1-to-1, we could add the correspondence
   * in the scaladoc.
   *
-  * 2) We need to figure out what the hell to do with numbers in terms of the matchers.
+  * 2) We need to figure out what the hell to do with numbers in terms
+  * of the matchers. However using String like we do now works well
+  * with the Schema approach, so maybe what we have is good.
   *
   * 3) Add a zipper, possibly reusing the one from circe, to get errors
+  *
+  * 4) could maybe use typeclasses for the numbers overloads, and similarly to fill the gap
+  *    on bs and ns constructors
+  *
   */
 case class AttributeName(value: String)
 
@@ -94,10 +101,10 @@ object AttributeValue {
   case class BOOL(value: Boolean) extends AttributeValue
   case class M(values: Map[AttributeName, AttributeValue])
       extends AttributeValue
-  case class L(values: List[AttributeValue]) extends AttributeValue
-  case class SS(values: Set[String]) extends AttributeValue
-  case class NS(values: Set[String]) extends AttributeValue
-  case class BS(values: Set[ByteVector]) extends AttributeValue
+  case class L(values: Vector[AttributeValue]) extends AttributeValue
+  case class SS(values: NonEmptySet[String]) extends AttributeValue
+  case class NS(values: NonEmptySet[String]) extends AttributeValue
+  case class BS(values: NonEmptySet[ByteVector]) extends AttributeValue
 
   val `null`: AttributeValue = NULL
 
@@ -119,26 +126,25 @@ object AttributeValue {
 
   def s(value: String): AttributeValue = AttributeValue.S(value)
 
-  def ss(values: Set[String]): AttributeValue = AttributeValue.SS(values)
-  def ss(values: String*): AttributeValue = AttributeValue.SS(values.toSet)
+  def ss(values: NonEmptySet[String]): AttributeValue =
+    AttributeValue.SS(values)
+  def ss(value: String, values: String*): AttributeValue =
+    AttributeValue.SS(NonEmptySet(value, values.toSet))
 
   def n(value: Int): AttributeValue = AttributeValue.N(value.toString)
   def n(value: Long): AttributeValue = AttributeValue.N(value.toString)
   def n(value: Double): AttributeValue = AttributeValue.N(value.toString)
   def n(value: Float): AttributeValue = AttributeValue.N(value.toString)
   def n(value: Short): AttributeValue = AttributeValue.N(value.toString)
-  def n(value: Byte): AttributeValue = AttributeValue.N(value.toString)
 
   def b(value: ByteVector): AttributeValue = AttributeValue.B(value)
   def b(value: Array[Byte]): AttributeValue =
     AttributeValue.B(ByteVector(value))
-  def b(value: Seq[Byte]): AttributeValue =
+  def b(value: immutable.Seq[Byte]): AttributeValue =
     AttributeValue.B(ByteVector(value))
 
   def bool(value: Boolean): AttributeValue = AttributeValue.BOOL(value)
 
-  def l(values: AttributeValue*): AttributeValue =
-    AttributeValue.L(values.toList)
-  def l(values: List[AttributeValue]): AttributeValue =
-    AttributeValue.L(values.toList)
+  def l(values: immutable.Seq[AttributeValue]): AttributeValue =
+    AttributeValue.L(values.toVector)
 }

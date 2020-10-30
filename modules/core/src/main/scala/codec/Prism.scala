@@ -19,6 +19,9 @@ package codec
 
 import scala.reflect.macros.blackbox
 
+@annotation.implicitNotFound(
+  "Cannot find an implicit Prism[${A}, ${B}]. Write an instance manually, or check whether ${B} <: ${A} if you want the library to provide one for you automatically."
+)
 case class Prism[A, B](tryGet: A => Option[B], inject: B => A)
 object Prism {
   def fromPartial[A, B](tryGet: PartialFunction[A, B])(inject: B => A) =

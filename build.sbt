@@ -95,19 +95,19 @@ def dep(org: String)(version: String)(modules: String*) =
   }
 
 lazy val dependencies = {
-  val commsAwsVersion = "0.2.15"
-  val fs2Version = "1.0.4"
-  val catsEffectVersion = "0.10.1"
-  val catsVersion = "1.6.0"
+  val commsAwsVersion = "0.2.52"
+  val fs2Version = "2.1.0"
+  val catsEffectVersion = "2.0.0"
+  val catsVersion = "2.0.0"
   val awsSdkVersion = "1.11.534"
   val scalatestVersion = "3.0.5"
   val scalacheckVersion = "1.14.0"
   val slf4jVersion = "1.7.26"
   val log4jVersion = "2.11.2"
-  val http4sVersion = "0.20.0"
+  val http4sVersion = "0.21.0-M5"
   val commsDockerkitVersion = "1.8.6"
   val scalaXmlVersion = "1.1.1"
-  val circeVersion = "0.11.1"
+  val circeVersion = "0.12.2"
   val scodecBitsVersion = "1.1.9"
 
   val deps = libraryDependencies ++= Seq(
@@ -118,7 +118,9 @@ lazy val dependencies = {
     "org.slf4j" % "slf4j-api" % slf4jVersion,
     "org.http4s" %% "http4s-circe" % http4sVersion,
     "org.scodec" %% "scodec-bits" % scodecBitsVersion,
+    "org.typelevel" %% "cats-core" % catsVersion,
     "org.typelevel" %% "cats-free" % catsVersion,
+    "org.typelevel" %% "alleycats-core" % catsVersion,
     "io.circe" %% "circe-core" % circeVersion,
     "io.circe" %% "circe-generic" % circeVersion,
     "io.circe" %% "circe-parser" % circeVersion,

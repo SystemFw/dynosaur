@@ -90,7 +90,7 @@ object DynamoDb {
         Uri
           .fromString(s"https://dynamodb.${region.value}.amazonaws.com")
           .leftWiden[Throwable]
-          .raiseOrPure[F]
+          .liftTo[F]
       }
 
     new DynamoDb[F] with Http4sClientDsl[F] {
