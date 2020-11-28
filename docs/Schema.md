@@ -676,7 +676,7 @@ ambiguous.read(ambiguous.write(C("hello"))) // gives incorrect result
 ```
 </details>
 
-`dynosaur` is expressing enough to solve this problem in several ways,
+`dynosaur` is expressive enough to solve this problem in several ways,
 in this document we will have a look at two possible strategies:
 **discriminator keys** and **discriminator fields**.
 
@@ -891,3 +891,4 @@ the approach used here is different along at least two axes:
 The invariant combinators (`imap`, `imapErr`, `xmap`) and the
 integration of implicit and explicit codecs is influenced by
 [scodec](https://github.com/scodec/scodec).
+

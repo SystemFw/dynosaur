@@ -54,6 +54,12 @@ object NonEmptySetImpl {
   sealed implicit class Ops[A](value: NonEmptySet[A]) {
     def contains(a: A): Boolean = value.toSet.contains(a)
     def toSet: Set[A] = unwrap(value)
+
+    /**
+      * Note:
+      * It's up to you to ensure the non empty invariant is preserved
+      *
+      */
     def unsafeWithSet[F[_]: Functor, B](
         f: Set[A] => F[Set[B]]
     ): F[NonEmptySet[B]] =
