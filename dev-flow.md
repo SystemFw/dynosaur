@@ -79,6 +79,7 @@ You can obtain the PGP_SECRET by running
 Please make sure that this key is not password protected in the export
 (GitHub Actions itself will encrypt it).
 
+Enable Github pages in Settings.
 
 ## Links
 
