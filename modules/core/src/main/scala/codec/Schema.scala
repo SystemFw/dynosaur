@@ -114,7 +114,7 @@ object Schema {
     case object StrSet extends Schema[NonEmptySet[String]]
     case class Dictionary[A](value: Schema[A]) extends Schema[Map[String, A]]
     case class Sequence[A](value: Schema[A]) extends Schema[Vector[A]]
-    case class Record[R](value: Free[Field[R, ?], R]) extends Schema[R]
+    case class Record[R](value: Free[Field[R, *], R]) extends Schema[R]
     case class Sum[A](value: Chain[Alt[A]]) extends Schema[A]
     case class Isos[A](value: XMap[A]) extends Schema[A]
 
@@ -217,8 +217,8 @@ object Schema {
 
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 
-  def fields[R](p: Free[Field[R, ?], R]): Schema[R] = Record(p)
-  def record[R](b: FieldBuilder[R] => Free[Field[R, ?], R]): Schema[R] =
+  def fields[R](p: Free[Field[R, *], R]): Schema[R] = Record(p)
+  def record[R](b: FieldBuilder[R] => Free[Field[R, *], R]): Schema[R] =
     fields(b(field))
 
   def alternatives[A](cases: Chain[Alt[A]]): Schema[A] =
@@ -233,15 +233,15 @@ object Schema {
     def apply[E](
         name: String,
         get: R => E
-    )(implicit elemSchema: Schema[E]): Free[Field[R, ?], E] =
+    )(implicit elemSchema: Schema[E]): Free[Field[R, *], E] =
       Free.liftF(Field.Required(name, elemSchema, get))
 
-    def pure[A](a: A): Free[Field[R, ?], A] = Free.pure(a)
+    def pure[A](a: A): Free[Field[R, *], A] = Free.pure(a)
 
     def const[V](
         name: String,
         value: V
-    )(implicit valueSchema: Schema[V]): Free[Field[R, ?], Unit] =
+    )(implicit valueSchema: Schema[V]): Free[Field[R, *], Unit] =
       apply(name, _ => ()) {
         valueSchema.xmap { r =>
           Either.cond((r == value), (), ReadError())
@@ -251,7 +251,7 @@ object Schema {
     def opt[E](
         name: String,
         get: R => Option[E]
-    )(implicit elemSchema: Schema[E]): Free[Field[R, ?], Option[E]] =
+    )(implicit elemSchema: Schema[E]): Free[Field[R, *], Option[E]] =
       Free.liftF(Field.Optional(name, elemSchema, get): Field[R, Option[E]])
   }
 

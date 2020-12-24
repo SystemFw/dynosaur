@@ -67,7 +67,7 @@ object Encoder {
         .traverse(fromSchema(schema).write)
         .map(AttributeValue.M)
 
-    def encodeRecord[R](recordSchema: Free[Field[R, ?], R], record: R): Res = {
+    def encodeRecord[R](recordSchema: Free[Field[R, *], R], record: R): Res = {
       def write[E](name: String, schema: Schema[E])(elem: E) =
         fromSchema(schema).write(elem).map { av =>
           AttributeValue.M(Map(AttributeName(name) -> av))
@@ -76,7 +76,7 @@ object Encoder {
       recordSchema
         .foldMap {
           λ[
-            Field[R, ?] ~> WriterT[Either[WriteError, ?], AttributeValue.M, ?]
+            Field[R, *] ~> WriterT[Either[WriteError, *], AttributeValue.M, *]
           ] {
             case field: Field.Required[R, e] =>
               WriterT {

@@ -85,11 +85,11 @@ object Decoder {
         )
 
     def decodeRecord[R](
-        recordSchema: Free[Field[R, ?], R],
+        recordSchema: Free[Field[R, *], R],
         v: AttributeValue.M
     ): Res[R] =
       recordSchema.foldMap {
-        λ[Field[R, ?] ~> Res] {
+        λ[Field[R, *] ~> Res] {
           case field: Field.Required[R, e] =>
             v.values
               .get(AttributeName(field.name))
