@@ -18,11 +18,7 @@ ThisBuild / versionIntroduced := Map("3.0.0-M2" -> "3.0.0")
 
 ThisBuild / initialCommands := """
   |import cats._, data._, syntax.all._
-  |import cats.effect._, concurrent._, implicits._
-  |import fs2._
-  |import fs2.concurrent._
-  |import scala.concurrent.duration._
-  |import dynosaur
+  |import dynosaur._
 """.stripMargin
 
 ThisBuild / testFrameworks += new TestFramework("munit.Framework")
@@ -39,12 +35,10 @@ lazy val core = project
     name := "dynosaur-core",
     scalafmtOnCompile := true,
     libraryDependencies ++=
-      dep("org.typelevel", "cats-", "2.3.0")("core")() ++
-      dep("org.typelevel", "cats-effect", "2.3.0")("")("-laws") ++
-      dep("co.fs2", "fs2-", "2.4.6")("core", "io")() ++
-      dep("org.scalameta", "munit", "0.7.19")()("", "-scalacheck") ++
-      dep("org.typelevel", "", "0.11.0")()("munit-cats-effect-2") ++
-      dep("org.typelevel",  "scalacheck-effect", "0.6.0")()("", "-munit")
+      dep("org.typelevel", "cats-", "2.3.0")("core", "free")() ++
+      dep("org.typelevel", "", "2.3.0")("alleycats-core")() ++
+      dep("org.scodec", "scodec-bits", "1.1.22" )()() ++
+      dep("org.scalameta", "munit", "0.7.19")()("", "-scalacheck")
   )
 
 lazy val docs = project

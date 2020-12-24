@@ -16,9 +16,7 @@
 
 package dynosaur
 
-import munit.CatsEffectSuite
-
-class HelloSuite extends CatsEffectSuite {
+class HelloSuite extends munit.FunSuite {
   test("hello") {
     assertEquals(Hello.hello("you"), "Hello you")
   }
