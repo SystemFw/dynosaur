@@ -37,8 +37,9 @@ lazy val core = project
     libraryDependencies ++=
       dep("org.typelevel", "cats-", "2.3.0")("core", "free")() ++
       dep("org.typelevel", "", "2.3.0")("alleycats-core")() ++
-      dep("org.scodec", "scodec-bits", "1.1.22" )()() ++
-      dep("org.scalameta", "munit", "0.7.19")()("", "-scalacheck")
+      dep("org.scodec", "scodec-bits", "1.1.22" )("")() ++
+      dep("org.scalameta", "munit", "0.7.19")()("", "-scalacheck") ++
+      Seq("software.amazon.awssdk" % "dynamodb" % "2.14.15")
   )
 
 lazy val docs = project
