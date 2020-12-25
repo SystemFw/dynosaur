@@ -36,8 +36,6 @@ import scala.collection.immutable
   */
 case class AttributeName(value: String)
 
-case class AttributeRef(path: cats.data.NonEmptyList[AttributeName])
-
 sealed trait AttributeValue {
   def `null`: Option[AttributeValue.NULL.type] = this match {
     case AttributeValue.NULL => AttributeValue.NULL.some
