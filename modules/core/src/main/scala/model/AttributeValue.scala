@@ -17,7 +17,7 @@
 package dynosaur
 package model
 
-import cats._, implicits._, data._
+import cats._, syntax.all._
 import scodec.bits.ByteVector
 import scala.collection.immutable
 
@@ -37,7 +37,7 @@ import scala.collection.immutable
   */
 case class AttributeName(value: String)
 
-case class AttributeRef(path: NonEmptyList[AttributeName])
+case class AttributeRef(path: cats.data.NonEmptyList[AttributeName])
 
 sealed trait AttributeValue {
   def `null`: Option[AttributeValue.NULL.type] = this match {

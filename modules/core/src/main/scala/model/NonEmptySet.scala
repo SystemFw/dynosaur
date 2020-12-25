@@ -63,6 +63,6 @@ object NonEmptySetImpl {
 
     def toNonEmptySet(implicit ev: Ordering[A]): cats.data.NonEmptySet[A] =
       cats.data.NonEmptySet
-        .fromSetUnsafe(toSet.to[collection.immutable.SortedSet])
+        .fromSetUnsafe(toSet.to(collection.immutable.SortedSet))
   }
 }
