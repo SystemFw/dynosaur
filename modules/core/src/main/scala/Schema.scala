@@ -73,11 +73,22 @@ sealed trait Schema[A] { self =>
       }
     }
 
-  def nullable: Schema[Option[A]] =
+  def nullable: Schema[Option[A]] = {
+    // These two could be derived, but we cannot rely on the macro
+    // because it is defined in the same compilation unit
+    val someP = Prism.fromPartial[Option[A], Some[A]] { case v @ Some(_) =>
+      v
+    }(identity)
+
+    val noneP = Prism.fromPartial[Option[A], None.type] { case v: None.type =>
+      v
+    }(identity)
+
     Schema.oneOf[Option[A]] { alt =>
-      alt(this.imap(Some.apply)(_.value)) |+|
-        alt(`null`.imap(_ => None)(_ => ()))
+      alt(this.imap(Some.apply)(_.value))(someP) |+|
+        alt(`null`.imap(_ => None)(_ => ()))(noneP)
     }
+  }
 
   def asVector: Schema[Vector[A]] = Sequence(this)
   def asList: Schema[List[A]] = vector(this).imap(_.toList)(_.toVector)
