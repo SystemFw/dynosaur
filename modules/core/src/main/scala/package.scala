@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-package dynosaur
-
-class HelloSuite extends munit.FunSuite {
-  test("hello") {
-    assertEquals(Hello.hello("you"), "Hello you")
-  }
+package object dynosaur {
+  type NonEmptySet[A] = NonEmptySetImpl.Type[A]
+  val NonEmptySet = NonEmptySetImpl
 }

@@ -15,7 +15,6 @@
  */
 
 package dynosaur
-package model
 
 import cats._, syntax.all._
 import scodec.bits.ByteVector

@@ -18,8 +18,6 @@ package dynosaur
 
 import scodec.bits._
 
-import dynosaur.model.{AttributeName, AttributeValue, NonEmptySet}
-
 import org.scalacheck._
 import org.scalacheck.Gen._
 import org.scalacheck.Arbitrary._

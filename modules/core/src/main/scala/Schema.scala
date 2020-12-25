@@ -15,7 +15,6 @@
  */
 
 package dynosaur
-package codec
 
 import cats.Id
 import cats.implicits._
@@ -24,8 +23,6 @@ import cats.data.Chain
 
 import scodec.bits.ByteVector
 import scala.collection.immutable
-
-import model.{AttributeValue, NonEmptySet}
 
 @annotation.implicitNotFound(
   """

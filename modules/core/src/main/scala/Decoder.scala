@@ -15,7 +15,6 @@
  */
 
 package dynosaur
-package codec
 
 import cats._, implicits._
 import alleycats.std.map._
@@ -23,7 +22,6 @@ import cats.free.Free
 import cats.data.Chain
 import scodec.bits.ByteVector
 
-import model.{AttributeName, AttributeValue, NonEmptySet}
 import Schema.structure._
 
 case class ReadError() extends Exception

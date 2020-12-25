@@ -15,13 +15,12 @@
  */
 
 package dynosaur
-package codec
 
 import cats.implicits._
 
 import scodec.bits.ByteVector
 
-import model.{AttributeName => Name, AttributeValue => Value}
+import dynosaur.{AttributeName => Name, AttributeValue => Value}
 
 import munit.ScalaCheckSuite
 

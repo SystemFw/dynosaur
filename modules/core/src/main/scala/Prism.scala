@@ -15,7 +15,6 @@
  */
 
 package dynosaur
-package codec
 
 import scala.annotation.implicitNotFound
 import scala.reflect.ClassTag
