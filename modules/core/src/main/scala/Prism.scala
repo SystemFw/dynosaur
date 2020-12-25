@@ -19,97 +19,55 @@ package dynosaur
 import scala.annotation.implicitNotFound
 import scala.reflect.ClassTag
 
-/** Optic used for selecting a part of a coproduct type.
+/** Selects a branch of a coproduct type.
   */
 @implicitNotFound(
-  "could not find implicit Prism[${S}, ${A}]; ensure ${A} is a subtype of ${S} or manually define an instance"
+  "Cannot find an implicit Prism[${A}, ${B}]. Write an instance manually, or check whether ${B} is a subtype of ${A} if you want the library to provide one for you automatically."
 )
-sealed abstract class Prism[S, A] {
+case class Prism[A, B](tryGet: A => Option[B], inject: B => A)
+object Prism extends LowPrioPrism {
 
-  /** Attempts to select a coproduct part. */
-  def tryGet: S => Option[A]
-
-  /** Creates a coproduct from a coproduct part. */
-  def inject: A => S
-}
-
-object Prism extends PrismLowPriority {
-
-  /** Returns the [[Prism]] for the specified types.
+  /** Returns a new [[Prism]] instance using the specified
+    * `tryGet` partial function and `inject` function.
     */
-  final def apply[S, A](implicit prism: Prism[S, A]): Prism[S, A] =
-    prism
+  def fromPartial[A, B](tryGet: PartialFunction[A, B])(inject: B => A) =
+    Prism(tryGet.lift, inject)
 
   /** Returns a new [[Prism]] for the specified type.
     */
-  implicit final def identity[A]: Prism[A, A] =
-    Prism.instance[A, A](Some(_))(a => a)
-
-  /** Returns a new [[Prism]] instance using the specified
-    * `tryGet` and `inject` functions.
-    */
-  final def instance[S, A](
-      tryGet: S => Option[A]
-  )(inject: A => S): Prism[S, A] = {
-    val _tryGet = tryGet
-    val _inject = inject
-
-    new Prism[S, A] {
-      override final val tryGet: S => Option[A] =
-        _tryGet
-
-      override final val inject: A => S =
-        _inject
-
-      override final def toString: String =
-        "Prism$" + System.identityHashCode(this)
-    }
-  }
+  implicit def identity[A]: Prism[A, A] =
+    Prism[A, A](Option.apply _, a => a)
 
   /** Returns a new [[Prism]] from `Either[A, B]` to `Left[A, B]`.
     */
-  implicit final def left[A, B]: Prism[Either[A, B], Left[A, B]] =
-    Prism.instance[Either[A, B], Left[A, B]] {
-      case left @ Left(_) => Some(left)
-      case Right(_) => None
-    }(left => left)
-
-  /** Returns a new [[Prism]] from `Option` to `None`.
-    */
-  implicit final def none[A]: Prism[Option[A], None.type] =
-    Prism.instance[Option[A], None.type] {
-      case None => Some(None)
-      case Some(_) => None
-    }(none => none)
-
-  /** Returns a new [[Prism]] instance using the specified
-    * `get` partial function and `inject` function.
-    */
-  final def fromPartial[S, A](get: PartialFunction[S, A])(
-      inject: A => S
-  ): Prism[S, A] =
-    Prism.instance(get.lift)(inject)
+  implicit def left[A, B]: Prism[Either[A, B], Left[A, B]] =
+    Prism.fromPartial[Either[A, B], Left[A, B]] { case v @ Left(_) =>
+      v
+    }(v => v)
 
   /** Returns a new [[Prism]] from `Either[A, B]` to `Right[A, B]`.
     */
-  implicit final def right[A, B]: Prism[Either[A, B], Right[A, B]] =
-    Prism.instance[Either[A, B], Right[A, B]] {
-      case Left(_) => None
-      case right @ Right(_) => Some(right)
-    }(right => right)
+  implicit def right[A, B]: Prism[Either[A, B], Right[A, B]] =
+    Prism.fromPartial[Either[A, B], Right[A, B]] { case v @ Right(_) =>
+      v
+    }(v => v)
+
+  /** Returns a new [[Prism]] from `Option` to `None`.
+    */
+  implicit def none[A]: Prism[Option[A], None.type] =
+    Prism.fromPartial[Option[A], None.type] { case v: None.type =>
+      v
+    }(none => none)
 
   /** Returns a new [[Prism]] from `Option` to `Some`.
     */
-  implicit final def some[S, A](implicit
-      prism: Prism[S, A]
-  ): Prism[Option[S], Some[A]] =
-    Prism.instance[Option[S], Some[A]] {
-      case None => None
-      case Some(s) => prism.tryGet(s).map(Some(_))
-    }(_.map(prism.inject))
+  implicit final def some[A]: Prism[Option[A], Some[A]] =
+    Prism.fromPartial[Option[A], Some[A]] { case v @ Some(_) =>
+      v
+    }(v => v)
 }
 
-private[dynosaur] sealed abstract class PrismLowPriority {
+private[dynosaur] sealed trait LowPrioPrism {
 
   /** Returns a new [[Prism]] for the specified supertype
     * and subtype.
@@ -128,6 +86,6 @@ private[dynosaur] sealed abstract class PrismLowPriority {
 
     val inject = (a: A) => (a: S)
 
-    Prism.instance(tryGet)(inject)
+    Prism(tryGet, inject)
   }
 }
