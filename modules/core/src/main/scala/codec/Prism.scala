@@ -17,30 +17,118 @@
 package dynosaur
 package codec
 
-import scala.reflect.macros.blackbox
+import scala.annotation.implicitNotFound
+import scala.reflect.ClassTag
 
-@annotation.implicitNotFound(
-  "Cannot find an implicit Prism[${A}, ${B}]. Write an instance manually, or check whether ${B} <: ${A} if you want the library to provide one for you automatically."
+/** Optic used for selecting a part of a coproduct type.
+  */
+@implicitNotFound(
+  "could not find implicit Prism[${S}, ${A}]; ensure ${A} is a subtype of ${S} or manually define an instance"
 )
-case class Prism[A, B](tryGet: A => Option[B], inject: B => A)
-object Prism {
-  def fromPartial[A, B](tryGet: PartialFunction[A, B])(inject: B => A) =
-    Prism(tryGet.lift, inject)
+sealed abstract class Prism[S, A] {
 
-  implicit def derive[T, S <: T]: Prism[T, S] = macro DerivedPrism.impl[T, S]
+  /** Attempts to select a coproduct part. */
+  def tryGet: S => Option[A]
+
+  /** Creates a coproduct from a coproduct part. */
+  def inject: A => S
 }
 
-private class DerivedPrism(val c: blackbox.Context) {
-  def impl[T: c.WeakTypeTag, S: c.WeakTypeTag]: c.Expr[Prism[T, S]] = {
-    import c.universe._
+object Prism extends PrismLowPriority {
 
-    val (tTpe, sTpe) = (weakTypeOf[T], weakTypeOf[S])
-    c.Expr[Prism[T, S]](q"""
-       import dynosaur.codec.Prism
+  /** Returns the [[Prism]] for the specified types.
+    */
+  final def apply[S, A](implicit prism: Prism[S, A]): Prism[S, A] =
+    prism
 
-       val tryGet: $tTpe => Option[$sTpe] = t => if (t.isInstanceOf[$sTpe]) Some(t.asInstanceOf[$sTpe]) else None
-       val inject: $sTpe => $tTpe = _.asInstanceOf[$tTpe]
-       Prism(tryGet, inject)
-    """)
+  /** Returns a new [[Prism]] for the specified type.
+    */
+  implicit final def identity[A]: Prism[A, A] =
+    Prism.instance[A, A](Some(_))(a => a)
+
+  /** Returns a new [[Prism]] instance using the specified
+    * `tryGet` and `inject` functions.
+    */
+  final def instance[S, A](
+      tryGet: S => Option[A]
+  )(inject: A => S): Prism[S, A] = {
+    val _tryGet = tryGet
+    val _inject = inject
+
+    new Prism[S, A] {
+      override final val tryGet: S => Option[A] =
+        _tryGet
+
+      override final val inject: A => S =
+        _inject
+
+      override final def toString: String =
+        "Prism$" + System.identityHashCode(this)
+    }
+  }
+
+  /** Returns a new [[Prism]] from `Either[A, B]` to `Left[A, B]`.
+    */
+  implicit final def left[A, B]: Prism[Either[A, B], Left[A, B]] =
+    Prism.instance[Either[A, B], Left[A, B]] {
+      case left @ Left(_) => Some(left)
+      case Right(_) => None
+    }(left => left)
+
+  /** Returns a new [[Prism]] from `Option` to `None`.
+    */
+  implicit final def none[A]: Prism[Option[A], None.type] =
+    Prism.instance[Option[A], None.type] {
+      case None => Some(None)
+      case Some(_) => None
+    }(none => none)
+
+  /** Returns a new [[Prism]] instance using the specified
+    * `get` partial function and `inject` function.
+    */
+  final def fromPartial[S, A](get: PartialFunction[S, A])(
+      inject: A => S
+  ): Prism[S, A] =
+    Prism.instance(get.lift)(inject)
+
+  /** Returns a new [[Prism]] from `Either[A, B]` to `Right[A, B]`.
+    */
+  implicit final def right[A, B]: Prism[Either[A, B], Right[A, B]] =
+    Prism.instance[Either[A, B], Right[A, B]] {
+      case Left(_) => None
+      case right @ Right(_) => Some(right)
+    }(right => right)
+
+  /** Returns a new [[Prism]] from `Option` to `Some`.
+    */
+  implicit final def some[S, A](implicit
+      prism: Prism[S, A]
+  ): Prism[Option[S], Some[A]] =
+    Prism.instance[Option[S], Some[A]] {
+      case None => None
+      case Some(s) => prism.tryGet(s).map(Some(_))
+    }(_.map(prism.inject))
+}
+
+private[dynosaur] sealed abstract class PrismLowPriority {
+
+  /** Returns a new [[Prism]] for the specified supertype
+    * and subtype.
+    *
+    * Relies on class tags. Since the function is implicit,
+    * [[Prism]]s are available implicitly for any supertype
+    * and subtype relationships.
+    */
+  implicit final def derive[S, A <: S](implicit
+      tag: ClassTag[A]
+  ): Prism[S, A] = {
+    val tryGet = (s: S) =>
+      if (tag.runtimeClass.isInstance(s))
+        Some(s.asInstanceOf[A])
+      else None
+
+    val inject = (a: A) => (a: S)
+
+    Prism.instance(tryGet)(inject)
   }
 }
