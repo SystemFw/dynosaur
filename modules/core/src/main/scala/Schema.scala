@@ -16,7 +16,6 @@
 
 package dynosaur
 
-import cats.Id
 import cats.implicits._
 import cats.free.Free
 import cats.data.Chain
@@ -92,6 +91,7 @@ object Schema {
     case object Identity extends Schema[AttributeValue]
     case object Num
         extends Schema[String] // dynamo represents numbers as strings
+
     case object Str extends Schema[String]
     case object Bool extends Schema[Boolean]
     case object Bytes extends Schema[ByteVector]
@@ -153,12 +153,12 @@ object Schema {
     import alleycats.std.set._
 
     NumSet.imapErr { nes =>
-      nes.unsafeWithSet {
-        _.traverse { v =>
+      nes.value
+        .traverse { v =>
           Either.catchNonFatal(convert(v)).leftMap(_ => ReadError())
         }
-      }
-    }(nes => nes.unsafeWithSet(_.map(_.toString).pure[Id]))
+        .map(NonEmptySet.unsafeFromSet)
+    }(nes => NonEmptySet.unsafeFromSet(nes.value.map(_.toString)))
   }
 
   /*
@@ -188,9 +188,9 @@ object Schema {
   implicit def byteVectorset: Schema[NonEmptySet[ByteVector]] = BytesSet
   implicit def byteArraySet: Schema[NonEmptySet[Array[Byte]]] =
     BytesSet.imap { nes =>
-      nes.unsafeWithSet(_.map(_.toArray).pure[Id])
+      NonEmptySet.unsafeFromSet(nes.value.map(_.toArray))
     } { nes =>
-      nes.unsafeWithSet(_.map(ByteVector.apply).pure[Id])
+      NonEmptySet.unsafeFromSet(nes.value.map(ByteVector.apply))
     }
 
   // Seq is not enough on its own for implicit search to work

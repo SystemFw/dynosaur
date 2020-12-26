@@ -124,7 +124,7 @@ object AttributeValue {
   def ss(values: NonEmptySet[String]): AttributeValue =
     AttributeValue.SS(values)
   def ss(value: String, values: String*): AttributeValue =
-    AttributeValue.SS(NonEmptySet(value, values.toSet))
+    AttributeValue.SS(NonEmptySet.of(value, values: _*))
 
   def n(value: Int): AttributeValue = AttributeValue.N(value.toString)
   def n(value: Long): AttributeValue = AttributeValue.N(value.toString)

@@ -16,27 +16,25 @@
 
 package dynosaur
 
-import cats._, implicits._
+import cats.syntax.all._
 
-object NonEmptySetImpl {
-  private[NonEmptySetImpl] type Base
-  private[NonEmptySetImpl] trait Tag extends Any
-  type Type[A] <: Base with Tag
+/** A Set that cannot be empty, to support DynamoDb number, string and
+  * binary sets.
+  */
+sealed abstract case class NonEmptySet[A](value: Set[A])
+object NonEmptySet {
+  def of[A](head: A, tail: A*): NonEmptySet[A] =
+    create((head +: tail).toSet)
 
-  private[NonEmptySetImpl] def create[A](s: Set[A]): Type[A] =
-    s.asInstanceOf[Type[A]]
+  def fromSet[A](set: Set[A]): Option[NonEmptySet[A]] =
+    if (set.nonEmpty) create(set).some
+    else none
 
-  private[NonEmptySetImpl] def unwrap[A](s: Type[A]): Set[A] =
-    s.asInstanceOf[Set[A]]
-
-  def fromSet[A](as: Set[A]): Option[NonEmptySet[A]] =
-    if (as.nonEmpty) create(as).some else none
-
-  def fromNonEmptySet[A: Order](as: cats.data.NonEmptySet[A]) =
-    create(as.toSortedSet.toSet)
+  def fromCatsNonEmpty[A](set: cats.data.NonEmptySet[A]): NonEmptySet[A] =
+    create(set.toSortedSet.toSet)
 
   /** Note:
-    * It's up to you to ensure the non empty invariant is preserved
+    * It's up to you to ensure the non empty invariant holds
     */
   def unsafeFromSet[A](set: Set[A]): NonEmptySet[A] =
     if (set.nonEmpty) create(set)
@@ -45,23 +43,6 @@ object NonEmptySetImpl {
         "Cannot create NonEmptySet from empty set"
       )
 
-  def apply[A](head: A, tail: Set[A] = Set.empty): NonEmptySet[A] =
-    create(Set(head) ++ tail)
-
-  sealed implicit class Ops[A](value: NonEmptySet[A]) {
-    def contains(a: A): Boolean = value.toSet.contains(a)
-    def toSet: Set[A] = unwrap(value)
-
-    /** Note:
-      * It's up to you to ensure the non empty invariant is preserved
-      */
-    def unsafeWithSet[F[_]: Functor, B](
-        f: Set[A] => F[Set[B]]
-    ): F[NonEmptySet[B]] =
-      f(value.toSet).map(unsafeFromSet)
-
-    def toNonEmptySet(implicit ev: Ordering[A]): cats.data.NonEmptySet[A] =
-      cats.data.NonEmptySet
-        .fromSetUnsafe(toSet.to(collection.immutable.SortedSet))
-  }
+  private def create[A](set: Set[A]) =
+    new NonEmptySet(set) {}
 }
