@@ -66,34 +66,41 @@ object Encoder {
         .map(Value.M)
 
     def encodeRecord[R](recordSchema: Free[Field[R, *], R], record: R): Res = {
-      def write[E](name: String, schema: Schema[E])(
+      implicit def overrideKeys: Monoid[Map[String, Value]] =
+        MonoidK[Map[String, *]].algebra
+
+      def write[E](
+          name: String,
+          schema: Schema[E],
           elem: E
-      ): Either[WriteError, Value.M] =
-        fromSchema(schema).write(elem).map { av =>
-          Value.M(Map(name -> av))
-        }
+      ): Either[WriteError, Map[String, Value]] =
+        fromSchema(schema).write(elem).map { av => Map(name -> av) }
 
       recordSchema
         .foldMap {
-          new (Field[R, *] ~> WriterT[Either[WriteError, *], Value.M, *]) {
+          new (Field[R, *] ~> WriterT[
+            Either[WriteError, *],
+            Map[String, Value],
+            *
+          ]) {
             def apply[B](field: Field[R, B]) = field match {
               case Field.Required(name, elemSchema, get) =>
                 WriterT {
                   val elem = get(record)
-                  write(name, elemSchema)(elem).tupleRight(elem)
+                  write(name, elemSchema, elem).tupleRight(elem)
                 }
               case Field.Optional(name, elemSchema, get) =>
                 WriterT {
                   val elem = get(record)
                   elem
-                    .foldMap(write(name, elemSchema))
+                    .foldMap(write(name, elemSchema, _))
                     .tupleRight(elem)
                 }
             }
           }
         }
         .written
-        .widen[Value]
+        .map(Value.m)
     }
 
     def encodeSum[C](cases: Chain[Alt[C]], coproduct: C): Res =

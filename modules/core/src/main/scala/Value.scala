@@ -86,17 +86,6 @@ object Value {
 
   val nul: Value = Nul
 
-  implicit val monoid: Monoid[Value.M] =
-    new Monoid[Value.M] {
-      def empty: Value.M =
-        M(Map.empty)
-      def combine(
-          x: Value.M,
-          y: Value.M
-      ): Value.M =
-        M(x.values ++ y.values)
-    }
-
   def m(values: (String, Value)*): Value =
     Value.M(values.toMap)
   def m(values: Map[String, Value]): Value =
