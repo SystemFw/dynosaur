@@ -85,19 +85,17 @@ sealed trait Schema[A] { self =>
 
   def asMap: Schema[Map[String, A]] = Dictionary(this)
 }
-
+// TODO Review number and byteset
 object Schema {
   object structure {
     case object Identity extends Schema[Value]
-    case object Num
-        extends Schema[String] // dynamo represents numbers as strings
-
+    case object Num extends Schema[Value.Number]
     case object Str extends Schema[String]
     case object Bool extends Schema[Boolean]
     case object Bytes extends Schema[ByteVector]
-    case object NULL extends Schema[Unit]
+    case object NULL extends Schema[Unit] // TODO Nul
     case object BytesSet extends Schema[NonEmptySet[ByteVector]]
-    case object NumSet extends Schema[NonEmptySet[String]]
+    case object NumSet extends Schema[NonEmptySet[Value.Number]]
     case object StrSet extends Schema[NonEmptySet[String]]
     case class Dictionary[A](value: Schema[A]) extends Schema[Map[String, A]]
     case class Sequence[A](value: Schema[A]) extends Schema[Vector[A]]
@@ -142,10 +140,11 @@ object Schema {
   implicit def boolean: Schema[Boolean] = Bool
   implicit def string: Schema[String] = Str
 
+  // TODO use parseFromString from Numeric, 2.12+
   private def num[A: Numeric](convert: String => A): Schema[A] =
     Num.imapErr { v =>
-      Either.catchNonFatal(convert(v)).leftMap(_ => ReadError())
-    }(_.toString)
+      Either.catchNonFatal(convert(v.value)).leftMap(_ => ReadError())
+    }(n => Value.Number(n.toString))
 
   private def numSet[A: Numeric](
       convert: String => A
@@ -155,10 +154,12 @@ object Schema {
     NumSet.imapErr { nes =>
       nes.value
         .traverse { v =>
-          Either.catchNonFatal(convert(v)).leftMap(_ => ReadError())
+          Either.catchNonFatal(convert(v.value)).leftMap(_ => ReadError())
         }
         .map(NonEmptySet.unsafeFromSet)
-    }(nes => NonEmptySet.unsafeFromSet(nes.value.map(_.toString)))
+    }(nes =>
+      NonEmptySet.unsafeFromSet(nes.value.map(n => Value.Number(n.toString)))
+    )
   }
 
   /*

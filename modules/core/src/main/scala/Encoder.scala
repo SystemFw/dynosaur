@@ -41,29 +41,29 @@ object Encoder {
 
     def encodeBool: Boolean => Res = Value.bool(_).asRight
 
-    def encodeNum: String => Res = Value.N(_).asRight
+    def encodeNum: Value.Number => Res = Value.n(_).asRight
 
     def encodeString: String => Res = Value.s(_).asRight
 
     def encodeBytes: ByteVector => Res = Value.b(_).asRight
 
     def encodeBytesSet: NonEmptySet[ByteVector] => Res =
-      Value.BS(_).asRight
-    def encodeNumSet: NonEmptySet[String] => Res =
-      Value.NS(_).asRight
+      Value.bs(_).asRight
+    def encodeNumSet: NonEmptySet[Value.Number] => Res =
+      Value.ns(_).asRight
     def encodeStrSet: NonEmptySet[String] => Res =
       Value.ss(_).asRight
 
     def encodeNull: Unit => Res = _ => Value.nul.asRight
 
     def encodeSequence[V](schema: Schema[V], value: Vector[V]) =
-      value.traverse(fromSchema(schema).write).map(Value.L)
+      value.traverse(fromSchema(schema).write).map(Value.l)
 
     def encodeDictionary[V](schema: Schema[V], value: Map[String, V]) =
       value
         .map { case (k, v) => k -> v }
         .traverse(fromSchema(schema).write)
-        .map(Value.M)
+        .map(Value.m)
 
     def encodeRecord[R](recordSchema: Free[Field[R, *], R], record: R): Res = {
       implicit def overrideKeys: Monoid[Map[String, Value]] =

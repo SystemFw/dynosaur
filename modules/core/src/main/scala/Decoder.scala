@@ -39,28 +39,28 @@ object Decoder {
     type Res[B] = Either[ReadError, B]
 
     def decodeBool: Value => Res[Boolean] =
-      _.bool.toRight(ReadError()).map(_.value)
+      _.bool.toRight(ReadError())
 
-    def decodeNum: Value => Res[String] =
-      _.n.toRight(ReadError()).map(_.value)
+    def decodeNum: Value => Res[Value.Number] =
+      _.n.toRight(ReadError())
 
     def decodeString: Value => Res[String] =
-      _.s.toRight(ReadError()).map(_.value)
+      _.s.toRight(ReadError())
 
     def decodeBytes: Value => Res[ByteVector] =
-      _.b.toRight(ReadError()).map(_.value)
+      _.b.toRight(ReadError())
 
     def decodeBytesSet: Value => Res[NonEmptySet[ByteVector]] =
-      _.bs.toRight(ReadError()).map(_.values)
+      _.bs.toRight(ReadError())
 
-    def decodeNumSet: Value => Res[NonEmptySet[String]] =
-      _.ns.toRight(ReadError()).map(_.values)
+    def decodeNumSet: Value => Res[NonEmptySet[Value.Number]] =
+      _.ns.toRight(ReadError())
 
     def decodeStrSet: Value => Res[NonEmptySet[String]] =
-      _.ss.toRight(ReadError()).map(_.values)
+      _.ss.toRight(ReadError())
 
     def decodeNull: Value => Res[Unit] =
-      _.nul.toRight(ReadError()).void
+      _.nul.toRight(ReadError())
 
     def decodeSequence[V](
         schema: Schema[V],
@@ -68,7 +68,7 @@ object Decoder {
     ): Res[Vector[V]] =
       value.l
         .toRight(ReadError())
-        .flatMap(_.values.traverse(fromSchema(schema).read))
+        .flatMap(_.traverse(fromSchema(schema).read))
 
     def decodeDictionary[V](
         schema: Schema[V],
@@ -77,28 +77,26 @@ object Decoder {
       value.m
         .toRight(ReadError())
         .flatMap(
-          _.values
-            .map { case (k, v) => k -> v }
+          _.map { case (k, v) => k -> v }
             .traverse(fromSchema(schema).read)
         )
 
     def decodeRecord[R](
         recordSchema: Free[Field[R, *], R],
-        v: Value.M
+        v: Map[String, Value]
     ): Res[R] =
       recordSchema.foldMap {
         new (Field[R, *] ~> Res) {
           def apply[B](field: Field[R, B]): Res[B] =
             field match {
               case Field.Required(name, elemSchema, _) =>
-                v.values
-                  .get(name)
+                v.get(name)
                   .toRight(ReadError())
                   .flatMap { v =>
                     fromSchema(elemSchema).read(v)
                   }
               case Field.Optional(name, elemSchema, _) =>
-                v.values
+                v
                   .get(name)
                   .traverse { v =>
                     fromSchema(elemSchema).read(v)

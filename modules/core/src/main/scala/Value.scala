@@ -19,99 +19,156 @@ package dynosaur
 import cats._, syntax.all._
 import scodec.bits.ByteVector
 import scala.collection.immutable
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+import software.amazon.awssdk.core.SdkBytes
 
-sealed trait Value {
-  def nul: Option[Value.Nul.type] = this match {
-    case Value.Nul => Value.Nul.some
-    case _ => None
-  }
+import collection.JavaConverters._ // TODO generates a warning, since it's deprecated for
+//import scala.jdk.CollectionConverters._
 
-  def s: Option[Value.S] = this match {
-    case v @ Value.S(_) => v.some
-    case _ => None
-  }
+// SdkBytes	b()
+// Boolean	bool()
+// String	n()
+// List<SdkBytes>	bs()
+// List<String>	ss()
+// List<String>	ns()
+// Boolean	nul()
+// String	s()
 
-  def n: Option[Value.N] = this match {
-    case v @ Value.N(_) => v.some
-    case _ => None
-  }
+// List<AttributeValue>	l()
+// Map<String,AttributeValue>	m()
 
-  def b: Option[Value.B] = this match {
-    case v @ Value.B(_) => v.some
-    case _ => None
-  }
+// boolean	hasBs()
+// boolean	hasNs()
+// boolean	hasSs()
+// boolean	hasL()
+// boolean	hasM()
 
-  def bool: Option[Value.Bool] = this match {
-    case v @ Value.Bool(_) => v.some
-    case _ => None
-  }
+// static AttributeValue.Builder	builder()
+// boolean	equals(Object obj)
+// boolean	equalsBySdkFields(Object obj)
+// <T> Optional<T>	getValueForField(String fieldName, Class<T> clazz)
+// int	hashCode()
 
-  def m: Option[Value.M] = this match {
-    case v @ Value.M(_) => v.some
-    case _ => None
-  }
+// List<SdkField<?>>	sdkFields()
+// static Class<? extends AttributeValue.Builder>	serializableBuilderClass()
 
-  def l: Option[Value.L] = this match {
-    case v @ Value.L(_) => v.some
-    case _ => None
-  }
+// AttributeValue.Builder	toBuilder()
+// String	toString()
 
-  def ss: Option[Value.SS] = this match {
-    case v @ Value.SS(_) => v.some
-    case _ => None
-  }
+// TODO file to model.scala, DynamoValue, DynamoNumber
+case class Value(value: AttributeValue) {
 
-  def ns: Option[Value.NS] = this match {
-    case v @ Value.NS(_) => v.some
-    case _ => None
-  }
+  def s: Option[String] =
+    Option(value.s)
 
-  def bs: Option[Value.BS] = this match {
-    case v @ Value.BS(_) => v.some
-    case _ => None
-  }
+  def n: Option[Value.Number] =
+    Option(value.n).map(Value.Number(_))
 
+  def bool: Option[Boolean] =
+    Option(value.bool).map(_.booleanValue)
+
+  // TODO replace with list throughout
+  def l: Option[Vector[Value]] =
+    value.hasL
+      .guard[Option]
+      .as(value.l.asScala.toVector.map(Value(_)))
+
+  def m: Option[Map[String, Value]] =
+    value.hasM
+      .guard[Option]
+      .as(value.m.asScala.toMap.map { case (k, v) => k -> Value(v) })
+
+  // TODO should Boolean result be supported here?
+  def nul: Option[Unit] =
+    Option(value.nul).void
+
+  def b: Option[ByteVector] =
+    Option(value.b).map(b => ByteVector(b.asByteArray))
+
+  def bs: Option[NonEmptySet[ByteVector]] =
+    value.hasBs
+      .guard[Option] >> NonEmptySet.fromSet(
+      value.bs.asScala.toSet.map((b: SdkBytes) => ByteVector(b.asByteArray))
+    )
+
+  def ns: Option[NonEmptySet[Value.Number]] =
+    value.hasNs
+      .guard[Option] >> NonEmptySet.fromSet(
+      value.ns.asScala.toSet.map((x: String) => Value.Number(x))
+    )
+
+  def ss: Option[NonEmptySet[String]] =
+    value.hasSs.guard[Option] >> NonEmptySet.fromSet(value.ss.asScala.toSet)
 }
 object Value {
-  case object Nul extends Value
-  case class S(value: String) extends Value
-  case class N(value: String) extends Value
-  case class B(value: ByteVector) extends Value
-  case class Bool(value: Boolean) extends Value
-  case class M(values: Map[String, Value]) extends Value
-  case class L(values: Vector[Value]) extends Value
-  case class SS(values: NonEmptySet[String]) extends Value
-  case class NS(values: NonEmptySet[String]) extends Value
-  case class BS(values: NonEmptySet[ByteVector]) extends Value
 
-  val nul: Value = Nul
+  /** DynamoDb Number, which is represented as a string
+    */
+  case class Number(value: String)
 
-  def m(values: (String, Value)*): Value =
-    Value.M(values.toMap)
-  def m(values: Map[String, Value]): Value =
-    Value.M(values)
+  // case object Nul extends Value
+  // case class S(value: String) extends Value
+  // case class N(value: String) extends Value
+  // case class B(value: ByteVector) extends Value
+  // case class Bool(value: Boolean) extends Value
+  // case class M(values: Map[String, Value]) extends Value
+  // case class L(values: Vector[Value]) extends Value
+  // case class SS(values: NonEmptySet[String]) extends Value
+  // case class NS(values: NonEmptySet[String]) extends Value
+  // case class BS(values: NonEmptySet[ByteVector]) extends Value
 
-  def s(value: String): Value = Value.S(value)
+  val nul: Value = ???
+
+  def m(values: (String, Value)*): Value = ???
+//    Value.M(values.toMap)
+  def m(values: Map[String, Value]): Value = ???
+  //  Value.M(values)
+
+  def s(value: String): Value = ??? // Value.S(value)
 
   def ss(values: NonEmptySet[String]): Value =
-    Value.SS(values)
+    ??? //    Value.SS(values)
   def ss(value: String, values: String*): Value =
-    Value.SS(NonEmptySet.of(value, values: _*))
+    ??? //    Value.SS(NonEmptySet.of(value, values: _*))
 
-  def n(value: Int): Value = Value.N(value.toString)
-  def n(value: Long): Value = Value.N(value.toString)
-  def n(value: Double): Value = Value.N(value.toString)
-  def n(value: Float): Value = Value.N(value.toString)
-  def n(value: Short): Value = Value.N(value.toString)
+  def ns(values: NonEmptySet[Number]): Value =
+    ???
+//  def ns(value: Number, values: Number*): Value = ??? TODO delete
 
-  def b(value: ByteVector): Value = Value.B(value)
+  def bs(values: NonEmptySet[ByteVector]): Value =
+    ???
+  def bs(value: ByteVector, values: ByteVector*): Value = ???
+
+  def n(value: Number): Value = ??? // Value.N(value.toString)
+  // def n(value: Long): Value = ??? // Value.N(value.toString)
+  // def n(value: Double): Value = ??? // Value.N(value.toString)
+  // def n(value: Float): Value = ??? // Value.N(value.toString)
+  // def n(value: Short): Value = ??? // Value.N(value.toString)
+
+  def b(value: ByteVector): Value = ??? //Value.B(value)
   def b(value: Array[Byte]): Value =
-    Value.B(ByteVector(value))
+    ??? //    Value.B(ByteVector(value))
   def b(value: immutable.Seq[Byte]): Value =
-    Value.B(ByteVector(value))
+    ??? //    Value.B(ByteVector(value))
 
-  def bool(value: Boolean): Value = Value.Bool(value)
+  def bool(value: Boolean): Value = ??? // Value.Bool(value)
 
   def l(values: immutable.Seq[Value]): Value =
-    Value.L(values.toVector)
+    ??? //    Value.L(values.toVector)
+
+//   AttributeValue.Builder	b(SdkBytes b)
+// AttributeValue.Builder	bool(Boolean bool)
+// AttributeValue.Builder	bs(Collection<SdkBytes> bs)
+// AttributeValue.Builder	bs(SdkBytes... bs)
+// AttributeValue.Builder	l(AttributeValue... l)
+// AttributeValue.Builder	l(Collection<AttributeValue> l)
+// AttributeValue.Builder	l(Consumer<AttributeValue.Builder>... l)
+// AttributeValue.Builder	m(Map<String,AttributeValue> m)
+// AttributeValue.Builder	n(String n)
+// AttributeValue.Builder	ns(Collection<String> ns)
+// AttributeValue.Builder	ns(String... ns)
+// AttributeValue.Builder	nul(Boolean nul)
+// AttributeValue.Builder	s(String s)
+// AttributeValue.Builder	ss(Collection<String> ss)
+// AttributeValue.Builder	ss(String... ss)
 }
