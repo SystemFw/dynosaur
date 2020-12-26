@@ -90,18 +90,18 @@ object Decoder {
         new (Field[R, *] ~> Res) {
           def apply[B](field: Field[R, B]): Res[B] =
             field match {
-              case field: Field.Required[R, e] =>
+              case Field.Required(name, elemSchema, _) =>
                 v.values
-                  .get(field.name)
+                  .get(name)
                   .toRight(ReadError())
                   .flatMap { v =>
-                    fromSchema(field.elemSchema).read(v)
+                    fromSchema(elemSchema).read(v)
                   }
-              case field: Field.Optional[R, e] =>
+              case Field.Optional(name, elemSchema, _) =>
                 v.values
-                  .get(field.name)
+                  .get(name)
                   .traverse { v =>
-                    fromSchema(field.elemSchema).read(v)
+                    fromSchema(elemSchema).read(v)
                   }
             }
         }

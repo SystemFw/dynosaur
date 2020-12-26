@@ -77,16 +77,16 @@ object Encoder {
         .foldMap {
           new (Field[R, *] ~> WriterT[Either[WriteError, *], Value.M, *]) {
             def apply[B](field: Field[R, B]) = field match {
-              case field: Field.Required[R, e] =>
+              case Field.Required(name, elemSchema, get) =>
                 WriterT {
-                  val elem: e = field.get(record)
-                  write(field.name, field.elemSchema)(elem).tupleRight(elem)
+                  val elem = get(record)
+                  write(name, elemSchema)(elem).tupleRight(elem)
                 }
-              case field: Field.Optional[R, e] =>
+              case Field.Optional(name, elemSchema, get) =>
                 WriterT {
-                  val elem: Option[e] = field.get(record)
+                  val elem = get(record)
                   elem
-                    .foldMap(write(field.name, field.elemSchema))
+                    .foldMap(write(name, elemSchema))
                     .tupleRight(elem)
                 }
             }
