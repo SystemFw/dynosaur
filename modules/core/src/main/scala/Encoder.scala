@@ -28,53 +28,55 @@ import Schema.structure._
 case class WriteError() extends Exception
 
 trait Encoder[A] {
-  def write(a: A): Either[WriteError, AttributeValue]
+  def write(a: A): Either[WriteError, Value]
 }
 object Encoder {
-  def instance[A](f: A => Either[WriteError, AttributeValue]): Encoder[A] =
+  def instance[A](f: A => Either[WriteError, Value]): Encoder[A] =
     new Encoder[A] {
       def write(a: A) = f(a)
     }
 
   def fromSchema[A](s: Schema[A]): Encoder[A] = {
-    type Res = Either[WriteError, AttributeValue]
+    type Res = Either[WriteError, Value]
 
-    def encodeBool: Boolean => Res = AttributeValue.bool(_).asRight
+    def encodeBool: Boolean => Res = Value.bool(_).asRight
 
-    def encodeNum: String => Res = AttributeValue.N(_).asRight
+    def encodeNum: String => Res = Value.N(_).asRight
 
-    def encodeString: String => Res = AttributeValue.s(_).asRight
+    def encodeString: String => Res = Value.s(_).asRight
 
-    def encodeBytes: ByteVector => Res = AttributeValue.b(_).asRight
+    def encodeBytes: ByteVector => Res = Value.b(_).asRight
 
     def encodeBytesSet: NonEmptySet[ByteVector] => Res =
-      AttributeValue.BS(_).asRight
+      Value.BS(_).asRight
     def encodeNumSet: NonEmptySet[String] => Res =
-      AttributeValue.NS(_).asRight
+      Value.NS(_).asRight
     def encodeStrSet: NonEmptySet[String] => Res =
-      AttributeValue.ss(_).asRight
+      Value.ss(_).asRight
 
-    def encodeNull: Unit => Res = _ => AttributeValue.`null`.asRight
+    def encodeNull: Unit => Res = _ => Value.nul.asRight
 
     def encodeSequence[V](schema: Schema[V], value: Vector[V]) =
-      value.traverse(fromSchema(schema).write).map(AttributeValue.L)
+      value.traverse(fromSchema(schema).write).map(Value.L)
 
     def encodeDictionary[V](schema: Schema[V], value: Map[String, V]) =
       value
-        .map { case (k, v) => AttributeName(k) -> v }
+        .map { case (k, v) => k -> v }
         .traverse(fromSchema(schema).write)
-        .map(AttributeValue.M)
+        .map(Value.M)
 
     def encodeRecord[R](recordSchema: Free[Field[R, *], R], record: R): Res = {
-      def write[E](name: String, schema: Schema[E])(elem: E) =
+      def write[E](name: String, schema: Schema[E])(
+          elem: E
+      ): Either[WriteError, Value.M] =
         fromSchema(schema).write(elem).map { av =>
-          AttributeValue.M(Map(AttributeName(name) -> av))
+          Value.M(Map(name -> av))
         }
 
       recordSchema
         .foldMap {
           λ[
-            Field[R, *] ~> WriterT[Either[WriteError, *], AttributeValue.M, *]
+            Field[R, *] ~> WriterT[Either[WriteError, *], Value.M, *]
           ] {
             case field: Field.Required[R, e] =>
               WriterT {
@@ -91,7 +93,7 @@ object Encoder {
           }
         }
         .written
-        .widen[AttributeValue]
+        .widen[Value]
     }
 
     def encodeSum[C](cases: Chain[Alt[C]], coproduct: C): Res =

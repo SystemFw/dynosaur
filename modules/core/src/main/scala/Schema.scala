@@ -88,7 +88,7 @@ sealed trait Schema[A] { self =>
 
 object Schema {
   object structure {
-    case object Identity extends Schema[AttributeValue]
+    case object Identity extends Schema[Value]
     case object Num
         extends Schema[String] // dynamo represents numbers as strings
 
@@ -138,7 +138,7 @@ object Schema {
 
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
-  implicit def id: Schema[AttributeValue] = Identity
+  implicit def id: Schema[Value] = Identity
   implicit def boolean: Schema[Boolean] = Bool
   implicit def string: Schema[String] = Str
 

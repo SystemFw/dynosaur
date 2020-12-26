@@ -27,44 +27,44 @@ import Schema.structure._
 case class ReadError() extends Exception
 
 trait Decoder[A] {
-  def read(v: AttributeValue): Either[ReadError, A]
+  def read(v: Value): Either[ReadError, A]
 }
 object Decoder {
-  def instance[A](f: AttributeValue => Either[ReadError, A]): Decoder[A] =
+  def instance[A](f: Value => Either[ReadError, A]): Decoder[A] =
     new Decoder[A] {
-      def read(v: AttributeValue) = f(v)
+      def read(v: Value) = f(v)
     }
 
   def fromSchema[A](s: Schema[A]): Decoder[A] = {
     type Res[B] = Either[ReadError, B]
 
-    def decodeBool: AttributeValue => Res[Boolean] =
+    def decodeBool: Value => Res[Boolean] =
       _.bool.toRight(ReadError()).map(_.value)
 
-    def decodeNum: AttributeValue => Res[String] =
+    def decodeNum: Value => Res[String] =
       _.n.toRight(ReadError()).map(_.value)
 
-    def decodeString: AttributeValue => Res[String] =
+    def decodeString: Value => Res[String] =
       _.s.toRight(ReadError()).map(_.value)
 
-    def decodeBytes: AttributeValue => Res[ByteVector] =
+    def decodeBytes: Value => Res[ByteVector] =
       _.b.toRight(ReadError()).map(_.value)
 
-    def decodeBytesSet: AttributeValue => Res[NonEmptySet[ByteVector]] =
+    def decodeBytesSet: Value => Res[NonEmptySet[ByteVector]] =
       _.bs.toRight(ReadError()).map(_.values)
 
-    def decodeNumSet: AttributeValue => Res[NonEmptySet[String]] =
+    def decodeNumSet: Value => Res[NonEmptySet[String]] =
       _.ns.toRight(ReadError()).map(_.values)
 
-    def decodeStrSet: AttributeValue => Res[NonEmptySet[String]] =
+    def decodeStrSet: Value => Res[NonEmptySet[String]] =
       _.ss.toRight(ReadError()).map(_.values)
 
-    def decodeNull: AttributeValue => Res[Unit] =
-      _.`null`.toRight(ReadError()).void
+    def decodeNull: Value => Res[Unit] =
+      _.nul.toRight(ReadError()).void
 
     def decodeSequence[V](
         schema: Schema[V],
-        value: AttributeValue
+        value: Value
     ): Res[Vector[V]] =
       value.l
         .toRight(ReadError())
@@ -72,46 +72,46 @@ object Decoder {
 
     def decodeDictionary[V](
         schema: Schema[V],
-        value: AttributeValue
+        value: Value
     ): Res[Map[String, V]] =
       value.m
         .toRight(ReadError())
         .flatMap(
           _.values
-            .map { case (k, v) => k.value -> v }
+            .map { case (k, v) => k -> v }
             .traverse(fromSchema(schema).read)
         )
 
     def decodeRecord[R](
         recordSchema: Free[Field[R, *], R],
-        v: AttributeValue.M
+        v: Value.M
     ): Res[R] =
       recordSchema.foldMap {
         λ[Field[R, *] ~> Res] {
           case field: Field.Required[R, e] =>
             v.values
-              .get(AttributeName(field.name))
+              .get(field.name)
               .toRight(ReadError())
               .flatMap { v =>
                 fromSchema(field.elemSchema).read(v)
               }
           case field: Field.Optional[R, e] =>
             v.values
-              .get(AttributeName(field.name))
+              .get(field.name)
               .traverse { v =>
                 fromSchema(field.elemSchema).read(v)
               }
         }
       }
 
-    def decodeSum[B](cases: Chain[Alt[B]], v: AttributeValue): Res[B] =
+    def decodeSum[B](cases: Chain[Alt[B]], v: Value): Res[B] =
       cases
         .foldMapK { alt =>
           fromSchema(alt.caseSchema).read(v).map(alt.prism.inject).toOption
         }
         .toRight(ReadError())
 
-    def decodeIsos[V](xmap: XMap[V], v: AttributeValue): Res[V] =
+    def decodeIsos[V](xmap: XMap[V], v: Value): Res[V] =
       fromSchema(xmap.schema)
         .read(v)
         .flatMap(xmap.r)

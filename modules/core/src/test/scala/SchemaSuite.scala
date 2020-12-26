@@ -20,8 +20,6 @@ import cats.implicits._
 
 import scodec.bits.ByteVector
 
-import dynosaur.{AttributeName => Name, AttributeValue => Value}
-
 import munit.ScalaCheckSuite
 
 import org.scalacheck.Prop._
@@ -162,7 +160,7 @@ class SchemaSuite extends ScalaCheckSuite {
   test("encode/decode Maps") {
     forAll { m: Map[String, Int] =>
       val expected = Value.m {
-        m.map { case (k, v) => Name(k) -> Value.n(v) }
+        m.map { case (k, v) => k -> Value.n(v) }
       }
       check(Schema[Map[String, Int]], m, expected)
     }
@@ -184,10 +182,10 @@ class SchemaSuite extends ScalaCheckSuite {
       ).mapN(Role.apply)
     }
     val expected = Value.m(
-      Name("capability") -> Value.s(role.capability),
-      Name("user") -> Value.m(
-        Name("id") -> Value.n(role.user.id),
-        Name("firstName") -> Value.s(role.user.name)
+      "capability" -> Value.s(role.capability),
+      "user" -> Value.m(
+        "id" -> Value.n(role.user.id),
+        "firstName" -> Value.s(role.user.name)
       )
     )
 
@@ -206,10 +204,10 @@ class SchemaSuite extends ScalaCheckSuite {
       field.const("version", "1.0") *> field("payload", x => x)(schema)
     }
     val expected = Value.m(
-      Name("version") -> Value.s("1.0"),
-      Name("payload") -> Value.m(
-        Name("id") -> Value.n(user.id),
-        Name("name") -> Value.s(user.name)
+      "version" -> Value.s("1.0"),
+      "payload" -> Value.m(
+        "id" -> Value.n(user.id),
+        "name" -> Value.s(user.name)
       )
     )
 
@@ -228,17 +226,17 @@ class SchemaSuite extends ScalaCheckSuite {
     }
 
     val expectedComplete = Value.m(
-      Name("msg") -> Value.s(complete.msg),
-      Name("tag") -> Value.s(complete.tag.get)
+      "msg" -> Value.s(complete.msg),
+      "tag" -> Value.s(complete.tag.get)
     )
 
     val expectedNoTag = Value.m(
-      Name("msg") -> Value.s(noTag.msg)
+      "msg" -> Value.s(noTag.msg)
     )
 
     val incorrectNoTag = Value.m(
-      Name("msg") -> Value.s(noTag.msg),
-      Name("tag") -> Value.`null`
+      "msg" -> Value.s(noTag.msg),
+      "tag" -> Value.nul
     )
 
     check(schema, complete, expectedComplete)
@@ -263,17 +261,17 @@ class SchemaSuite extends ScalaCheckSuite {
     }
 
     val expectedComplete = Value.m(
-      Name("msg") -> Value.s(complete.msg),
-      Name("tag") -> Value.s(complete.tag.get)
+      "msg" -> Value.s(complete.msg),
+      "tag" -> Value.s(complete.tag.get)
     )
 
     val expectedNoTag = Value.m(
-      Name("msg") -> Value.s(noTag.msg),
-      Name("tag") -> Value.`null`
+      "msg" -> Value.s(noTag.msg),
+      "tag" -> Value.nul
     )
 
     val incorrectNoTag = Value.m(
-      Name("msg") -> Value.s(noTag.msg)
+      "msg" -> Value.s(noTag.msg)
     )
 
     check(schema, complete, expectedComplete)
@@ -302,17 +300,17 @@ class SchemaSuite extends ScalaCheckSuite {
     }
 
     val expectedComplete = Value.m(
-      Name("msg") -> Value.s(complete.msg),
-      Name("tag") -> Value.s(complete.tag.get)
+      "msg" -> Value.s(complete.msg),
+      "tag" -> Value.s(complete.tag.get)
     )
 
     val expectedNoTag = Value.m(
-      Name("msg") -> Value.s(noTag.msg)
+      "msg" -> Value.s(noTag.msg)
     )
 
     val acceptedNoTag = Value.m(
-      Name("msg") -> Value.s(noTag.msg),
-      Name("tag") -> Value.`null`
+      "msg" -> Value.s(noTag.msg),
+      "tag" -> Value.nul
     )
 
     check(schema, complete, expectedComplete)
@@ -341,17 +339,17 @@ class SchemaSuite extends ScalaCheckSuite {
     }
 
     val expectedComplete = Value.m(
-      Name("msg") -> Value.s(complete.msg),
-      Name("tag") -> Value.s(complete.tag.get)
+      "msg" -> Value.s(complete.msg),
+      "tag" -> Value.s(complete.tag.get)
     )
 
     val expectedNoTag = Value.m(
-      Name("msg") -> Value.s(noTag.msg),
-      Name("tag") -> Value.`null`
+      "msg" -> Value.s(noTag.msg),
+      "tag" -> Value.nul
     )
 
     val acceptedtNoTag = Value.m(
-      Name("msg") -> Value.s(noTag.msg)
+      "msg" -> Value.s(noTag.msg)
     )
 
     check(schema, complete, expectedComplete)
@@ -444,29 +442,29 @@ class SchemaSuite extends ScalaCheckSuite {
     )
 
     val expected = Value.m(
-      Name("1") -> Value.s(big.one),
-      Name("2") -> Value.s(big.two),
-      Name("3") -> Value.s(big.three),
-      Name("4") -> Value.s(big.four),
-      Name("5") -> Value.s(big.five),
-      Name("6") -> Value.s(big.six),
-      Name("7") -> Value.s(big.seven),
-      Name("8") -> Value.s(big.eight),
-      Name("9") -> Value.s(big.nine),
-      Name("10") -> Value.s(big.ten),
-      Name("11") -> Value.s(big.eleven),
-      Name("12") -> Value.s(big.twelve),
-      Name("13") -> Value.s(big.thirteen),
-      Name("14") -> Value.s(big.fourteen),
-      Name("15") -> Value.s(big.fifteen),
-      Name("16") -> Value.s(big.sixteen),
-      Name("17") -> Value.s(big.seventeen),
-      Name("18") -> Value.s(big.eighteen),
-      Name("19") -> Value.s(big.nineteen),
-      Name("20") -> Value.s(big.twenty),
-      Name("21") -> Value.s(big.twentyOne),
-      Name("22") -> Value.s(big.twentyTwo),
-      Name("23") -> Value.s(big.twentyThree)
+      "1" -> Value.s(big.one),
+      "2" -> Value.s(big.two),
+      "3" -> Value.s(big.three),
+      "4" -> Value.s(big.four),
+      "5" -> Value.s(big.five),
+      "6" -> Value.s(big.six),
+      "7" -> Value.s(big.seven),
+      "8" -> Value.s(big.eight),
+      "9" -> Value.s(big.nine),
+      "10" -> Value.s(big.ten),
+      "11" -> Value.s(big.eleven),
+      "12" -> Value.s(big.twelve),
+      "13" -> Value.s(big.thirteen),
+      "14" -> Value.s(big.fourteen),
+      "15" -> Value.s(big.fifteen),
+      "16" -> Value.s(big.sixteen),
+      "17" -> Value.s(big.seventeen),
+      "18" -> Value.s(big.eighteen),
+      "19" -> Value.s(big.nineteen),
+      "20" -> Value.s(big.twenty),
+      "21" -> Value.s(big.twentyOne),
+      "22" -> Value.s(big.twentyTwo),
+      "23" -> Value.s(big.twentyThree)
     )
 
     check(bigSchema, big, expected)
@@ -503,13 +501,13 @@ class SchemaSuite extends ScalaCheckSuite {
     }
 
     val expectedStarted = Value.m(
-      Name("type") -> Value.s("Started"),
-      Name("value") -> Value.s(started.value)
+      "type" -> Value.s("Started"),
+      "value" -> Value.s(started.value)
     )
 
     val expectedCompleted = Value.m(
-      Name("type") -> Value.s("Completed"),
-      Name("value") -> Value.s(completed.value)
+      "type" -> Value.s("Completed"),
+      "value" -> Value.s(completed.value)
     )
 
     check(eventSchema, started, expectedStarted)
@@ -573,35 +571,35 @@ class SchemaSuite extends ScalaCheckSuite {
     val successfulUp = Upload("successful id", successful)
 
     val expectedError = Value.m(
-      Name("id") -> Value.s(errorUp.id),
-      Name("status") -> Value.m(
-        Name("error") -> Value.m(
-          Name("msg") -> Value.s(error.msg),
-          Name("cause") -> Value.s(error.cause)
+      "id" -> Value.s(errorUp.id),
+      "status" -> Value.m(
+        "error" -> Value.m(
+          "msg" -> Value.s(error.msg),
+          "cause" -> Value.s(error.cause)
         )
       )
     )
     val expectedWarning = Value.m(
-      Name("id") -> Value.s(warningUp.id),
-      Name("status") -> Value.m(
-        Name("warning") -> Value.m(
-          Name("msg") -> Value.s(warning.msg),
-          Name("cause") -> Value.s(warning.cause)
+      "id" -> Value.s(warningUp.id),
+      "status" -> Value.m(
+        "warning" -> Value.m(
+          "msg" -> Value.s(warning.msg),
+          "cause" -> Value.s(warning.cause)
         )
       )
     )
     val expectedUnknown = Value.m(
-      Name("id") -> Value.s(unknownUp.id),
-      Name("status") -> Value.m(
-        Name("unknown") -> Value.m()
+      "id" -> Value.s(unknownUp.id),
+      "status" -> Value.m(
+        "unknown" -> Value.m()
       )
     )
     val expectedSuccessful = Value.m(
-      Name("id") -> Value.s(successfulUp.id),
-      Name("status") -> Value.m(
-        Name("successful") -> Value.m(
-          Name("link") -> Value.s(successful.link),
-          Name("expires") -> Value.n(successful.expires)
+      "id" -> Value.s(successfulUp.id),
+      "status" -> Value.m(
+        "successful" -> Value.m(
+          "link" -> Value.s(successful.link),
+          "expires" -> Value.n(successful.expires)
         )
       )
     )
@@ -664,33 +662,33 @@ class SchemaSuite extends ScalaCheckSuite {
     val successfulUp = Upload("successful id", successful)
 
     val expectedError = Value.m(
-      Name("id") -> Value.s(errorUp.id),
-      Name("status") -> Value.m(
-        Name("type") -> Value.s("error"),
-        Name("msg") -> Value.s(error.msg),
-        Name("cause") -> Value.s(error.cause)
+      "id" -> Value.s(errorUp.id),
+      "status" -> Value.m(
+        "type" -> Value.s("error"),
+        "msg" -> Value.s(error.msg),
+        "cause" -> Value.s(error.cause)
       )
     )
     val expectedWarning = Value.m(
-      Name("id") -> Value.s(warningUp.id),
-      Name("status") -> Value.m(
-        Name("type") -> Value.s("warning"),
-        Name("msg") -> Value.s(warning.msg),
-        Name("cause") -> Value.s(warning.cause)
+      "id" -> Value.s(warningUp.id),
+      "status" -> Value.m(
+        "type" -> Value.s("warning"),
+        "msg" -> Value.s(warning.msg),
+        "cause" -> Value.s(warning.cause)
       )
     )
     val expectedUnknown = Value.m(
-      Name("id") -> Value.s(unknownUp.id),
-      Name("status") -> Value.m(
-        Name("type") -> Value.s("unknown")
+      "id" -> Value.s(unknownUp.id),
+      "status" -> Value.m(
+        "type" -> Value.s("unknown")
       )
     )
     val expectedSuccessful = Value.m(
-      Name("id") -> Value.s(successfulUp.id),
-      Name("status") -> Value.m(
-        Name("type") -> Value.s("successful"),
-        Name("link") -> Value.s(successful.link),
-        Name("expires") -> Value.n(successful.expires)
+      "id" -> Value.s(successfulUp.id),
+      "status" -> Value.m(
+        "type" -> Value.s("successful"),
+        "link" -> Value.s(successful.link),
+        "expires" -> Value.n(successful.expires)
       )
     )
 
