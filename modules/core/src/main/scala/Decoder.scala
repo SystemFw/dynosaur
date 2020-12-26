@@ -87,20 +87,23 @@ object Decoder {
         v: Value.M
     ): Res[R] =
       recordSchema.foldMap {
-        λ[Field[R, *] ~> Res] {
-          case field: Field.Required[R, e] =>
-            v.values
-              .get(field.name)
-              .toRight(ReadError())
-              .flatMap { v =>
-                fromSchema(field.elemSchema).read(v)
-              }
-          case field: Field.Optional[R, e] =>
-            v.values
-              .get(field.name)
-              .traverse { v =>
-                fromSchema(field.elemSchema).read(v)
-              }
+        new (Field[R, *] ~> Res) {
+          def apply[B](field: Field[R, B]): Res[B] =
+            field match {
+              case field: Field.Required[R, e] =>
+                v.values
+                  .get(field.name)
+                  .toRight(ReadError())
+                  .flatMap { v =>
+                    fromSchema(field.elemSchema).read(v)
+                  }
+              case field: Field.Optional[R, e] =>
+                v.values
+                  .get(field.name)
+                  .traverse { v =>
+                    fromSchema(field.elemSchema).read(v)
+                  }
+            }
         }
       }
 

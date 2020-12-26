@@ -81,7 +81,7 @@ sealed trait Schema[A] { self =>
   def asVector: Schema[Vector[A]] = Sequence(this)
   def asList: Schema[List[A]] = vector(this).imap(_.toList)(_.toVector)
   def asSeq: Schema[immutable.Seq[A]] =
-    vector(this).imap(_.toSeq: Seq[A])(_.toVector)
+    vector(this).imap(_.toSeq: immutable.Seq[A])(_.toVector)
 
   def asMap: Schema[Map[String, A]] = Dictionary(this)
 }

@@ -87,70 +87,70 @@ class SchemaSuite extends ScalaCheckSuite {
   }
 
   test("encode/decode ints") {
-    forAll { i: Int =>
+    forAll { (i: Int) =>
       val expected = Value.n(i)
       check(Schema[Int], i, expected)
     }
   }
 
   test("encode/decode longs") {
-    forAll { l: Long =>
+    forAll { (l: Long) =>
       val expected = Value.n(l)
       check(Schema[Long], l, expected)
     }
   }
 
   test("encode/decode doubles") {
-    forAll { d: Double =>
+    forAll { (d: Double) =>
       val expected = Value.n(d)
       check(Schema[Double], d, expected)
     }
   }
 
   test("encode/decode floats") {
-    forAll { f: Float =>
+    forAll { (f: Float) =>
       val expected = Value.n(f)
       check(Schema[Float], f, expected)
     }
   }
 
   test("encode/decode shorts") {
-    forAll { s: Short =>
+    forAll { (s: Short) =>
       val expected = Value.n(s)
       check(Schema[Short], s, expected)
     }
   }
 
   test("encode/decode strings") {
-    forAll { s: String =>
+    forAll { (s: String) =>
       val expected = Value.s(s)
       check(Schema[String], s, expected)
     }
   }
 
   test("encode/decode booleans") {
-    forAll { b: Boolean =>
+    forAll { (b: Boolean) =>
       val expected = Value.bool(b)
       check(Schema[Boolean], b, expected)
     }
   }
 
   test("encode/decode lists") {
-    forAll { l: List[Int] =>
+    forAll { (l: List[Int]) =>
       val expected = Value.l(l.map(Value.n))
       check(Schema[List[Int]], l, expected)
     }
   }
 
   test("encode/decode vectors") {
-    forAll { l: Vector[String] =>
+    forAll { (l: Vector[String]) =>
       val expected = Value.l(l.map(Value.s))
       check(Schema[Vector[String]], l, expected)
     }
   }
 
   test("encode/decode bytes") {
-    forAll { b: Array[Byte] =>
+    forAll { (b: Array[Byte]) =>
       val in = ByteVector(b)
       val expected = Value.b(in)
       check(Schema[ByteVector], in, expected)
@@ -158,7 +158,7 @@ class SchemaSuite extends ScalaCheckSuite {
   }
 
   test("encode/decode Maps") {
-    forAll { m: Map[String, Int] =>
+    forAll { (m: Map[String, Int]) =>
       val expected = Value.m {
         m.map { case (k, v) => k -> Value.n(v) }
       }
@@ -699,7 +699,7 @@ class SchemaSuite extends ScalaCheckSuite {
   }
 
   test("pass through attribute value untouched") {
-    forAll { v: Value =>
+    forAll { (v: Value) =>
       check(Schema[Value], v, v)
     }
   }
@@ -719,7 +719,7 @@ class SchemaSuite extends ScalaCheckSuite {
       ).mapN(User.apply)
     }
 
-    implicit val traceTokenSchema =
+    implicit val traceTokenSchema: Schema[TraceToken] =
       Schema[String].imap(TraceToken.apply)(_.value)
 
     // random impl but it does not matter
@@ -737,7 +737,8 @@ class SchemaSuite extends ScalaCheckSuite {
     }
 
     val eventTypeSchema3 = Schema.oneOf[EventType] { alt =>
-      implicit val p1 = Prism.derive[EventType, Started.type]
+      implicit val p1: Prism[EventType, Started.type] =
+        Prism.derive[EventType, Started.type]
       val p2 = Prism.derive[EventType, Completed.type]
 
       alt(startedSchema) |+| alt(completedSchema)(p2)
