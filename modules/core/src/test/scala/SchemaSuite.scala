@@ -27,6 +27,11 @@ import org.scalacheck.Prop._
 import Arbitraries._
 
 class SchemaSuite extends ScalaCheckSuite {
+
+  // TODO maybe remove this?
+  implicit def liftNumber[A: Numeric](a: A): Value.Number =
+    Value.Number(a.toString)
+
   /* simple case class */
   case class User(id: Int, name: String)
   /* nested case class */
@@ -137,7 +142,7 @@ class SchemaSuite extends ScalaCheckSuite {
 
   test("encode/decode lists") {
     forAll { (l: List[Int]) =>
-      val expected = Value.l(l.map(Value.n))
+      val expected = Value.l(l.map(i => Value.n(i)))
       check(Schema[List[Int]], l, expected)
     }
   }
