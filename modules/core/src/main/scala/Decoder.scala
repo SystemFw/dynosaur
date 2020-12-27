@@ -22,49 +22,48 @@ import cats.free.Free
 import cats.data.Chain
 import scodec.bits.ByteVector
 
+import Schema.ReadError
 import Schema.structure._
 
-case class ReadError() extends Exception
-
 trait Decoder[A] {
-  def read(v: Value): Either[ReadError, A]
+  def read(v: DynamoValue): Either[ReadError, A]
 }
 object Decoder {
-  def instance[A](f: Value => Either[ReadError, A]): Decoder[A] =
+  def instance[A](f: DynamoValue => Either[ReadError, A]): Decoder[A] =
     new Decoder[A] {
-      def read(v: Value) = f(v)
+      def read(v: DynamoValue) = f(v)
     }
 
   def fromSchema[A](s: Schema[A]): Decoder[A] = {
     type Res[B] = Either[ReadError, B]
 
-    def decodeBool: Value => Res[Boolean] =
+    def decodeBool: DynamoValue => Res[Boolean] =
       _.bool.toRight(ReadError())
 
-    def decodeNum: Value => Res[Value.Number] =
+    def decodeNum: DynamoValue => Res[DynamoValue.Number] =
       _.n.toRight(ReadError())
 
-    def decodeString: Value => Res[String] =
+    def decodeString: DynamoValue => Res[String] =
       _.s.toRight(ReadError())
 
-    def decodeBytes: Value => Res[ByteVector] =
+    def decodeBytes: DynamoValue => Res[ByteVector] =
       _.b.toRight(ReadError())
 
-    def decodeBytesSet: Value => Res[NonEmptySet[ByteVector]] =
+    def decodeBytesSet: DynamoValue => Res[NonEmptySet[ByteVector]] =
       _.bs.toRight(ReadError())
 
-    def decodeNumSet: Value => Res[NonEmptySet[Value.Number]] =
+    def decodeNumSet: DynamoValue => Res[NonEmptySet[DynamoValue.Number]] =
       _.ns.toRight(ReadError())
 
-    def decodeStrSet: Value => Res[NonEmptySet[String]] =
+    def decodeStrSet: DynamoValue => Res[NonEmptySet[String]] =
       _.ss.toRight(ReadError())
 
-    def decodeNull: Value => Res[Unit] =
+    def decodeNull: DynamoValue => Res[Unit] =
       _.nul.toRight(ReadError())
 
     def decodeSequence[V](
         schema: Schema[V],
-        value: Value
+        value: DynamoValue
     ): Res[List[V]] =
       value.l
         .toRight(ReadError())
@@ -72,7 +71,7 @@ object Decoder {
 
     def decodeDictionary[V](
         schema: Schema[V],
-        value: Value
+        value: DynamoValue
     ): Res[Map[String, V]] =
       value.m
         .toRight(ReadError())
@@ -83,7 +82,7 @@ object Decoder {
 
     def decodeRecord[R](
         recordSchema: Free[Field[R, *], R],
-        v: Map[String, Value]
+        v: Map[String, DynamoValue]
     ): Res[R] =
       recordSchema.foldMap {
         new (Field[R, *] ~> Res) {
@@ -105,14 +104,14 @@ object Decoder {
         }
       }
 
-    def decodeSum[B](cases: Chain[Alt[B]], v: Value): Res[B] =
+    def decodeSum[B](cases: Chain[Alt[B]], v: DynamoValue): Res[B] =
       cases
         .foldMapK { alt =>
           fromSchema(alt.caseSchema).read(v).map(alt.prism.inject).toOption
         }
         .toRight(ReadError())
 
-    def decodeIsos[V](xmap: XMap[V], v: Value): Res[V] =
+    def decodeIsos[V](xmap: XMap[V], v: DynamoValue): Res[V] =
       fromSchema(xmap.schema)
         .read(v)
         .flatMap(xmap.r)

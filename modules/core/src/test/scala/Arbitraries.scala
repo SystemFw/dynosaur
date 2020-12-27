@@ -40,9 +40,9 @@ trait Generators {
       min <- genMin
       max <- genMax
       value <- choose(min, max)
-    } yield Value.Number(value.toString) // TODO rename
+    } yield DynamoValue.Number(value.toString) // TODO rename
 
-  val genNumberAsString: Gen[Value.Number] = genNumberAsString()
+  val genNumberAsString: Gen[DynamoValue.Number] = genNumberAsString()
 
   def genByteVector(genSize: Gen[Int] = choose(0, 6)) =
     for {
@@ -55,16 +55,16 @@ trait Generators {
       value <- genNonEmptyString
     } yield value
 
-  def genValueB(genByteVectorSize: Gen[Int] = choose(0, 6)) =
+  def genDynamoValueB(genByteVectorSize: Gen[Int] = choose(0, 6)) =
     for {
       value <- genByteVector(genByteVectorSize)
-    } yield Value.b(value)
+    } yield DynamoValue.b(value)
 
-  lazy val genValueBool = for {
+  lazy val genDynamoValueBool = for {
     value <- arbitrary[Boolean]
-  } yield Value.bool(value)
+  } yield DynamoValue.bool(value)
 
-  def genValueBs(
+  def genDynamoValueBs(
       genSize: Gen[Int] = choose(1, 6),
       genByteVectorSize: Gen[Int] = choose(0, 6)
   ) =
@@ -74,14 +74,14 @@ trait Generators {
         size,
         genByteVector(genByteVectorSize)
       )
-    } yield Value.bs(NonEmptySet.unsafeFromSet(values))
+    } yield DynamoValue.bs(NonEmptySet.unsafeFromSet(values))
 
-  def genValueS(genStringMaxSize: Gen[Int] = choose(1, 6)) =
+  def genDynamoValueS(genStringMaxSize: Gen[Int] = choose(1, 6)) =
     for {
       value <- genNonEmptyString(genStringMaxSize)
-    } yield Value.s(value)
+    } yield DynamoValue.s(value)
 
-  def genValueSs(
+  def genDynamoValueSs(
       genSize: Gen[Int] = choose(1, 6),
       genStringMaxSize: Gen[Int] = choose(1, 6)
   ) =
@@ -91,84 +91,84 @@ trait Generators {
         size,
         genNonEmptyString(genStringMaxSize)
       )
-    } yield Value.ss(NonEmptySet.unsafeFromSet(values))
+    } yield DynamoValue.ss(NonEmptySet.unsafeFromSet(values))
 
-  def genValueN() =
+  def genDynamoValueN() =
     for {
       value <- genNumberAsString
-    } yield Value.n(value)
+    } yield DynamoValue.n(value)
 
-  def genValueNs(genSize: Gen[Int] = choose(1, 6)) =
+  def genDynamoValueNs(genSize: Gen[Int] = choose(1, 6)) =
     for {
       size <- genSize
-      values <- containerOfN[Set, Value.Number](size, genNumberAsString)
-    } yield Value.ns(NonEmptySet.unsafeFromSet(values))
+      values <- containerOfN[Set, DynamoValue.Number](size, genNumberAsString)
+    } yield DynamoValue.ns(NonEmptySet.unsafeFromSet(values))
 
-  def genValueL(
+  def genDynamoValueL(
       maxDeep: Gen[Int] = const(3),
       genSize: Gen[Int] = choose(0, 6)
-  ): Gen[Value] =
+  ): Gen[DynamoValue] =
     for {
       size <- genSize
-      values <- containerOfN[List, Value](
+      values <- containerOfN[List, DynamoValue](
         size,
-        genValue(maxDeep.map(_ - 1))
+        genDynamoValue(maxDeep.map(_ - 1))
       )
-    } yield Value.l(values)
+    } yield DynamoValue.l(values)
 
-  def genValueM(
+  def genDynamoValueM(
       maxDeep: Gen[Int] = const(3),
       genSize: Gen[Int] = choose(0, 6)
-  ): Gen[Value] =
+  ): Gen[DynamoValue] =
     for {
       size <- genSize
       values <- mapOfN(
         size,
-        zip(genAttributeName, genValue(maxDeep.map(_ - 1)))
+        zip(genAttributeName, genDynamoValue(maxDeep.map(_ - 1)))
       )
-    } yield Value.m(values)
+    } yield DynamoValue.m(values)
 
-  val genValueNul = const(Value.nul)
+  val genDynamoValueNul = const(DynamoValue.nul)
 
   // TODO rename all this
-  def genValue(genMaxDeep: Gen[Int] = const(3)) =
+  def genDynamoValue(genMaxDeep: Gen[Int] = const(3)) =
     for {
       maxDeep <- genMaxDeep
-      attributeValue <-
+      attributeDynamoValue <-
         if (maxDeep > 0) {
           oneOf(
-            genValueNul,
-            genValueBool,
-            genValueS(),
-            genValueSs(),
-            genValueN(),
-            genValueNs(),
-            genValueB(),
-            genValueBs(),
-            genValueL(genMaxDeep),
-            genValueM(genMaxDeep)
+            genDynamoValueNul,
+            genDynamoValueBool,
+            genDynamoValueS(),
+            genDynamoValueSs(),
+            genDynamoValueN(),
+            genDynamoValueNs(),
+            genDynamoValueB(),
+            genDynamoValueBs(),
+            genDynamoValueL(genMaxDeep),
+            genDynamoValueM(genMaxDeep)
           )
         } else {
           oneOf(
-            genValueNul,
-            genValueBool,
-            genValueS(),
-            genValueSs(),
-            genValueN(),
-            genValueNs(),
-            genValueB(),
-            genValueBs()
+            genDynamoValueNul,
+            genDynamoValueBool,
+            genDynamoValueS(),
+            genDynamoValueSs(),
+            genDynamoValueN(),
+            genDynamoValueNs(),
+            genDynamoValueB(),
+            genDynamoValueBs()
           )
         }
-    } yield attributeValue
+    } yield attributeDynamoValue
 
 }
 
 // TODO review this whole file
-// TODO generate AttributeValue to test roundtrip, if that doesn't end up duplicating
+// TODO generate AttributeDynamoValue to test roundtrip, if that doesn't end up duplicating
 trait Arbitraries extends Generators {
-  implicit lazy val arbValue: Arbitrary[Value] = Arbitrary(
-    genValue()
+  implicit lazy val arbDynamoValue: Arbitrary[DynamoValue] = Arbitrary(
+    genDynamoValue()
   )
 }
 

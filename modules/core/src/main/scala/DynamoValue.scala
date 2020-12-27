@@ -25,26 +25,26 @@ import collection.JavaConverters._ // TODO generates a warning, since it's depre
 //import scala.jdk.CollectionConverters._
 
 // TODO file to model.scala, DynamoValue, DynamoNumber
-case class Value(value: AttributeValue) {
+case class DynamoValue(value: AttributeValue) {
 
   def s: Option[String] =
     Option(value.s)
 
-  def n: Option[Value.Number] =
-    Option(value.n).map(Value.Number(_))
+  def n: Option[DynamoValue.Number] =
+    Option(value.n).map(DynamoValue.Number(_))
 
   def bool: Option[Boolean] =
     Option(value.bool).map(_.booleanValue)
 
-  def l: Option[List[Value]] =
+  def l: Option[List[DynamoValue]] =
     value.hasL
       .guard[Option]
-      .as(value.l.asScala.toList.map(Value(_)))
+      .as(value.l.asScala.toList.map(DynamoValue(_)))
 
-  def m: Option[Map[String, Value]] =
+  def m: Option[Map[String, DynamoValue]] =
     value.hasM
       .guard[Option]
-      .as(value.m.asScala.toMap.map { case (k, v) => k -> Value(v) })
+      .as(value.m.asScala.toMap.map { case (k, v) => k -> DynamoValue(v) })
 
   // TODO should Boolean result be supported here?
   def nul: Option[Unit] =
@@ -59,18 +59,20 @@ case class Value(value: AttributeValue) {
       value.bs.asScala.toSet.map((b: SdkBytes) => ByteVector(b.asByteArray))
     )
 
-  def ns: Option[NonEmptySet[Value.Number]] =
+  def ns: Option[NonEmptySet[DynamoValue.Number]] =
     value.hasNs
       .guard[Option] >> NonEmptySet.fromSet(
-      value.ns.asScala.toSet.map((x: String) => Value.Number(x))
+      value.ns.asScala.toSet.map((x: String) => DynamoValue.Number(x))
     )
 
   def ss: Option[NonEmptySet[String]] =
     value.hasSs.guard[Option] >> NonEmptySet.fromSet(value.ss.asScala.toSet)
 }
-object Value {
-  def make(build: AttributeValue.Builder => AttributeValue.Builder): Value =
-    Value(build(AttributeValue.builder).build)
+object DynamoValue {
+  def make(
+      build: AttributeValue.Builder => AttributeValue.Builder
+  ): DynamoValue =
+    DynamoValue(build(AttributeValue.builder).build)
 
   // TODO from 2.13 on, Numeric has a parseFromString
   /** DynamoDb Number, which is represented as a string
@@ -78,37 +80,37 @@ object Value {
   case class Number(value: String)
 
   // TODO should Boolean result be supported here?
-  val nul: Value =
+  val nul: DynamoValue =
     make(_.nul(true))
 
-  def s(value: String): Value =
+  def s(value: String): DynamoValue =
     make(_.s(value))
 
-  def bool(value: Boolean): Value =
+  def bool(value: Boolean): DynamoValue =
     make(_.bool(value))
 
-  def n(value: Number): Value =
+  def n(value: Number): DynamoValue =
     make(_.n(value.value))
 
-  def m(values: Map[String, Value]): Value =
+  def m(values: Map[String, DynamoValue]): DynamoValue =
     make(_.m { values.map { case (k, v) => k -> v.value }.asJava })
 
-  def m(values: (String, Value)*): Value =
+  def m(values: (String, DynamoValue)*): DynamoValue =
     m(values.toMap)
 
-  def l(values: List[Value]): Value =
+  def l(values: List[DynamoValue]): DynamoValue =
     make(_.l(values.map(_.value).asJava))
 
-  def l(values: Value*): Value =
+  def l(values: DynamoValue*): DynamoValue =
     l(values.toList)
 
-  def ss(values: NonEmptySet[String]): Value =
+  def ss(values: NonEmptySet[String]): DynamoValue =
     make(_.ss(values.value.toList.asJava))
 
-  def ns(values: NonEmptySet[Number]): Value =
+  def ns(values: NonEmptySet[Number]): DynamoValue =
     make(_.ns(values.value.toList.map(_.value).asJava))
 
-  def bs(values: NonEmptySet[ByteVector]): Value =
+  def bs(values: NonEmptySet[ByteVector]): DynamoValue =
     make {
       _.bs {
         values.value.toList
@@ -117,6 +119,6 @@ object Value {
       }
     }
 
-  def b(value: ByteVector): Value =
+  def b(value: ByteVector): DynamoValue =
     make(_.b(SdkBytes.fromByteArray(value.toArray)))
 }

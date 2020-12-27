@@ -23,64 +23,63 @@ import cats.free.Free
 
 import scodec.bits.ByteVector
 
+import Schema.WriteError
 import Schema.structure._
 
-case class WriteError() extends Exception
-
 trait Encoder[A] {
-  def write(a: A): Either[WriteError, Value]
+  def write(a: A): Either[WriteError, DynamoValue]
 }
 object Encoder {
-  def instance[A](f: A => Either[WriteError, Value]): Encoder[A] =
+  def instance[A](f: A => Either[WriteError, DynamoValue]): Encoder[A] =
     new Encoder[A] {
       def write(a: A) = f(a)
     }
 
   def fromSchema[A](s: Schema[A]): Encoder[A] = {
-    type Res = Either[WriteError, Value]
+    type Res = Either[WriteError, DynamoValue]
 
-    def encodeBool: Boolean => Res = Value.bool(_).asRight
+    def encodeBool: Boolean => Res = DynamoValue.bool(_).asRight
 
-    def encodeNum: Value.Number => Res = Value.n(_).asRight
+    def encodeNum: DynamoValue.Number => Res = DynamoValue.n(_).asRight
 
-    def encodeString: String => Res = Value.s(_).asRight
+    def encodeString: String => Res = DynamoValue.s(_).asRight
 
-    def encodeBytes: ByteVector => Res = Value.b(_).asRight
+    def encodeBytes: ByteVector => Res = DynamoValue.b(_).asRight
 
     def encodeBytesSet: NonEmptySet[ByteVector] => Res =
-      Value.bs(_).asRight
-    def encodeNumSet: NonEmptySet[Value.Number] => Res =
-      Value.ns(_).asRight
+      DynamoValue.bs(_).asRight
+    def encodeNumSet: NonEmptySet[DynamoValue.Number] => Res =
+      DynamoValue.ns(_).asRight
     def encodeStrSet: NonEmptySet[String] => Res =
-      Value.ss(_).asRight
+      DynamoValue.ss(_).asRight
 
-    def encodeNull: Unit => Res = _ => Value.nul.asRight
+    def encodeNull: Unit => Res = _ => DynamoValue.nul.asRight
 
     def encodeSequence[V](schema: Schema[V], value: List[V]) =
-      value.traverse(fromSchema(schema).write).map(Value.l)
+      value.traverse(fromSchema(schema).write).map(DynamoValue.l)
 
     def encodeDictionary[V](schema: Schema[V], value: Map[String, V]) =
       value
         .map { case (k, v) => k -> v }
         .traverse(fromSchema(schema).write)
-        .map(Value.m)
+        .map(DynamoValue.m)
 
     def encodeRecord[R](recordSchema: Free[Field[R, *], R], record: R): Res = {
-      implicit def overrideKeys: Monoid[Map[String, Value]] =
+      implicit def overrideKeys: Monoid[Map[String, DynamoValue]] =
         MonoidK[Map[String, *]].algebra
 
       def write[E](
           name: String,
           schema: Schema[E],
           elem: E
-      ): Either[WriteError, Map[String, Value]] =
+      ): Either[WriteError, Map[String, DynamoValue]] =
         fromSchema(schema).write(elem).map { av => Map(name -> av) }
 
       recordSchema
         .foldMap {
           new (Field[R, *] ~> WriterT[
             Either[WriteError, *],
-            Map[String, Value],
+            Map[String, DynamoValue],
             *
           ]) {
             def apply[B](field: Field[R, B]) = field match {
@@ -100,7 +99,7 @@ object Encoder {
           }
         }
         .written
-        .map(Value.m)
+        .map(DynamoValue.m)
     }
 
     def encodeSum[C](cases: Chain[Alt[C]], coproduct: C): Res =

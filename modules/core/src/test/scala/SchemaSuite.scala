@@ -29,8 +29,8 @@ import Arbitraries._
 class SchemaSuite extends ScalaCheckSuite {
 
   // TODO maybe remove this?
-  implicit def liftNumber[A: Numeric](a: A): Value.Number =
-    Value.Number(a.toString)
+  implicit def liftNumber[A: Numeric](a: A): DynamoValue.Number =
+    DynamoValue.Number(a.toString)
 
   /* simple case class */
   case class User(id: Int, name: String)
@@ -83,7 +83,7 @@ class SchemaSuite extends ScalaCheckSuite {
       twentyThree: String
   )
 
-  def check[A](schema: Schema[A], data: A, expected: Value) = {
+  def check[A](schema: Schema[A], data: A, expected: DynamoValue) = {
     def output = Encoder.fromSchema(schema).write(data).toOption.get
     def roundTrip = Decoder.fromSchema(schema).read(output).toOption.get
 
@@ -93,63 +93,63 @@ class SchemaSuite extends ScalaCheckSuite {
 
   test("encode/decode ints") {
     forAll { (i: Int) =>
-      val expected = Value.n(i)
+      val expected = DynamoValue.n(i)
       check(Schema[Int], i, expected)
     }
   }
 
   test("encode/decode longs") {
     forAll { (l: Long) =>
-      val expected = Value.n(l)
+      val expected = DynamoValue.n(l)
       check(Schema[Long], l, expected)
     }
   }
 
   test("encode/decode doubles") {
     forAll { (d: Double) =>
-      val expected = Value.n(d)
+      val expected = DynamoValue.n(d)
       check(Schema[Double], d, expected)
     }
   }
 
   test("encode/decode floats") {
     forAll { (f: Float) =>
-      val expected = Value.n(f)
+      val expected = DynamoValue.n(f)
       check(Schema[Float], f, expected)
     }
   }
 
   test("encode/decode shorts") {
     forAll { (s: Short) =>
-      val expected = Value.n(s)
+      val expected = DynamoValue.n(s)
       check(Schema[Short], s, expected)
     }
   }
 
   test("encode/decode strings") {
     forAll { (s: String) =>
-      val expected = Value.s(s)
+      val expected = DynamoValue.s(s)
       check(Schema[String], s, expected)
     }
   }
 
   test("encode/decode booleans") {
     forAll { (b: Boolean) =>
-      val expected = Value.bool(b)
+      val expected = DynamoValue.bool(b)
       check(Schema[Boolean], b, expected)
     }
   }
 
   test("encode/decode lists") {
     forAll { (l: List[Int]) =>
-      val expected = Value.l(l.map(i => Value.n(i)))
+      val expected = DynamoValue.l(l.map(i => DynamoValue.n(i)))
       check(Schema[List[Int]], l, expected)
     }
   }
 
   test("encode/decode vectors") {
     forAll { (l: List[String]) =>
-      val expected = Value.l(l.map(Value.s))
+      val expected = DynamoValue.l(l.map(DynamoValue.s))
       check(Schema[List[String]], l, expected)
     }
   }
@@ -157,15 +157,15 @@ class SchemaSuite extends ScalaCheckSuite {
   test("encode/decode bytes") {
     forAll { (b: Array[Byte]) =>
       val in = ByteVector(b)
-      val expected = Value.b(in)
+      val expected = DynamoValue.b(in)
       check(Schema[ByteVector], in, expected)
     }
   }
 
   test("encode/decode Maps") {
     forAll { (m: Map[String, Int]) =>
-      val expected = Value.m {
-        m.map { case (k, v) => k -> Value.n(v) }
+      val expected = DynamoValue.m {
+        m.map { case (k, v) => k -> DynamoValue.n(v) }
       }
       check(Schema[Map[String, Int]], m, expected)
     }
@@ -186,11 +186,11 @@ class SchemaSuite extends ScalaCheckSuite {
         }
       ).mapN(Role.apply)
     }
-    val expected = Value.m(
-      "capability" -> Value.s(role.capability),
-      "user" -> Value.m(
-        "id" -> Value.n(role.user.id),
-        "firstName" -> Value.s(role.user.name)
+    val expected = DynamoValue.m(
+      "capability" -> DynamoValue.s(role.capability),
+      "user" -> DynamoValue.m(
+        "id" -> DynamoValue.n(role.user.id),
+        "firstName" -> DynamoValue.s(role.user.name)
       )
     )
 
@@ -208,11 +208,11 @@ class SchemaSuite extends ScalaCheckSuite {
     val versionedSchema: Schema[User] = Schema.record[User] { field =>
       field.const("version", "1.0") *> field("payload", x => x)(schema)
     }
-    val expected = Value.m(
-      "version" -> Value.s("1.0"),
-      "payload" -> Value.m(
-        "id" -> Value.n(user.id),
-        "name" -> Value.s(user.name)
+    val expected = DynamoValue.m(
+      "version" -> DynamoValue.s("1.0"),
+      "payload" -> DynamoValue.m(
+        "id" -> DynamoValue.n(user.id),
+        "name" -> DynamoValue.s(user.name)
       )
     )
 
@@ -230,18 +230,18 @@ class SchemaSuite extends ScalaCheckSuite {
       ).mapN(Log.apply)
     }
 
-    val expectedComplete = Value.m(
-      "msg" -> Value.s(complete.msg),
-      "tag" -> Value.s(complete.tag.get)
+    val expectedComplete = DynamoValue.m(
+      "msg" -> DynamoValue.s(complete.msg),
+      "tag" -> DynamoValue.s(complete.tag.get)
     )
 
-    val expectedNoTag = Value.m(
-      "msg" -> Value.s(noTag.msg)
+    val expectedNoTag = DynamoValue.m(
+      "msg" -> DynamoValue.s(noTag.msg)
     )
 
-    val incorrectNoTag = Value.m(
-      "msg" -> Value.s(noTag.msg),
-      "tag" -> Value.nul
+    val incorrectNoTag = DynamoValue.m(
+      "msg" -> DynamoValue.s(noTag.msg),
+      "tag" -> DynamoValue.nul
     )
 
     check(schema, complete, expectedComplete)
@@ -250,7 +250,7 @@ class SchemaSuite extends ScalaCheckSuite {
       Decoder
         .fromSchema(schema)
         .read(incorrectNoTag),
-      Left(ReadError())
+      Left(Schema.ReadError())
     )
   }
 
@@ -265,18 +265,18 @@ class SchemaSuite extends ScalaCheckSuite {
       ).mapN(Log.apply)
     }
 
-    val expectedComplete = Value.m(
-      "msg" -> Value.s(complete.msg),
-      "tag" -> Value.s(complete.tag.get)
+    val expectedComplete = DynamoValue.m(
+      "msg" -> DynamoValue.s(complete.msg),
+      "tag" -> DynamoValue.s(complete.tag.get)
     )
 
-    val expectedNoTag = Value.m(
-      "msg" -> Value.s(noTag.msg),
-      "tag" -> Value.nul
+    val expectedNoTag = DynamoValue.m(
+      "msg" -> DynamoValue.s(noTag.msg),
+      "tag" -> DynamoValue.nul
     )
 
-    val incorrectNoTag = Value.m(
-      "msg" -> Value.s(noTag.msg)
+    val incorrectNoTag = DynamoValue.m(
+      "msg" -> DynamoValue.s(noTag.msg)
     )
 
     check(schema, complete, expectedComplete)
@@ -285,7 +285,7 @@ class SchemaSuite extends ScalaCheckSuite {
       Decoder
         .fromSchema(schema)
         .read(incorrectNoTag),
-      Left(ReadError())
+      Left(Schema.ReadError())
     )
   }
 
@@ -304,18 +304,18 @@ class SchemaSuite extends ScalaCheckSuite {
       ).mapN(Log.apply)
     }
 
-    val expectedComplete = Value.m(
-      "msg" -> Value.s(complete.msg),
-      "tag" -> Value.s(complete.tag.get)
+    val expectedComplete = DynamoValue.m(
+      "msg" -> DynamoValue.s(complete.msg),
+      "tag" -> DynamoValue.s(complete.tag.get)
     )
 
-    val expectedNoTag = Value.m(
-      "msg" -> Value.s(noTag.msg)
+    val expectedNoTag = DynamoValue.m(
+      "msg" -> DynamoValue.s(noTag.msg)
     )
 
-    val acceptedNoTag = Value.m(
-      "msg" -> Value.s(noTag.msg),
-      "tag" -> Value.nul
+    val acceptedNoTag = DynamoValue.m(
+      "msg" -> DynamoValue.s(noTag.msg),
+      "tag" -> DynamoValue.nul
     )
 
     check(schema, complete, expectedComplete)
@@ -343,18 +343,18 @@ class SchemaSuite extends ScalaCheckSuite {
       ).mapN(Log.apply)
     }
 
-    val expectedComplete = Value.m(
-      "msg" -> Value.s(complete.msg),
-      "tag" -> Value.s(complete.tag.get)
+    val expectedComplete = DynamoValue.m(
+      "msg" -> DynamoValue.s(complete.msg),
+      "tag" -> DynamoValue.s(complete.tag.get)
     )
 
-    val expectedNoTag = Value.m(
-      "msg" -> Value.s(noTag.msg),
-      "tag" -> Value.nul
+    val expectedNoTag = DynamoValue.m(
+      "msg" -> DynamoValue.s(noTag.msg),
+      "tag" -> DynamoValue.nul
     )
 
-    val acceptedtNoTag = Value.m(
-      "msg" -> Value.s(noTag.msg)
+    val acceptedtNoTag = DynamoValue.m(
+      "msg" -> DynamoValue.s(noTag.msg)
     )
 
     check(schema, complete, expectedComplete)
@@ -446,30 +446,30 @@ class SchemaSuite extends ScalaCheckSuite {
       )
     )
 
-    val expected = Value.m(
-      "1" -> Value.s(big.one),
-      "2" -> Value.s(big.two),
-      "3" -> Value.s(big.three),
-      "4" -> Value.s(big.four),
-      "5" -> Value.s(big.five),
-      "6" -> Value.s(big.six),
-      "7" -> Value.s(big.seven),
-      "8" -> Value.s(big.eight),
-      "9" -> Value.s(big.nine),
-      "10" -> Value.s(big.ten),
-      "11" -> Value.s(big.eleven),
-      "12" -> Value.s(big.twelve),
-      "13" -> Value.s(big.thirteen),
-      "14" -> Value.s(big.fourteen),
-      "15" -> Value.s(big.fifteen),
-      "16" -> Value.s(big.sixteen),
-      "17" -> Value.s(big.seventeen),
-      "18" -> Value.s(big.eighteen),
-      "19" -> Value.s(big.nineteen),
-      "20" -> Value.s(big.twenty),
-      "21" -> Value.s(big.twentyOne),
-      "22" -> Value.s(big.twentyTwo),
-      "23" -> Value.s(big.twentyThree)
+    val expected = DynamoValue.m(
+      "1" -> DynamoValue.s(big.one),
+      "2" -> DynamoValue.s(big.two),
+      "3" -> DynamoValue.s(big.three),
+      "4" -> DynamoValue.s(big.four),
+      "5" -> DynamoValue.s(big.five),
+      "6" -> DynamoValue.s(big.six),
+      "7" -> DynamoValue.s(big.seven),
+      "8" -> DynamoValue.s(big.eight),
+      "9" -> DynamoValue.s(big.nine),
+      "10" -> DynamoValue.s(big.ten),
+      "11" -> DynamoValue.s(big.eleven),
+      "12" -> DynamoValue.s(big.twelve),
+      "13" -> DynamoValue.s(big.thirteen),
+      "14" -> DynamoValue.s(big.fourteen),
+      "15" -> DynamoValue.s(big.fifteen),
+      "16" -> DynamoValue.s(big.sixteen),
+      "17" -> DynamoValue.s(big.seventeen),
+      "18" -> DynamoValue.s(big.eighteen),
+      "19" -> DynamoValue.s(big.nineteen),
+      "20" -> DynamoValue.s(big.twenty),
+      "21" -> DynamoValue.s(big.twentyOne),
+      "22" -> DynamoValue.s(big.twentyTwo),
+      "23" -> DynamoValue.s(big.twentyThree)
     )
 
     check(bigSchema, big, expected)
@@ -478,7 +478,7 @@ class SchemaSuite extends ScalaCheckSuite {
   test("encode a newtype with no wrapping") {
     val token = TraceToken("1234")
     val schema = Schema[String].imap(TraceToken.apply)(_.value)
-    val expected = Value.s(token.value)
+    val expected = DynamoValue.s(token.value)
 
     check(schema, token, expected)
   }
@@ -495,7 +495,7 @@ class SchemaSuite extends ScalaCheckSuite {
     }
 
     val stateSchema: Schema[EventType] = Schema[String].imapErr { s =>
-      parser(s) toRight ReadError()
+      parser(s) toRight Schema.ReadError()
     }(_.toString)
 
     val eventSchema: Schema[Event] = Schema.record { field =>
@@ -505,14 +505,14 @@ class SchemaSuite extends ScalaCheckSuite {
       ).mapN(Event.apply)
     }
 
-    val expectedStarted = Value.m(
-      "type" -> Value.s("Started"),
-      "value" -> Value.s(started.value)
+    val expectedStarted = DynamoValue.m(
+      "type" -> DynamoValue.s("Started"),
+      "value" -> DynamoValue.s(started.value)
     )
 
-    val expectedCompleted = Value.m(
-      "type" -> Value.s("Completed"),
-      "value" -> Value.s(completed.value)
+    val expectedCompleted = DynamoValue.m(
+      "type" -> DynamoValue.s("Completed"),
+      "value" -> DynamoValue.s(completed.value)
     )
 
     check(eventSchema, started, expectedStarted)
@@ -575,36 +575,36 @@ class SchemaSuite extends ScalaCheckSuite {
     val successful = Successful("link", 150)
     val successfulUp = Upload("successful id", successful)
 
-    val expectedError = Value.m(
-      "id" -> Value.s(errorUp.id),
-      "status" -> Value.m(
-        "error" -> Value.m(
-          "msg" -> Value.s(error.msg),
-          "cause" -> Value.s(error.cause)
+    val expectedError = DynamoValue.m(
+      "id" -> DynamoValue.s(errorUp.id),
+      "status" -> DynamoValue.m(
+        "error" -> DynamoValue.m(
+          "msg" -> DynamoValue.s(error.msg),
+          "cause" -> DynamoValue.s(error.cause)
         )
       )
     )
-    val expectedWarning = Value.m(
-      "id" -> Value.s(warningUp.id),
-      "status" -> Value.m(
-        "warning" -> Value.m(
-          "msg" -> Value.s(warning.msg),
-          "cause" -> Value.s(warning.cause)
+    val expectedWarning = DynamoValue.m(
+      "id" -> DynamoValue.s(warningUp.id),
+      "status" -> DynamoValue.m(
+        "warning" -> DynamoValue.m(
+          "msg" -> DynamoValue.s(warning.msg),
+          "cause" -> DynamoValue.s(warning.cause)
         )
       )
     )
-    val expectedUnknown = Value.m(
-      "id" -> Value.s(unknownUp.id),
-      "status" -> Value.m(
-        "unknown" -> Value.m()
+    val expectedUnknown = DynamoValue.m(
+      "id" -> DynamoValue.s(unknownUp.id),
+      "status" -> DynamoValue.m(
+        "unknown" -> DynamoValue.m()
       )
     )
-    val expectedSuccessful = Value.m(
-      "id" -> Value.s(successfulUp.id),
-      "status" -> Value.m(
-        "successful" -> Value.m(
-          "link" -> Value.s(successful.link),
-          "expires" -> Value.n(successful.expires)
+    val expectedSuccessful = DynamoValue.m(
+      "id" -> DynamoValue.s(successfulUp.id),
+      "status" -> DynamoValue.m(
+        "successful" -> DynamoValue.m(
+          "link" -> DynamoValue.s(successful.link),
+          "expires" -> DynamoValue.n(successful.expires)
         )
       )
     )
@@ -666,34 +666,34 @@ class SchemaSuite extends ScalaCheckSuite {
     val successful = Successful("link", 150)
     val successfulUp = Upload("successful id", successful)
 
-    val expectedError = Value.m(
-      "id" -> Value.s(errorUp.id),
-      "status" -> Value.m(
-        "type" -> Value.s("error"),
-        "msg" -> Value.s(error.msg),
-        "cause" -> Value.s(error.cause)
+    val expectedError = DynamoValue.m(
+      "id" -> DynamoValue.s(errorUp.id),
+      "status" -> DynamoValue.m(
+        "type" -> DynamoValue.s("error"),
+        "msg" -> DynamoValue.s(error.msg),
+        "cause" -> DynamoValue.s(error.cause)
       )
     )
-    val expectedWarning = Value.m(
-      "id" -> Value.s(warningUp.id),
-      "status" -> Value.m(
-        "type" -> Value.s("warning"),
-        "msg" -> Value.s(warning.msg),
-        "cause" -> Value.s(warning.cause)
+    val expectedWarning = DynamoValue.m(
+      "id" -> DynamoValue.s(warningUp.id),
+      "status" -> DynamoValue.m(
+        "type" -> DynamoValue.s("warning"),
+        "msg" -> DynamoValue.s(warning.msg),
+        "cause" -> DynamoValue.s(warning.cause)
       )
     )
-    val expectedUnknown = Value.m(
-      "id" -> Value.s(unknownUp.id),
-      "status" -> Value.m(
-        "type" -> Value.s("unknown")
+    val expectedUnknown = DynamoValue.m(
+      "id" -> DynamoValue.s(unknownUp.id),
+      "status" -> DynamoValue.m(
+        "type" -> DynamoValue.s("unknown")
       )
     )
-    val expectedSuccessful = Value.m(
-      "id" -> Value.s(successfulUp.id),
-      "status" -> Value.m(
-        "type" -> Value.s("successful"),
-        "link" -> Value.s(successful.link),
-        "expires" -> Value.n(successful.expires)
+    val expectedSuccessful = DynamoValue.m(
+      "id" -> DynamoValue.s(successfulUp.id),
+      "status" -> DynamoValue.m(
+        "type" -> DynamoValue.s("successful"),
+        "link" -> DynamoValue.s(successful.link),
+        "expires" -> DynamoValue.n(successful.expires)
       )
     )
 
@@ -704,8 +704,8 @@ class SchemaSuite extends ScalaCheckSuite {
   }
 
   test("pass through attribute value untouched") {
-    forAll { (v: Value) =>
-      check(Schema[Value], v, v)
+    forAll { (v: DynamoValue) =>
+      check(Schema[DynamoValue], v, v)
     }
   }
 

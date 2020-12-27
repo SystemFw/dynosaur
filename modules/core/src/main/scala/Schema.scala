@@ -89,80 +89,16 @@ sealed trait Schema[A] { self =>
 // once Numberic has a compatible version in 2.13, could have Number
 // capture that instance existentially
 object Schema {
-  object structure {
-    case object Identity extends Schema[Value]
-    case object Num extends Schema[Value.Number]
-    case object Str extends Schema[String]
-    case object Bool extends Schema[Boolean]
-    case object Bytes extends Schema[ByteVector]
-    case object Nul extends Schema[Unit]
-    case object BytesSet extends Schema[NonEmptySet[ByteVector]]
-    case object NumSet extends Schema[NonEmptySet[Value.Number]]
-    case object StrSet extends Schema[NonEmptySet[String]]
-    case class Dictionary[A](value: Schema[A]) extends Schema[Map[String, A]]
-    case class Sequence[A](value: Schema[A]) extends Schema[List[A]]
-    case class Record[R](value: Free[Field[R, *], R]) extends Schema[R]
-    case class Sum[A](value: Chain[Alt[A]]) extends Schema[A]
-    case class Isos[A](value: XMap[A]) extends Schema[A]
-
-    trait Field[R, E]
-    object Field {
-      case class Required[R, E](
-          name: String,
-          elemSchema: Schema[E],
-          get: R => E
-      ) extends Field[R, E]
-
-      case class Optional[R, E](
-          name: String,
-          elemSchema: Schema[E],
-          get: R => Option[E]
-      ) extends Field[R, Option[E]]
-    }
-
-    trait Alt[A] {
-      type Case
-      def caseSchema: Schema[Case]
-      def prism: Prism[A, Case]
-    }
-
-    trait XMap[A] {
-      type Repr
-      def schema: Schema[Repr]
-      def w: A => Either[WriteError, Repr]
-      def r: Repr => Either[ReadError, A]
-    }
-  }
-
   import structure._
+
+  case class ReadError() extends Exception
+  case class WriteError() extends Exception
 
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
-  implicit def id: Schema[Value] = Identity
+  implicit def id: Schema[DynamoValue] = Identity
   implicit def boolean: Schema[Boolean] = Bool
   implicit def string: Schema[String] = Str
-
-  // TODO use parseFromString from Numeric, 2.12+
-  private def num[A: Numeric](convert: String => A): Schema[A] =
-    Num.imapErr { v =>
-      Either.catchNonFatal(convert(v.value)).leftMap(_ => ReadError())
-    }(n => Value.Number(n.toString))
-
-  private def numSet[A: Numeric](
-      convert: String => A
-  ): Schema[NonEmptySet[A]] = {
-    import alleycats.std.set._
-
-    NumSet.imapErr { nes =>
-      nes.value
-        .traverse { v =>
-          Either.catchNonFatal(convert(v.value)).leftMap(_ => ReadError())
-        }
-        .map(NonEmptySet.unsafeFromSet)
-    }(nes =>
-      NonEmptySet.unsafeFromSet(nes.value.map(n => Value.Number(n.toString)))
-    )
-  }
 
   /*
    * Note:
@@ -256,5 +192,74 @@ object Schema {
           def prism = prism_
         }
       }
+  }
+
+  object structure {
+    case object Identity extends Schema[DynamoValue]
+    case object Num extends Schema[DynamoValue.Number]
+    case object Str extends Schema[String]
+    case object Bool extends Schema[Boolean]
+    case object Bytes extends Schema[ByteVector]
+    case object Nul extends Schema[Unit]
+    case object BytesSet extends Schema[NonEmptySet[ByteVector]]
+    case object NumSet extends Schema[NonEmptySet[DynamoValue.Number]]
+    case object StrSet extends Schema[NonEmptySet[String]]
+    case class Dictionary[A](value: Schema[A]) extends Schema[Map[String, A]]
+    case class Sequence[A](value: Schema[A]) extends Schema[List[A]]
+    case class Record[R](value: Free[Field[R, *], R]) extends Schema[R]
+    case class Sum[A](value: Chain[Alt[A]]) extends Schema[A]
+    case class Isos[A](value: XMap[A]) extends Schema[A]
+
+    trait Field[R, E]
+    object Field {
+      case class Required[R, E](
+          name: String,
+          elemSchema: Schema[E],
+          get: R => E
+      ) extends Field[R, E]
+
+      case class Optional[R, E](
+          name: String,
+          elemSchema: Schema[E],
+          get: R => Option[E]
+      ) extends Field[R, Option[E]]
+    }
+
+    trait Alt[A] {
+      type Case
+      def caseSchema: Schema[Case]
+      def prism: Prism[A, Case]
+    }
+
+    trait XMap[A] {
+      type Repr
+      def schema: Schema[Repr]
+      def w: A => Either[WriteError, Repr]
+      def r: Repr => Either[ReadError, A]
+    }
+  }
+
+  // TODO use parseFromString from Numeric, 2.12+
+  private def num[A: Numeric](convert: String => A): Schema[A] =
+    Num.imapErr { v =>
+      Either.catchNonFatal(convert(v.value)).leftMap(_ => ReadError())
+    }(n => DynamoValue.Number(n.toString))
+
+  private def numSet[A: Numeric](
+      convert: String => A
+  ): Schema[NonEmptySet[A]] = {
+    import alleycats.std.set._
+
+    NumSet.imapErr { nes =>
+      nes.value
+        .traverse { v =>
+          Either.catchNonFatal(convert(v.value)).leftMap(_ => ReadError())
+        }
+        .map(NonEmptySet.unsafeFromSet)
+    }(nes =>
+      NonEmptySet.unsafeFromSet(
+        nes.value.map(n => DynamoValue.Number(n.toString))
+      )
+    )
   }
 }
