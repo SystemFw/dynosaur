@@ -65,7 +65,7 @@ object Decoder {
     def decodeSequence[V](
         schema: Schema[V],
         value: Value
-    ): Res[Vector[V]] =
+    ): Res[List[V]] =
       value.l
         .toRight(ReadError())
         .flatMap(_.traverse(fromSchema(schema).read))

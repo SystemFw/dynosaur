@@ -78,10 +78,10 @@ sealed trait Schema[A] { self =>
         alt(`null`.imap(_ => None)(_ => ()))
     }
 
-  def asVector: Schema[Vector[A]] = Sequence(this)
-  def asList: Schema[List[A]] = vector(this).imap(_.toList)(_.toVector)
+  def asList: Schema[List[A]] = Sequence(this)
+  def asVector: Schema[Vector[A]] = list(this).imap(_.toVector)(_.toList)
   def asSeq: Schema[immutable.Seq[A]] =
-    vector(this).imap(_.toSeq: immutable.Seq[A])(_.toVector)
+    list(this).imap(_.toSeq: immutable.Seq[A])(_.toList)
 
   def asMap: Schema[Map[String, A]] = Dictionary(this)
 }
@@ -98,7 +98,7 @@ object Schema {
     case object NumSet extends Schema[NonEmptySet[Value.Number]]
     case object StrSet extends Schema[NonEmptySet[String]]
     case class Dictionary[A](value: Schema[A]) extends Schema[Map[String, A]]
-    case class Sequence[A](value: Schema[A]) extends Schema[Vector[A]]
+    case class Sequence[A](value: Schema[A]) extends Schema[List[A]]
     case class Record[R](value: Free[Field[R, *], R]) extends Schema[R]
     case class Sum[A](value: Chain[Alt[A]]) extends Schema[A]
     case class Isos[A](value: XMap[A]) extends Schema[A]
@@ -165,7 +165,7 @@ object Schema {
   /*
    * Note:
    * No instance of Schema[Byte] bytes to avoid ambiguity between e.g
-   * Vector[Byte] and dynamo BinarySet
+   * List[Byte] and dynamo BinarySet
    */
 
   implicit def int: Schema[Int] = num(_.toInt)

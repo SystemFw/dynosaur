@@ -56,7 +56,7 @@ object Encoder {
 
     def encodeNull: Unit => Res = _ => Value.nul.asRight
 
-    def encodeSequence[V](schema: Schema[V], value: Vector[V]) =
+    def encodeSequence[V](schema: Schema[V], value: List[V]) =
       value.traverse(fromSchema(schema).write).map(Value.l)
 
     def encodeDictionary[V](schema: Schema[V], value: Map[String, V]) =

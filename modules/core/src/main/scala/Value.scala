@@ -18,42 +18,11 @@ package dynosaur
 
 import cats._, syntax.all._
 import scodec.bits.ByteVector
-import scala.collection.immutable
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import software.amazon.awssdk.core.SdkBytes
 
 import collection.JavaConverters._ // TODO generates a warning, since it's deprecated for
 //import scala.jdk.CollectionConverters._
-
-// SdkBytes	b()
-// Boolean	bool()
-// String	n()
-// List<SdkBytes>	bs()
-// List<String>	ss()
-// List<String>	ns()
-// Boolean	nul()
-// String	s()
-
-// List<AttributeValue>	l()
-// Map<String,AttributeValue>	m()
-
-// boolean	hasBs()
-// boolean	hasNs()
-// boolean	hasSs()
-// boolean	hasL()
-// boolean	hasM()
-
-// static AttributeValue.Builder	builder()
-// boolean	equals(Object obj)
-// boolean	equalsBySdkFields(Object obj)
-// <T> Optional<T>	getValueForField(String fieldName, Class<T> clazz)
-// int	hashCode()
-
-// List<SdkField<?>>	sdkFields()
-// static Class<? extends AttributeValue.Builder>	serializableBuilderClass()
-
-// AttributeValue.Builder	toBuilder()
-// String	toString()
 
 // TODO file to model.scala, DynamoValue, DynamoNumber
 case class Value(value: AttributeValue) {
@@ -67,11 +36,10 @@ case class Value(value: AttributeValue) {
   def bool: Option[Boolean] =
     Option(value.bool).map(_.booleanValue)
 
-  // TODO replace with list throughout
-  def l: Option[Vector[Value]] =
+  def l: Option[List[Value]] =
     value.hasL
       .guard[Option]
-      .as(value.l.asScala.toVector.map(Value(_)))
+      .as(value.l.asScala.toList.map(Value(_)))
 
   def m: Option[Map[String, Value]] =
     value.hasM
@@ -101,74 +69,54 @@ case class Value(value: AttributeValue) {
     value.hasSs.guard[Option] >> NonEmptySet.fromSet(value.ss.asScala.toSet)
 }
 object Value {
+  def make(build: AttributeValue.Builder => AttributeValue.Builder): Value =
+    Value(build(AttributeValue.builder).build)
 
+  // TODO from 2.13 on, Numeric has a parseFromString
   /** DynamoDb Number, which is represented as a string
     */
   case class Number(value: String)
 
-  // case object Nul extends Value
-  // case class S(value: String) extends Value
-  // case class N(value: String) extends Value
-  // case class B(value: ByteVector) extends Value
-  // case class Bool(value: Boolean) extends Value
-  // case class M(values: Map[String, Value]) extends Value
-  // case class L(values: Vector[Value]) extends Value
-  // case class SS(values: NonEmptySet[String]) extends Value
-  // case class NS(values: NonEmptySet[String]) extends Value
-  // case class BS(values: NonEmptySet[ByteVector]) extends Value
+  // TODO should Boolean result be supported here?
+  val nul: Value =
+    make(_.nul(true))
 
-  val nul: Value = ???
+  def s(value: String): Value =
+    make(_.s(value))
 
-  def m(values: (String, Value)*): Value = ???
-//    Value.M(values.toMap)
-  def m(values: Map[String, Value]): Value = ???
-  //  Value.M(values)
+  def bool(value: Boolean): Value =
+    make(_.bool(value))
 
-  def s(value: String): Value = ??? // Value.S(value)
+  def n(value: Number): Value =
+    make(_.n(value.value))
+
+  def m(values: Map[String, Value]): Value =
+    make(_.m { values.map { case (k, v) => k -> v.value }.asJava })
+
+  def m(values: (String, Value)*): Value =
+    m(values.toMap)
+
+  def l(values: List[Value]): Value =
+    make(_.l(values.map(_.value).asJava))
+
+  def l(values: Value*): Value =
+    l(values.toList)
 
   def ss(values: NonEmptySet[String]): Value =
-    ??? //    Value.SS(values)
-  def ss(value: String, values: String*): Value =
-    ??? //    Value.SS(NonEmptySet.of(value, values: _*))
+    make(_.ss(values.value.toList.asJava))
 
   def ns(values: NonEmptySet[Number]): Value =
-    ???
-//  def ns(value: Number, values: Number*): Value = ??? TODO delete
+    make(_.ns(values.value.toList.map(_.value).asJava))
 
   def bs(values: NonEmptySet[ByteVector]): Value =
-    ???
-  def bs(value: ByteVector, values: ByteVector*): Value = ???
+    make {
+      _.bs {
+        values.value.toList
+          .map(bv => SdkBytes.fromByteArray(bv.toArray))
+          .asJava
+      }
+    }
 
-  def n(value: Number): Value = ??? // Value.N(value.toString)
-  // def n(value: Long): Value = ??? // Value.N(value.toString)
-  // def n(value: Double): Value = ??? // Value.N(value.toString)
-  // def n(value: Float): Value = ??? // Value.N(value.toString)
-  // def n(value: Short): Value = ??? // Value.N(value.toString)
-
-  def b(value: ByteVector): Value = ??? //Value.B(value)
-  def b(value: Array[Byte]): Value =
-    ??? //    Value.B(ByteVector(value))
-  def b(value: immutable.Seq[Byte]): Value =
-    ??? //    Value.B(ByteVector(value))
-
-  def bool(value: Boolean): Value = ??? // Value.Bool(value)
-
-  def l(values: immutable.Seq[Value]): Value =
-    ??? //    Value.L(values.toVector)
-
-//   AttributeValue.Builder	b(SdkBytes b)
-// AttributeValue.Builder	bool(Boolean bool)
-// AttributeValue.Builder	bs(Collection<SdkBytes> bs)
-// AttributeValue.Builder	bs(SdkBytes... bs)
-// AttributeValue.Builder	l(AttributeValue... l)
-// AttributeValue.Builder	l(Collection<AttributeValue> l)
-// AttributeValue.Builder	l(Consumer<AttributeValue.Builder>... l)
-// AttributeValue.Builder	m(Map<String,AttributeValue> m)
-// AttributeValue.Builder	n(String n)
-// AttributeValue.Builder	ns(Collection<String> ns)
-// AttributeValue.Builder	ns(String... ns)
-// AttributeValue.Builder	nul(Boolean nul)
-// AttributeValue.Builder	s(String s)
-// AttributeValue.Builder	ss(Collection<String> ss)
-// AttributeValue.Builder	ss(String... ss)
+  def b(value: ByteVector): Value =
+    make(_.b(SdkBytes.fromByteArray(value.toArray)))
 }

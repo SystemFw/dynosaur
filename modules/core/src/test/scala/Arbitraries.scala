@@ -110,7 +110,7 @@ trait Generators {
   ): Gen[Value] =
     for {
       size <- genSize
-      values <- containerOfN[Vector, Value](
+      values <- containerOfN[List, Value](
         size,
         genValue(maxDeep.map(_ - 1))
       )

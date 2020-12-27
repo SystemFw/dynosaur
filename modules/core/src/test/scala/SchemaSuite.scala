@@ -148,9 +148,9 @@ class SchemaSuite extends ScalaCheckSuite {
   }
 
   test("encode/decode vectors") {
-    forAll { (l: Vector[String]) =>
+    forAll { (l: List[String]) =>
       val expected = Value.l(l.map(Value.s))
-      check(Schema[Vector[String]], l, expected)
+      check(Schema[List[String]], l, expected)
     }
   }
 
