@@ -99,9 +99,6 @@ sealed trait Schema[A] { self =>
   private val write_ : Eval[A => Either[WriteError, DynamoValue]] =
     Eval.later(internal.encoding.fromSchema(this))
 }
-// TODO Review number and numset
-// once Numberic has a compatible version in 2.13, could have Number
-// capture that instance existentially
 object Schema {
   import structure._
 
@@ -119,7 +116,6 @@ object Schema {
    * No instance of Schema[Byte] bytes to avoid ambiguity between e.g
    * List[Byte] and dynamo BinarySet
    */
-
   implicit val int: Schema[Int] = num(_.toInt)
   implicit val long: Schema[Long] = num(_.toLong)
   implicit val double: Schema[Double] = num(_.toDouble)

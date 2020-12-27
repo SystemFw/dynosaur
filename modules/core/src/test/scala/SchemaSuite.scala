@@ -28,7 +28,6 @@ import Arbitraries._
 
 class SchemaSuite extends ScalaCheckSuite {
 
-  // TODO maybe remove this?
   implicit def liftNumber[A: Numeric](a: A): DynamoValue.Number =
     DynamoValue.Number(a.toString)
 

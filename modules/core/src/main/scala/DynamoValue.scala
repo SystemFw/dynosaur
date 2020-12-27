@@ -45,7 +45,6 @@ case class DynamoValue(value: AttributeValue) {
       .guard[Option]
       .as(value.m.asScala.toMap.map { case (k, v) => k -> DynamoValue(v) })
 
-  // TODO should Boolean result be supported here?
   val nul: Option[Unit] =
     Option(value.nul).void
 
@@ -66,8 +65,6 @@ case class DynamoValue(value: AttributeValue) {
 
   val ss: Option[NonEmptySet[String]] =
     value.hasSs.guard[Option] >> NonEmptySet.fromSet(value.ss.asScala.toSet)
-
-  //TODO add a fold method here and navigator here
 }
 object DynamoValue {
   def make(
@@ -75,12 +72,10 @@ object DynamoValue {
   ): DynamoValue =
     DynamoValue(build(AttributeValue.builder).build)
 
-  // TODO from 2.13 on, Numeric has a parseFromString
   /** DynamoDb Number, which is represented as a string
     */
   case class Number(value: String)
 
-  // TODO should Boolean result be supported here?
   val nul: DynamoValue =
     make(_.nul(true))
 

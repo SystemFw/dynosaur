@@ -30,7 +30,6 @@ For live preview, start a webserver in `/docs` , e.g. with
 
 > python -m http.server
 
-
 and in `sbt`, run `docs/mdoc --watch`
 
 ## Publishing
