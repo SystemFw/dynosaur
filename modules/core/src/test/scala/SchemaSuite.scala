@@ -81,6 +81,12 @@ class SchemaSuite extends ScalaCheckSuite {
       twentyTwo: String,
       twentyThree: String
   )
+  /* Recursive products */
+  case class Department(name: String, subdeps: List[Department])
+  /* Recursive ADT */
+  sealed trait Text
+  case class Paragraph(text: String) extends Text
+  case class Section(title: String, contents: Text) extends Text
 
   def check[A](schema: Schema[A], data: A, expected: DynamoValue) = {
     def output = schema.write(data).toOption.get

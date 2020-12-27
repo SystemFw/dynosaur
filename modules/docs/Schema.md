@@ -577,10 +577,6 @@ msgSchemaNull.write(Msg("Random message", None))
 >   These cases are rare enough, and at moment `dynosaur` does not offer a shortcut for them.
 > TODO NULL:true, NULL:false is not supported
 
-### Recursive schemas
-
-TODO use Schema.defer
-
 ## Coproducts
 
 Let's now move on to coproducts, by looking at this basic ADT:
@@ -870,6 +866,11 @@ fooSchema.asMap.write(Map("A foo" -> Foo("a", 1)))
 > - If you need to represent a Map whose keys aren't directly
 >   `String`, but instead newtypes or enums, just use
 >   `imap`/`imapErr`/`xmap` on the Map schema.
+
+## Recursive schemas
+
+TODO use Schema.defer
+
 
 ## ByteSet, StringSet and NumberSet
 
