@@ -85,7 +85,9 @@ sealed trait Schema[A] { self =>
 
   def asMap: Schema[Map[String, A]] = Dictionary(this)
 }
-// TODO Review number and byteset
+// TODO Review number and numset
+// once Numberic has a compatible version in 2.13, could have Number
+// capture that instance existentially
 object Schema {
   object structure {
     case object Identity extends Schema[Value]
@@ -93,7 +95,7 @@ object Schema {
     case object Str extends Schema[String]
     case object Bool extends Schema[Boolean]
     case object Bytes extends Schema[ByteVector]
-    case object Nul extends Schema[Unit] // TODO Nul
+    case object Nul extends Schema[Unit]
     case object BytesSet extends Schema[NonEmptySet[ByteVector]]
     case object NumSet extends Schema[NonEmptySet[Value.Number]]
     case object StrSet extends Schema[NonEmptySet[String]]
