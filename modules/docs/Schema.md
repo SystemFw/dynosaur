@@ -572,6 +572,11 @@ msgSchemaNull.write(Msg("Random message", None))
          .map(_.flatten)
       ```
 >   These cases are rare enough, and at moment `dynosaur` does not offer a shortcut for them.
+> TODO NULL:true, NULL:false is not supported
+
+### Recursive schemas
+
+TODO use Schema.defer
 
 ## Coproducts
 
