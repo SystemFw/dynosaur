@@ -247,9 +247,7 @@ class SchemaSuite extends ScalaCheckSuite {
     check(schema, complete, expectedComplete)
     check(schema, noTag, expectedNoTag)
     assertEquals(
-      Decoder
-        .fromSchema(schema)
-        .read(incorrectNoTag),
+      schema.read(incorrectNoTag),
       Left(Schema.ReadError())
     )
   }
@@ -282,9 +280,7 @@ class SchemaSuite extends ScalaCheckSuite {
     check(schema, complete, expectedComplete)
     check(schema, noTag, expectedNoTag)
     assertEquals(
-      Decoder
-        .fromSchema(schema)
-        .read(incorrectNoTag),
+      schema.read(incorrectNoTag),
       Left(Schema.ReadError())
     )
   }
@@ -321,9 +317,7 @@ class SchemaSuite extends ScalaCheckSuite {
     check(schema, complete, expectedComplete)
     check(schema, noTag, expectedNoTag)
     assertEquals(
-      Decoder
-        .fromSchema(schema)
-        .read(acceptedNoTag),
+      schema.read(acceptedNoTag),
       Right(noTag)
     )
   }
@@ -360,9 +354,7 @@ class SchemaSuite extends ScalaCheckSuite {
     check(schema, complete, expectedComplete)
     check(schema, noTag, expectedNoTag)
     assertEquals(
-      Decoder
-        .fromSchema(schema)
-        .read(acceptedtNoTag),
+      schema.read(acceptedtNoTag),
       Right(noTag)
     )
   }

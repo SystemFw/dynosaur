@@ -94,10 +94,10 @@ sealed trait Schema[A] { self =>
 
   // TODO does just val (with no Eval) work? check when defer is in
   private val read_ : Eval[DynamoValue => Either[ReadError, A]] =
-    Eval.later(Decoder.fromSchema(this).read _)
+    Eval.later(internal.decoding.fromSchema(this))
 
   private val write_ : Eval[A => Either[WriteError, DynamoValue]] =
-    Eval.later(Encoder.fromSchema(this).write _)
+    Eval.later(internal.encoding.fromSchema(this))
 }
 // TODO Review number and numset
 // once Numberic has a compatible version in 2.13, could have Number
