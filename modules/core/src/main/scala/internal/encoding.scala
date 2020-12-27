@@ -28,7 +28,8 @@ import Schema.WriteError
 import Schema.structure._
 
 object encoding {
-  def fromSchema[A](s: Schema[A]): A => Either[WriteError, DynamoValue] =
+  def fromSchema[A](s: Schema[A]): A => Either[WriteError, DynamoValue] = {
+    println(s"\n building $s")
     s match {
       case Identity => (_: DynamoValue).asRight
       case Num => encodeNum
@@ -41,10 +42,11 @@ object encoding {
       case Nul => encodeNull
       case Sequence(elem) => encodeSequence(elem, _)
       case Dictionary(elem) => encodeDictionary(elem, _)
-      case Record(rec) => encodeRecord(rec, _)
+      case Record(rec) => encodeRecord(rec)
       case Sum(cases) => encodeSum(cases, _)
       case Isos(iso) => encodeIsos(iso, _)
     }
+  }
 
   type Res = Either[WriteError, DynamoValue]
 
@@ -74,44 +76,59 @@ object encoding {
       .traverse(schema.write)
       .map(DynamoValue.m)
 
-  def encodeRecord[R](recordSchema: Free[Field[R, *], R], record: R): Res = {
-    implicit def overrideKeys: Monoid[Map[String, DynamoValue]] =
-      MonoidK[Map[String, *]].algebra
+  // TODO make sure this is actually cacheable (partially applied)
+  // probably means the monad transformer needs kleisli
+  def encodeRecord[R](recordSchema: Free[Field[R, *], R]): R => Res = {
+    (record: R) =>
+      // we know there won't be conflicts for the same key
+      implicit def overrideKeys: Monoid[Map[String, DynamoValue]] =
+        MonoidK[Map[String, *]].algebra
 
-    def write[E](
-        name: String,
-        schema: Schema[E],
-        elem: E
-    ): Either[WriteError, Map[String, DynamoValue]] =
-      schema.write(elem).map { av => Map(name -> av) }
+      // we want to make sure the Free traversal happens when the function
+      // is _defined_, not applied, so that they can be cached
 
-    recordSchema
-      .foldMap {
-        new (Field[R, *] ~> WriterT[
-          Either[WriteError, *],
-          Map[String, DynamoValue],
-          *
-        ]) {
-          def apply[B](field: Field[R, B]) = field match {
-            case Field.Required(name, elemSchema, get) =>
-              WriterT {
-                val elem = get(record)
-                write(name, elemSchema, elem).tupleRight(elem)
+      def write[E](
+          name: String,
+          schema: Schema[E],
+          elem: E
+      ): Either[WriteError, Map[String, DynamoValue]] =
+        schema.write(elem).map { av => Map(name -> av) }
+
+      val a = {
+        println("\n traversing")
+
+        recordSchema
+          .foldMap {
+            new (Field[R, *] ~> WriterT[
+              Either[WriteError, *],
+              Map[String, DynamoValue],
+              *
+            ]) {
+              def apply[B](field: Field[R, B]) = {
+                field match {
+                  case Field.Required(name, elemSchema, get) =>
+                    WriterT {
+                      val elem = get(record)
+                      write(name, elemSchema, elem).tupleRight(elem)
+                    }
+                  case Field.Optional(name, elemSchema, get) =>
+                    WriterT {
+                      val elem = get(record)
+                      elem
+                        .foldMap(write(name, elemSchema, _))
+                        .tupleRight(elem)
+                    }
+                }
               }
-            case Field.Optional(name, elemSchema, get) =>
-              WriterT {
-                val elem = get(record)
-                elem
-                  .foldMap(write(name, elemSchema, _))
-                  .tupleRight(elem)
-              }
+            }
           }
-        }
+          .written
+          .map(DynamoValue.m)
       }
-      .written
-      .map(DynamoValue.m)
+      a
   }
 
+  // TODO make sure this is actually cacheable (partially applied)
   def encodeSum[C](cases: Chain[Alt[C]], coproduct: C): Res =
     cases
       .foldMapK { alt =>

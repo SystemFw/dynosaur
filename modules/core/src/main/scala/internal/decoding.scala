@@ -91,6 +91,8 @@ object decoding {
           .traverse(schema.read)
       )
 
+  // TODO make sure this is actually cacheable (partially applied)
+  // probably means the monad transformer needs kleisli
   def decodeRecord[R](
       recordSchema: Free[Field[R, *], R],
       v: Map[String, DynamoValue]
@@ -111,6 +113,7 @@ object decoding {
       }
     }
 
+  // TODO make sure this is actually cacheable (partially applied)
   def decodeSum[B](cases: Chain[Alt[B]], v: DynamoValue): Res[B] =
     cases
       .foldMapK { alt =>
