@@ -16,7 +16,8 @@
 
 package dynosaur
 
-import cats.implicits._
+import cats.syntax.all._
+import cats.Eval
 import cats.free.Free
 import cats.data.Chain
 
@@ -34,7 +35,11 @@ sealed trait Schema[A] { self =>
   import Schema._
   import structure._
 
-  override def toString = "Schema(..)"
+  def read(v: DynamoValue): Either[ReadError, A] =
+    read_.value(v)
+
+  def write(a: A): Either[WriteError, DynamoValue] =
+    write_.value(a)
 
   def tag(name: String): Schema[A] = record { field =>
     field(name, x => x)(this)
@@ -46,9 +51,9 @@ sealed trait Schema[A] { self =>
     Isos {
       new XMap[B] {
         type Repr = A
-        def schema = self
-        def r = f
-        def w = g
+        val schema = self
+        val r = f
+        val w = g
       }
     }
 
@@ -56,9 +61,9 @@ sealed trait Schema[A] { self =>
     Isos {
       new XMap[B] {
         type Repr = A
-        def schema = self
-        def r = f.map(_.asRight)
-        def w = g.map(_.asRight)
+        val schema = self
+        val r = f.map(_.asRight)
+        val w = g.map(_.asRight)
       }
     }
 
@@ -66,9 +71,9 @@ sealed trait Schema[A] { self =>
     Isos {
       new XMap[B] {
         type Repr = A
-        def schema = self
-        def r = f
-        def w = g.map(_.asRight)
+        val schema = self
+        val r = f
+        val w = g.map(_.asRight)
       }
     }
 
@@ -84,6 +89,15 @@ sealed trait Schema[A] { self =>
     list(this).imap(_.toSeq: immutable.Seq[A])(_.toList)
 
   def asMap: Schema[Map[String, A]] = Dictionary(this)
+
+  override def toString = "Schema(..)"
+
+  // TODO does just val (with no Eval) work? check when defer is in
+  private val read_ : Eval[DynamoValue => Either[ReadError, A]] =
+    Eval.later(Decoder.fromSchema(this).read _)
+
+  private val write_ : Eval[A => Either[WriteError, DynamoValue]] =
+    Eval.later(Encoder.fromSchema(this).write _)
 }
 // TODO Review number and numset
 // once Numberic has a compatible version in 2.13, could have Number
@@ -106,26 +120,26 @@ object Schema {
    * List[Byte] and dynamo BinarySet
    */
 
-  implicit def int: Schema[Int] = num(_.toInt)
-  implicit def long: Schema[Long] = num(_.toLong)
-  implicit def double: Schema[Double] = num(_.toDouble)
-  implicit def float: Schema[Float] = num(_.toFloat)
-  implicit def short: Schema[Short] = num(_.toShort)
+  implicit val int: Schema[Int] = num(_.toInt)
+  implicit val long: Schema[Long] = num(_.toLong)
+  implicit val double: Schema[Double] = num(_.toDouble)
+  implicit val float: Schema[Float] = num(_.toFloat)
+  implicit val short: Schema[Short] = num(_.toShort)
 
-  implicit def byteVector: Schema[ByteVector] = Bytes
-  implicit def byteArray: Schema[Array[Byte]] =
+  implicit val byteVector: Schema[ByteVector] = Bytes
+  implicit val byteArray: Schema[Array[Byte]] =
     Bytes.imap(_.toArray)(ByteVector.apply)
 
-  implicit def intSet: Schema[NonEmptySet[Int]] = numSet(_.toInt)
-  implicit def longSet: Schema[NonEmptySet[Long]] = numSet(_.toLong)
-  implicit def doubleSet: Schema[NonEmptySet[Double]] = numSet(_.toDouble)
-  implicit def floatSet: Schema[NonEmptySet[Float]] = numSet(_.toFloat)
-  implicit def shortSet: Schema[NonEmptySet[Short]] = numSet(_.toShort)
+  implicit val intSet: Schema[NonEmptySet[Int]] = numSet(_.toInt)
+  implicit val longSet: Schema[NonEmptySet[Long]] = numSet(_.toLong)
+  implicit val doubleSet: Schema[NonEmptySet[Double]] = numSet(_.toDouble)
+  implicit val floatSet: Schema[NonEmptySet[Float]] = numSet(_.toFloat)
+  implicit val shortSet: Schema[NonEmptySet[Short]] = numSet(_.toShort)
 
-  implicit def stringSet: Schema[NonEmptySet[String]] = StrSet
+  implicit val stringSet: Schema[NonEmptySet[String]] = StrSet
 
-  implicit def byteVectorset: Schema[NonEmptySet[ByteVector]] = BytesSet
-  implicit def byteArraySet: Schema[NonEmptySet[Array[Byte]]] =
+  implicit val byteVectorset: Schema[NonEmptySet[ByteVector]] = BytesSet
+  implicit val byteArraySet: Schema[NonEmptySet[Array[Byte]]] =
     BytesSet.imap { nes =>
       NonEmptySet.unsafeFromSet(nes.value.map(_.toArray))
     } { nes =>
@@ -139,7 +153,7 @@ object Schema {
 
   implicit def dict[A](implicit s: Schema[A]): Schema[Map[String, A]] = s.asMap
 
-  def nul: Schema[Unit] = Nul
+  implicit val nul: Schema[Unit] = Nul
 
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 
@@ -188,8 +202,8 @@ object Schema {
       Chain.one {
         new Alt[A] {
           type Case = B
-          def caseSchema = caseSchema_
-          def prism = prism_
+          val caseSchema = caseSchema_
+          val prism = prism_
         }
       }
   }

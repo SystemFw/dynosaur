@@ -24,49 +24,50 @@ import software.amazon.awssdk.core.SdkBytes
 import collection.JavaConverters._ // TODO generates a warning, since it's deprecated for
 //import scala.jdk.CollectionConverters._
 
-// TODO file to model.scala, DynamoValue, DynamoNumber
 case class DynamoValue(value: AttributeValue) {
 
-  def s: Option[String] =
+  val s: Option[String] =
     Option(value.s)
 
-  def n: Option[DynamoValue.Number] =
+  val n: Option[DynamoValue.Number] =
     Option(value.n).map(DynamoValue.Number(_))
 
-  def bool: Option[Boolean] =
+  val bool: Option[Boolean] =
     Option(value.bool).map(_.booleanValue)
 
-  def l: Option[List[DynamoValue]] =
+  val l: Option[List[DynamoValue]] =
     value.hasL
       .guard[Option]
       .as(value.l.asScala.toList.map(DynamoValue(_)))
 
-  def m: Option[Map[String, DynamoValue]] =
+  val m: Option[Map[String, DynamoValue]] =
     value.hasM
       .guard[Option]
       .as(value.m.asScala.toMap.map { case (k, v) => k -> DynamoValue(v) })
 
   // TODO should Boolean result be supported here?
-  def nul: Option[Unit] =
+  val nul: Option[Unit] =
     Option(value.nul).void
 
-  def b: Option[ByteVector] =
+  val b: Option[ByteVector] =
     Option(value.b).map(b => ByteVector(b.asByteArray))
 
-  def bs: Option[NonEmptySet[ByteVector]] =
+  val bs: Option[NonEmptySet[ByteVector]] =
     value.hasBs
       .guard[Option] >> NonEmptySet.fromSet(
       value.bs.asScala.toSet.map((b: SdkBytes) => ByteVector(b.asByteArray))
     )
 
-  def ns: Option[NonEmptySet[DynamoValue.Number]] =
+  val ns: Option[NonEmptySet[DynamoValue.Number]] =
     value.hasNs
       .guard[Option] >> NonEmptySet.fromSet(
       value.ns.asScala.toSet.map((x: String) => DynamoValue.Number(x))
     )
 
-  def ss: Option[NonEmptySet[String]] =
+  val ss: Option[NonEmptySet[String]] =
     value.hasSs.guard[Option] >> NonEmptySet.fromSet(value.ss.asScala.toSet)
+
+  //TODO add a fold method here and navigator here
 }
 object DynamoValue {
   def make(

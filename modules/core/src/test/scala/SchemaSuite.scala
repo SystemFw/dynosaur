@@ -84,8 +84,8 @@ class SchemaSuite extends ScalaCheckSuite {
   )
 
   def check[A](schema: Schema[A], data: A, expected: DynamoValue) = {
-    def output = Encoder.fromSchema(schema).write(data).toOption.get
-    def roundTrip = Decoder.fromSchema(schema).read(output).toOption.get
+    def output = schema.write(data).toOption.get
+    def roundTrip = schema.read(output).toOption.get
 
     assertEquals(output, expected)
     assertEquals(roundTrip, data)

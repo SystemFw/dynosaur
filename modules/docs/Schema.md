@@ -14,6 +14,9 @@ decoding `A`s to and from `AttributeValue`.
 
 ## Setup
 
+TODO setup needs to be redone given new AttributeValue and methods
+TODO mention somewhere that schemas are best defined as vals
+
 We are going to need the following imports:
 
 ```scala mdoc
