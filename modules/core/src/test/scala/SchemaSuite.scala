@@ -82,7 +82,7 @@ class SchemaSuite extends ScalaCheckSuite {
   /* Recursive ADT */
   sealed trait Text
   case class Paragraph(text: String) extends Text
-  case class Section(title: String, contents: Text) extends Text
+  case class Section(title: String, contents: List[Text]) extends Text
 
   def check[A](schema: Schema[A], data: A, expected: V) = {
     def output = schema.write(data).toOption.get
@@ -356,6 +356,54 @@ class SchemaSuite extends ScalaCheckSuite {
       schema.read(acceptedtNoTag),
       Right(noTag)
     )
+  }
+
+  test("recursive products") {
+    val departments = Department(
+      "STEM",
+      List(
+        Department("CS"),
+        Department(
+          "Maths",
+          List(
+            Department("Applied"),
+            Department("Theoretical")
+          )
+        )
+      )
+    )
+
+    val expected = V.m(
+      "name" -> V.s("STEM"),
+      "subdeps" -> V.l(
+        V.m(
+          "name" -> V.s("CS"),
+          "subdeps" -> V.l()
+        ),
+        V.m(
+          "name" -> V.s("Maths"),
+          "subdeps" -> V.l(
+            V.m(
+              "name" -> V.s("Applied"),
+              "subdeps" -> V.l()
+            ),
+            V.m(
+              "name" -> V.s("Theoretical"),
+              "subdeps" -> V.l()
+            )
+          )
+        )
+      )
+    )
+
+    def schema: Schema[Department] = Schema.record { field =>
+      (
+        field("name", _.name),
+        field("subdeps", _.subdeps)(schema.asList)
+      ).mapN(Department.apply)
+    }
+
+    check(schema, departments, expected)
   }
 
   test("products with more than 22 fields") {
@@ -692,6 +740,65 @@ class SchemaSuite extends ScalaCheckSuite {
     check(schema, warningUp, expectedWarning)
     check(schema, unknownUp, expectedUnknown)
     check(schema, successfulUp, expectedSuccessful)
+  }
+
+  test("recursive ADTs") {
+    val text = Section(
+      "A",
+      List(
+        Paragraph("lorem ipsum"),
+        Section(
+          "A.b",
+          List(Paragraph("dolor sit amet"))
+        )
+      )
+    )
+
+    val expected = V.m(
+      "section" -> V.m(
+        "title" -> V.s("A"),
+        "contents" -> V.l(
+          V.m(
+            "paragraph" -> V.m(
+              "text" -> V.s("lorem ipsum")
+            )
+          ),
+          V.m(
+            "section" -> V.m(
+              "title" -> V.s("A.b"),
+              "contents" -> V.l(
+                V.m(
+                  "paragraph" -> V.m(
+                    "text" -> V.s("dolor sit amet")
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+
+    def schema: Schema[Text] = Schema.oneOf[Text] { alt =>
+      val paragraph = Schema
+        .record[Paragraph] { field =>
+          field("text", _.text).map(Paragraph.apply)
+        }
+        .tag("paragraph")
+
+      val section = Schema
+        .record[Section] { field =>
+          (
+            field("title", _.title),
+            field("contents", _.contents)(schema.asList)
+          ).mapN(Section.apply)
+        }
+        .tag("section")
+
+      alt(section) |+| alt(paragraph)
+    }
+
+    check(schema, text, expected)
   }
 
   test("pass through attribute value untouched") {
