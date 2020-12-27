@@ -20,11 +20,11 @@ TODO mention somewhere that schemas are best defined as vals
 We are going to need the following imports:
 
 ```scala mdoc
-import dynosaur.codec.Schema
-import cats.implicits._
+import dynosaur._
+import cats.syntax.all._
 ```
 
-We will also define `.read` and `.write` helpers to run the examples
+We will also define `.read_` and `.write_` helpers to run the examples
 in this page, but you are not going to need them in your own code.  
 For the time being, we will ignore potential errors, and show the
 output as `Json` instead of the `AttributeValue` ADT to help with
@@ -35,24 +35,15 @@ readability.
 
 ```scala mdoc
 implicit class Codecs[A](schema: Schema[A]) {
-  import dynosaur.codec.{Encoder, Decoder}
-  import dynosaur.model.AttributeValue
-  import dynosaur.lo.codec._
-  import io.circe._, syntax._
-  
-  def write(v: A): Json = 
-    Encoder.fromSchema(schema)
+  def write_(v: A) = 
+    schema
     .write(v)
-    .map(_.asJson)
     .toOption.get
     
-  def read(v: Json): A = {
-    for {
-      av <- v.as[AttributeValue].toOption
-      a <- Decoder.fromSchema(schema).read(av).toOption
-    } yield a
-  }.get
+  def read_(v: DynamoValue): A =
+      schema.read(v).toOption.get
 }
+
 ```
 </details>
 
@@ -96,10 +87,10 @@ Which can then be used for both encoding and decoding:
 val u = Auth.User(303, "tim")
 val e = Auth.Error("Unauthorized")
 
-schema.write(u)
-schema.read(schema.write(u))
-schema.write(e)
-schema.read(schema.write(e))
+schema.write_(u)
+schema.read_(schema.write_(u))
+schema.write_(e)
+schema.read_(schema.write_(e))
 ```
 </details>
 
@@ -205,7 +196,7 @@ val eventIdSchema = Schema[String].imap(EventId.apply)(_.value)
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-eventIdSchema.write(EventId("event-1234"))
+eventIdSchema.write_(EventId("event-1234"))
 ```
 </details>
 
@@ -213,8 +204,6 @@ eventIdSchema.write(EventId("event-1234"))
 decoding can, as seen, for example, in enums:
 
 ```scala mdoc:silent
-import dynosaur.codec.ReadError
-
 sealed trait Switch
 object Switch {
   case object On extends Switch
@@ -228,7 +217,7 @@ object Switch {
 }
 
 def switchSchema = Schema[String].imapErr { s =>
-   Switch.parse(s).toRight(ReadError()) // TODO s"$s is not a valid Switch"
+   Switch.parse(s).toRight(Schema.ReadError()) // TODO s"$s is not a valid Switch"
  }(_.toString)
 ```
 
@@ -236,7 +225,7 @@ def switchSchema = Schema[String].imapErr { s =>
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-val a = switchSchema.write(Switch.On)
+val a = switchSchema.write_(Switch.On)
 ```
 </details>
 
@@ -263,7 +252,7 @@ val fooSchema = Schema.record[Foo] { field =>
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-fooSchema.write(Foo("value of Foo", 1))
+fooSchema.write_(Foo("value of Foo", 1))
 ```
 </details>
 
@@ -330,7 +319,7 @@ val nestedSchema: Schema[Bar] =
 
 ```scala mdoc:to-string
 val bar = Bar(10, Foo("value of Foo", 40))
-nestedSchema.write(bar)
+nestedSchema.write_(bar)
 ```
 </details>
 
@@ -412,7 +401,7 @@ val envelopeSchema = Schema.record[Foo] { field =>
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-envelopeSchema.write(Foo("value of Foo", 150))
+envelopeSchema.write_(Foo("value of Foo", 150))
 ```
 </details>
 
@@ -428,7 +417,7 @@ val taggedSchema = envelopeSchema.tag("event")
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-taggedSchema.write(Foo("value of Foo", 150))
+taggedSchema.write_(Foo("value of Foo", 150))
 ```
 </details>
 
@@ -468,7 +457,7 @@ val versionedFooSchema = Schema.record[Foo] { field =>
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-versionedFooSchema.write(Foo("value of Foo", 300))
+versionedFooSchema.write_(Foo("value of Foo", 300))
 ```
 </details>
 
@@ -526,8 +515,8 @@ val msgSchemaOpt = Schema.record[Msg] { field =>
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-msgSchemaOpt.write(Msg("Topical message", "Interesting topic".some))
-msgSchemaOpt.write(Msg("Random message", None))
+msgSchemaOpt.write_(Msg("Topical message", "Interesting topic".some))
+msgSchemaOpt.write_(Msg("Random message", None))
 ```
 </details>
 
@@ -551,8 +540,8 @@ In this case, the call to `Schema.nullable` translates to `Schema[String].nullab
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-msgSchemaNull.write(Msg("Topical message", "Interesting topic".some))
-msgSchemaNull.write(Msg("Random message", None))
+msgSchemaNull.write_(Msg("Topical message", "Interesting topic".some))
+msgSchemaNull.write_(Msg("Random message", None))
 ```
 </details>
 
@@ -605,10 +594,10 @@ val basicADTSchema = Schema.oneOf[Basic] { alt =>
 val one = One("this is one")
 val two = Two(4)
 
-basicADTSchema.write(one)
-basicADTSchema.read(basicADTSchema.write(one))
-basicADTSchema.write(two)
-basicADTSchema.read(basicADTSchema.write(two))
+basicADTSchema.write_(one)
+basicADTSchema.read_(basicADTSchema.write_(one))
+basicADTSchema.write_(two)
+basicADTSchema.read_(basicADTSchema.write_(two))
 
 ```
 </details>
@@ -674,9 +663,9 @@ encoded form is the same:
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-ambiguous.write(B("hello"))
-ambiguous.write(C("hello"))
-ambiguous.read(ambiguous.write(C("hello"))) // gives incorrect result
+ambiguous.write_(B("hello"))
+ambiguous.write_(C("hello"))
+ambiguous.read_(ambiguous.write_(C("hello"))) // gives incorrect result
 ```
 </details>
 
@@ -760,12 +749,12 @@ val schemaWithKey = Schema.oneOf[Problem] { alt =>
 val error = Error("this is an error")
 val warning = Warning("this is a warning")
 
-schemaWithKey.write(error)
-schemaWithKey.read(schemaWithKey.write(error))
-schemaWithKey.write(warning)
-schemaWithKey.read(schemaWithKey.write(warning))
-schemaWithKey.write(Unknown)
-schemaWithKey.read(schemaWithKey.write(Unknown))
+schemaWithKey.write_(error)
+schemaWithKey.read_(schemaWithKey.write_(error))
+schemaWithKey.write_(warning)
+schemaWithKey.read_(schemaWithKey.write_(warning))
+schemaWithKey.write_(Unknown)
+schemaWithKey.read_(schemaWithKey.write_(Unknown))
 ```
 </details>
 
@@ -809,12 +798,12 @@ val schemaWithField = Schema.oneOf[Problem] { alt =>
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-schemaWithField.write(error)
-schemaWithField.read(schemaWithField.write(error))
-schemaWithField.write(warning)
-schemaWithField.read(schemaWithField.write(warning))
-schemaWithField.write(Unknown)
-schemaWithField.read(schemaWithField.write(Unknown))
+schemaWithField.write_(error)
+schemaWithField.read_(schemaWithField.write_(error))
+schemaWithField.write_(warning)
+schemaWithField.read_(schemaWithField.write_(warning))
+schemaWithField.write_(Unknown)
+schemaWithField.read_(schemaWithField.write_(Unknown))
 ```
 </details>
 
@@ -838,8 +827,8 @@ The are all represented as `L` in `AttributeValue`:
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-Schema[Vector[Int]].write(Vector(1, 2, 3))
-fooSchema.asList.write(List(Foo("a", 1), Foo("b", 2), Foo("c", 3)))
+Schema[Vector[Int]].write_(Vector(1, 2, 3))
+fooSchema.asList.write_(List(Foo("a", 1), Foo("b", 2), Foo("c", 3)))
 ```
 </details>
 
@@ -857,8 +846,8 @@ As with sequences, there is an inductive instance of
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-Schema[Map[String, Int]].write(Map("hello" -> 1))
-fooSchema.asMap.write(Map("A foo" -> Foo("a", 1)))
+Schema[Map[String, Int]].write_(Map("hello" -> 1))
+fooSchema.asMap.write_(Map("A foo" -> Foo("a", 1)))
 ```
 </details>
 
