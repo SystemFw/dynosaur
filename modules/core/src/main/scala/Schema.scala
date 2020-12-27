@@ -26,7 +26,7 @@ import scala.collection.immutable
 @annotation.implicitNotFound(
   """
 Cannot find an implicit value for Schema[${A}].
- If you are trying to resolve a Schema for Option, note that there are no implicit instances for it because of the difference between missing fields, which can be absent from a record but cannot be NULL, and nullable fields, which can be NULL but have to be present.
+ If you are trying to resolve a Schema for Option, note that there are no implicit instances for it because of the difference between missing fields, which can be absent from a record but cannot be Nul, and nullable fields, which can be NULL but have to be present.
 Please use `field.opt(_, _)` or `field.apply(_, _)(Schema.nullable)` to tell `dynosaur` which semantics you want.
 """
 )
@@ -75,7 +75,7 @@ sealed trait Schema[A] { self =>
   def nullable: Schema[Option[A]] =
     Schema.oneOf[Option[A]] { alt =>
       alt(this.imap(Some.apply)(_.value)) |+|
-        alt(`null`.imap(_ => None)(_ => ()))
+        alt(nul.imap(_ => None)(_ => ()))
     }
 
   def asList: Schema[List[A]] = Sequence(this)
@@ -93,7 +93,7 @@ object Schema {
     case object Str extends Schema[String]
     case object Bool extends Schema[Boolean]
     case object Bytes extends Schema[ByteVector]
-    case object NULL extends Schema[Unit] // TODO Nul
+    case object Nul extends Schema[Unit] // TODO Nul
     case object BytesSet extends Schema[NonEmptySet[ByteVector]]
     case object NumSet extends Schema[NonEmptySet[Value.Number]]
     case object StrSet extends Schema[NonEmptySet[String]]
@@ -201,7 +201,7 @@ object Schema {
 
   implicit def dict[A](implicit s: Schema[A]): Schema[Map[String, A]] = s.asMap
 
-  def `null`: Schema[Unit] = NULL
+  def nul: Schema[Unit] = Nul
 
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 

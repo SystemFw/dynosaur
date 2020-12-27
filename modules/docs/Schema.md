@@ -496,9 +496,9 @@ like JSON in this case), `dynosaur` draws a distinction between
 _optional fields_ and _nullable values_:
 
 - An optional field may or may not be part of the serialised record,
-  but if it's there it cannot be `AttributeValue.NULL` for decoding to
+  but if it's there it cannot be `AttributeValue.Nul` for decoding to
   succeed.
-- A nullable value can be `AttributeValue.NULL`, but it has to always
+- A nullable value can be `AttributeValue.Nul`, but it has to always
   be part of the record for decoding to succeed. It can also appear
   outside of records.
 

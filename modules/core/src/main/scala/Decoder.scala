@@ -126,7 +126,7 @@ object Decoder {
       case BytesSet => Decoder.instance(decodeBytesSet)
       case NumSet => Decoder.instance(decodeNumSet)
       case StrSet => Decoder.instance(decodeStrSet)
-      case NULL => Decoder.instance(decodeNull)
+      case Nul => Decoder.instance(decodeNull)
       case Sequence(elem) => Decoder.instance(decodeSequence(elem, _))
       case Dictionary(elem) => Decoder.instance(decodeDictionary(elem, _))
       case Record(rec) =>

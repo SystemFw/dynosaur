@@ -124,7 +124,7 @@ object Encoder {
       case BytesSet => Encoder.instance(encodeBytesSet)
       case NumSet => Encoder.instance(encodeNumSet)
       case StrSet => Encoder.instance(encodeStrSet)
-      case NULL => Encoder.instance(encodeNull)
+      case Nul => Encoder.instance(encodeNull)
       case Sequence(elem) => Encoder.instance(encodeSequence(elem, _))
       case Dictionary(elem) => Encoder.instance(encodeDictionary(elem, _))
       case Record(rec) => Encoder.instance(encodeRecord(rec, _))
