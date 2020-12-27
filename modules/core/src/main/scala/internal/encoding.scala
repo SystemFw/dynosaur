@@ -19,7 +19,7 @@ package internal
 
 import cats._, syntax.all._
 import alleycats.std.map._
-import cats.data.{Chain, WriterT}
+import cats.data.{Chain, WriterT, Kleisli}
 import cats.free.Free
 
 import scodec.bits.ByteVector
@@ -79,53 +79,98 @@ object encoding {
   // TODO make sure this is actually cacheable (partially applied)
   // probably means the monad transformer needs kleisli
   def encodeRecord[R](recordSchema: Free[Field[R, *], R]): R => Res = {
-    (record: R) =>
-      // we know there won't be conflicts for the same key
-      implicit def overrideKeys: Monoid[Map[String, DynamoValue]] =
-        MonoidK[Map[String, *]].algebra
+//    (record: R) =>
+    // we know there won't be conflicts for the same key
+    implicit def overrideKeys: Monoid[Map[String, DynamoValue]] =
+      MonoidK[Map[String, *]].algebra
 
-      // we want to make sure the Free traversal happens when the function
-      // is _defined_, not applied, so that they can be cached
+    // we want to make sure the Free traversal happens when the function
+    // is _defined_, not applied, so that they can be cached
 
-      def write[E](
-          name: String,
-          schema: Schema[E],
-          elem: E
-      ): Either[WriteError, Map[String, DynamoValue]] =
-        schema.write(elem).map { av => Map(name -> av) }
+    def write[E](
+        name: String,
+        schema: Schema[E],
+        elem: E
+    ): Either[WriteError, Map[String, DynamoValue]] =
+      schema.write(elem).map { av => Map(name -> av) }
 
-      val a = {
-        println("\n traversing")
-
-        recordSchema
-          .foldMap {
-            new (Field[R, *] ~> WriterT[
-              Either[WriteError, *],
-              Map[String, DynamoValue],
-              *
-            ]) {
-              def apply[B](field: Field[R, B]) = {
-                field match {
-                  case Field.Required(name, elemSchema, get) =>
+    type Builder[A] = Kleisli[
+      WriterT[Either[WriteError, *], Map[String, DynamoValue], *],
+      R,
+      A
+    ]
+    val build = {
+      println("traversing")
+      recordSchema
+        .foldMap {
+          new (Field[R, *] ~> Builder) {
+            def apply[B](field: Field[R, B]) = {
+              println("traversing 2")
+              field match {
+                case Field.Required(name, elemSchema, get) =>
+                  Kleisli { (record: R) =>
                     WriterT {
                       val elem = get(record)
-                      write(name, elemSchema, elem).tupleRight(elem)
-                    }
-                  case Field.Optional(name, elemSchema, get) =>
-                    WriterT {
-                      val elem = get(record)
-                      elem
-                        .foldMap(write(name, elemSchema, _))
+
+                      elemSchema
+                        .write(elem)
+                        .map { av => Map(name -> av) }
                         .tupleRight(elem)
                     }
-                }
+                  }
+                case Field.Optional(name, elemSchema, get) =>
+                  Kleisli { (record: R) =>
+                    WriterT {
+                      val elem = get(record)
+
+                      elem
+                        .foldMap { e =>
+                          elemSchema
+                            .write(e)
+                            .map { av => Map(name -> av) }
+                        }
+                        .tupleRight(elem)
+                    }
+                  }
               }
             }
           }
-          .written
-          .map(DynamoValue.m)
-      }
-      a
+        }
+    }
+
+    // val a = {
+    //   println("\n traversing")
+
+    //   recordSchema
+    //     .foldMap {
+    //       new (Field[R, *] ~> WriterT[
+    //         Either[WriteError, *],
+    //         Map[String, DynamoValue],
+    //         *
+    //       ]) {
+    //         def apply[B](field: Field[R, B]) = {
+    //           field match {
+    //             case Field.Required(name, elemSchema, get) =>
+    //               WriterT {
+    //                 val elem = get(record)
+    //                 write(name, elemSchema, elem).tupleRight(elem)
+    //               }
+    //             case Field.Optional(name, elemSchema, get) =>
+    //               WriterT {
+    //                 val elem = get(record)
+    //                 elem
+    //                   .foldMap(write(name, elemSchema, _))
+    //                   .tupleRight(elem)
+    //               }
+    //           }
+    //         }
+    //       }
+    //     }
+    //     .written
+    //     .map(DynamoValue.m)
+    // }
+
+    (r: R) => build.run(r).written.map(DynamoValue.m)
   }
 
   // TODO make sure this is actually cacheable (partially applied)

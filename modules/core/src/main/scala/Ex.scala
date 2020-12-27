@@ -24,4 +24,17 @@ object Ex {
 
   // run a few times
   def test = s.write(a)
+
+
+  // traversal of records cannot be cached, because the computations are monadic
+  // so the traversal cannot be done all in advance.
+  // To make that work I would need to go back to FreeAp, which in turn prevents
+  // using `for` for big case classes (fixed in scala 3)
+  // In scala 2, unless you use kittens, the code below is the best you can do
+
+  // case class Bar(a: Int, b: Int, c: Int, d: Int)
+
+  // val a = (1.some, 2.some).mapN((x, y) => Bar(a = x, b = y, _, _))
+  // val b = (a, 3.some, 4.some).mapN((p, a, b) => p(a, b))
+
 }
