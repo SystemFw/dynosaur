@@ -149,6 +149,8 @@ object Schema {
 
   implicit val nul: Schema[Unit] = Nul
 
+  def defer[A](schema: => Schema[A]): Schema[A] = Defer(() => schema)
+
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 
   def fields[R](p: Free[Field[R, *], R]): Schema[R] = Record(p)
@@ -217,6 +219,7 @@ object Schema {
     case class Record[R](value: Free[Field[R, *], R]) extends Schema[R]
     case class Sum[A](value: Chain[Alt[A]]) extends Schema[A]
     case class Isos[A](value: XMap[A]) extends Schema[A]
+    case class Defer[A](value: () => Schema[A]) extends Schema[A]
 
     trait Field[R, E]
     object Field {

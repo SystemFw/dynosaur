@@ -17,7 +17,8 @@
 package dynosaur
 package internal
 
-import cats._, syntax.all._
+import cats.{~>, Monoid, MonoidK}
+import cats.syntax.all._
 import alleycats.std.map._
 import cats.data.{Chain, WriterT}
 import cats.free.Free
@@ -44,6 +45,7 @@ object encoding {
       case Record(rec) => encodeRecord(rec, _)
       case Sum(cases) => encodeSum(cases, _)
       case Isos(iso) => encodeIsos(iso, _)
+      case Defer(schema) => schema().write
     }
 
   type Res = Either[WriteError, DynamoValue]

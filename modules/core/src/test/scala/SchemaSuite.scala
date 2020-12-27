@@ -399,7 +399,7 @@ class SchemaSuite extends ScalaCheckSuite {
     def schema: Schema[Department] = Schema.record { field =>
       (
         field("name", _.name),
-        field("subdeps", _.subdeps)(schema.asList)
+        field("subdeps", _.subdeps)(Schema.defer(schema.asList))
       ).mapN(Department.apply)
     }
 
@@ -790,7 +790,7 @@ class SchemaSuite extends ScalaCheckSuite {
         .record[Section] { field =>
           (
             field("title", _.title),
-            field("contents", _.contents)(schema.asList)
+            field("contents", _.contents)(Schema.defer(schema.asList))
           ).mapN(Section.apply)
         }
         .tag("section")

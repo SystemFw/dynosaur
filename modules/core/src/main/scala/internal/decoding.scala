@@ -17,7 +17,8 @@
 package dynosaur
 package internal
 
-import cats._, syntax.all._
+import cats.~>
+import cats.syntax.all._
 import alleycats.std.map._
 import cats.free.Free
 import cats.data.Chain
@@ -44,6 +45,7 @@ object decoding {
         _.m.toRight(ReadError()).flatMap(decodeRecord(rec, _))
       case Sum(cases) => decodeSum(cases, _)
       case Isos(iso) => decodeIsos(iso, _)
+      case Defer(schema) => schema().read
     }
 
   type Res[B] = Either[ReadError, B]
