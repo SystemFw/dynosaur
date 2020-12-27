@@ -60,7 +60,7 @@ case class DynamoValue(value: AttributeValue) {
   val ns: Option[NonEmptySet[DynamoValue.Number]] =
     value.hasNs
       .guard[Option] >> NonEmptySet.fromSet(
-      value.ns.asScala.toSet.map((x: String) => DynamoValue.Number(x))
+      value.ns.asScala.toSet.map(DynamoValue.Number(_))
     )
 
   val ss: Option[NonEmptySet[String]] =
@@ -75,6 +75,9 @@ object DynamoValue {
   /** DynamoDb Number, which is represented as a string
     */
   case class Number(value: String)
+  object Number {
+    def of[A: Numeric](a: A): Number = Number(a.toString)
+  }
 
   val nul: DynamoValue =
     make(_.nul(true))
@@ -87,6 +90,9 @@ object DynamoValue {
 
   def n(value: Number): DynamoValue =
     make(_.n(value.value))
+
+  def n[A: Numeric](value: A): DynamoValue =
+    n(Number.of(value))
 
   def m(values: Map[String, DynamoValue]): DynamoValue =
     make(_.m { values.map { case (k, v) => k -> v.value }.asJava })

@@ -28,9 +28,6 @@ import Arbitraries._
 
 class SchemaSuite extends ScalaCheckSuite {
 
-  implicit def liftNumber[A: Numeric](a: A): DynamoValue.Number =
-    DynamoValue.Number(a.toString)
-
   /* simple case class */
   case class User(id: Int, name: String)
   /* nested case class */

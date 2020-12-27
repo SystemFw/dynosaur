@@ -251,7 +251,7 @@ object Schema {
   private def num[A: Numeric](convert: String => A): Schema[A] =
     Num.imapErr { v =>
       Either.catchNonFatal(convert(v.value)).leftMap(_ => ReadError())
-    }(n => DynamoValue.Number(n.toString))
+    }(n => DynamoValue.Number.of(n))
 
   private def numSet[A: Numeric](
       convert: String => A
@@ -266,7 +266,7 @@ object Schema {
         .map(NonEmptySet.unsafeFromSet)
     }(nes =>
       NonEmptySet.unsafeFromSet(
-        nes.value.map(n => DynamoValue.Number(n.toString))
+        nes.value.map(n => DynamoValue.Number.of(n))
       )
     )
   }
