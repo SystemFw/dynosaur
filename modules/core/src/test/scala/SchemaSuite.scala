@@ -96,70 +96,70 @@ class SchemaSuite extends ScalaCheckSuite {
     assertEquals(roundTrip, data)
   }
 
-  test("encode/decode ints") {
+  test("ints") {
     forAll { (i: Int) =>
       val expected = DynamoValue.n(i)
       check(Schema[Int], i, expected)
     }
   }
 
-  test("encode/decode longs") {
+  test("longs") {
     forAll { (l: Long) =>
       val expected = DynamoValue.n(l)
       check(Schema[Long], l, expected)
     }
   }
 
-  test("encode/decode doubles") {
+  test("doubles") {
     forAll { (d: Double) =>
       val expected = DynamoValue.n(d)
       check(Schema[Double], d, expected)
     }
   }
 
-  test("encode/decode floats") {
+  test("floats") {
     forAll { (f: Float) =>
       val expected = DynamoValue.n(f)
       check(Schema[Float], f, expected)
     }
   }
 
-  test("encode/decode shorts") {
+  test("shorts") {
     forAll { (s: Short) =>
       val expected = DynamoValue.n(s)
       check(Schema[Short], s, expected)
     }
   }
 
-  test("encode/decode strings") {
+  test("strings") {
     forAll { (s: String) =>
       val expected = DynamoValue.s(s)
       check(Schema[String], s, expected)
     }
   }
 
-  test("encode/decode booleans") {
+  test("booleans") {
     forAll { (b: Boolean) =>
       val expected = DynamoValue.bool(b)
       check(Schema[Boolean], b, expected)
     }
   }
 
-  test("encode/decode lists") {
+  test("lists") {
     forAll { (l: List[Int]) =>
       val expected = DynamoValue.l(l.map(i => DynamoValue.n(i)))
       check(Schema[List[Int]], l, expected)
     }
   }
 
-  test("encode/decode vectors") {
+  test("vectors") {
     forAll { (l: List[String]) =>
       val expected = DynamoValue.l(l.map(DynamoValue.s))
       check(Schema[List[String]], l, expected)
     }
   }
 
-  test("encode/decode bytes") {
+  test("bytes") {
     forAll { (b: Array[Byte]) =>
       val in = ByteVector(b)
       val expected = DynamoValue.b(in)
@@ -167,7 +167,7 @@ class SchemaSuite extends ScalaCheckSuite {
     }
   }
 
-  test("encode/decode Maps") {
+  test("maps") {
     forAll { (m: Map[String, Int]) =>
       val expected = DynamoValue.m {
         m.map { case (k, v) => k -> DynamoValue.n(v) }
@@ -176,7 +176,7 @@ class SchemaSuite extends ScalaCheckSuite {
     }
   }
 
-  test("encode/decode a product") {
+  test("products") {
     val role = Role("admin", User(203, "tim"))
     val schema: Schema[Role] = Schema.record { field =>
       (
@@ -202,7 +202,7 @@ class SchemaSuite extends ScalaCheckSuite {
     check(schema, role, expected)
   }
 
-  test("encode/decode a product including additional structure") {
+  test("products with additional structure") {
     val user = User(203, "tim")
     val schema = Schema.record[User] { field =>
       (
@@ -224,7 +224,7 @@ class SchemaSuite extends ScalaCheckSuite {
     check(versionedSchema, user, expected)
   }
 
-  test("encode/decode a product containing optional fields") {
+  test("products with optional fields") {
     val complete = Log("complete log", "tag".some)
     val noTag = Log("incomplete log", None)
 
@@ -257,7 +257,7 @@ class SchemaSuite extends ScalaCheckSuite {
     )
   }
 
-  test("encode/decode a product containing nullable values") {
+  test("products with nullable values") {
     val complete = Log("complete log", "tag".some)
     val noTag = Log("incomplete log", None)
 
@@ -291,7 +291,7 @@ class SchemaSuite extends ScalaCheckSuite {
   }
 
   test(
-    "encode/decode a product containing optional fields, with leniency to nullability"
+    "products with optional fields, leniency to nullability"
   ) {
     val complete = Log("complete log", "tag".some)
     val noTag = Log("incomplete log", None)
@@ -327,9 +327,7 @@ class SchemaSuite extends ScalaCheckSuite {
     )
   }
 
-  test(
-    "encode/decode a product containing nullable values, with leniency to optionality"
-  ) {
+  test("products with nullable values, leniency to optionality") {
     val complete = Log("complete log", "tag".some)
     val noTag = Log("incomplete log", None)
 
@@ -364,7 +362,7 @@ class SchemaSuite extends ScalaCheckSuite {
     )
   }
 
-  test("encode/decode a product with more than 22 fields") {
+  test("products with more than 22 fields") {
     val big = Big(
       "f",
       "f",
@@ -472,7 +470,7 @@ class SchemaSuite extends ScalaCheckSuite {
     check(bigSchema, big, expected)
   }
 
-  test("encode a newtype with no wrapping") {
+  test("newtypes, with no wrapping") {
     val token = TraceToken("1234")
     val schema = Schema[String].imap(TraceToken.apply)(_.value)
     val expected = DynamoValue.s(token.value)
@@ -480,7 +478,7 @@ class SchemaSuite extends ScalaCheckSuite {
     check(schema, token, expected)
   }
 
-  test("encode/decode enums") {
+  test("enums") {
     val started = Event(Started, "transaction started event")
     val completed = Event(Completed, "transaction completed event")
 
@@ -516,7 +514,7 @@ class SchemaSuite extends ScalaCheckSuite {
     check(eventSchema, completed, expectedCompleted)
   }
 
-  test("encode/decode an ADT using a discriminator key") {
+  test("ADTs, via a discriminator key") {
     val schema: Schema[Upload] = {
       val error = Schema
         .record[Error] { field =>
@@ -612,7 +610,7 @@ class SchemaSuite extends ScalaCheckSuite {
     check(schema, successfulUp, expectedSuccessful)
   }
 
-  test("encode/decode an ADT using a discriminator field") {
+  test("ADTs, via a discriminator field") {
     val schema: Schema[Upload] = {
       val error = Schema
         .record[Error] { field =>
