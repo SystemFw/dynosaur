@@ -90,8 +90,6 @@ sealed trait Schema[A] { self =>
 
   def asMap: Schema[Map[String, A]] = Dictionary(this)
 
-  override def toString = "Schema(..)"
-
   // TODO does just val (with no Eval) work? check when defer is in
   private val read_ : Eval[DynamoValue => Either[ReadError, A]] =
     Eval.later(internal.decoding.fromSchema(this))
