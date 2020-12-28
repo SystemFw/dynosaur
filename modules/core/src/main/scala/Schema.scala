@@ -249,7 +249,7 @@ object Schema {
     }
   }
 
-  // TODO use parseFromString from Numeric, 2.12+
+  // TODO use parseFromString from Numeric, 2.13+
   private def num[A: Numeric](convert: String => A): Schema[A] =
     Num.imapErr { v =>
       Either.catchNonFatal(convert(v.value)).leftMap(_ => ReadError())

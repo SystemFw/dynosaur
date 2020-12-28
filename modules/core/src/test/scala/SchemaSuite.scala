@@ -23,7 +23,6 @@ import dynosaur.{DynamoValue => V}
 
 import munit.ScalaCheckSuite
 import org.scalacheck.Prop._
-import Arbitraries._
 
 class SchemaSuite extends ScalaCheckSuite {
 
@@ -799,12 +798,6 @@ class SchemaSuite extends ScalaCheckSuite {
     }
 
     check(schema, text, expected)
-  }
-
-  test("pass through attribute value untouched") {
-    forAll { (v: V) =>
-      check(Schema[V], v, v)
-    }
   }
 
   val compileTimeInferenceSpec = {
