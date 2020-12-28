@@ -109,14 +109,38 @@ class DynamoValueSuite extends FunSuite {
     )
 
     val expected = """
-    |
+    |{
+    |  "id": {
+    |    "N": "10"
+    |  },
+    |  "food": {
+    |    "SS": ["Rice", "Noodles"]
+    |   },
+    |  "age": {"N": "1"},
+    |  "isThatYou": {"BOOL": true},
+    |  "attachments": {
+    |    "L": [
+    |      {
+    |        "M": {
+    |          "fileName": {
+    |            "S": "myfile.pdf"
+    |          },
+    |          "uri": {
+    |            "S": "https://mything.co.uk/123454"
+    |          }
+    |        }
+    |      }
+    |    ]
+    |  },
+    |  "day": {"S": "Tuesday"},
+    |  "options": { "NULL": true }
+    |}
     """.trim.stripMargin
 
     val s = v.print(40)
 
-//    assertEquals(s, expected)
-
-    assertEquals(true, true)
+    //    assertEquals(s, expected)
+    assert(true)
   }
 }
 
@@ -124,18 +148,8 @@ class DynamoValueSuite extends FunSuite {
 // each record field is "name" : { } (even if the contents are maps)
 // each element of a list is enclosed { }
 
-// An attribute of type String. For example:
-// "S": "Hello"
-
-// An attribute of type Number. For example:
-
-// "N": "123.45"
-
 // An attribute of type Binary. For example:
 // "B": "dGhpcyB0ZXh0IGlzIGJhc2U2NC1lbmNvZGVk"
-
-// An attribute of type Null. For example:
-// "NULL": true
 
 // An attribute of type String Set. For example:
 // "SS": ["Giraffe", "Hippo" ,"Zebra"]
@@ -145,40 +159,3 @@ class DynamoValueSuite extends FunSuite {
 
 // An attribute of type Binary Set. For example:
 // "BS": ["U3Vubnk=", "UmFpbnk=", "U25vd3k="]
-
-// An attribute of type Map. For example:
-// "M": {"Name": {"S": "Joe"}, "Age": {"N": "35"}}
-
-// An attribute of type List. For example:
-// "L": [{"S": "Cookies"}, {"S": "Coffee"}, {"N": "3.14159"}]
-
-// An attribute of type Boolean. For example:
-// "BOOL": true
-
-// composite
-// {
-//   "id": {
-//     "N": "10"
-//   },
-//   "food": {
-//     "SS": ["Rice", "Noodles"]
-//    },
-//   "age": {"N": "1"},
-//   "isThatYou": {"BOOL": true},
-//   "attachments": {
-//     "L": [
-//       {
-//         "M": {
-//           "fileName": {
-//             "S": "myfile.pdf"
-//           },
-//           "uri": {
-//             "S": "https://mything.co.uk/123454"
-//           }
-//         }
-//       }
-//     ]
-//   },
-//   "day": {"S": "Tuesday"},
-//   "options": { "NULL": true }
-// }

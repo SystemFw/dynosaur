@@ -90,9 +90,9 @@ case class DynamoValue(value: AttributeValue) {
       this.ss.map(ss)
   }.get
 
-  override def toString = print(40)
+  override def toString: String = print(40)
 
-  def print(maxLength: Int) =
+  def print(maxLength: Int): String =
     render.render(maxLength)
 
   def render: Doc = {
