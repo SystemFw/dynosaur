@@ -15,8 +15,7 @@
  */
 
 package dynosaur
-package scala
 
-object jdk {
-  val CollectionConverters = _root_.scala.jdk.CollectionConverters
+object CollectionConverters {
+  val all = _root_.scala.jdk.CollectionConverters
 }
