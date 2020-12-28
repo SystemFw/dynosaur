@@ -90,10 +90,12 @@ case class DynamoValue(value: AttributeValue) {
       this.ss.map(ss)
   }.get
 
-  def print: Doc = {
-    implicit def toDoc(s: String): Doc =
-      Doc.text(s)
+  override def toString = print(40)
 
+  def print(maxLength: Int) =
+    render.render(maxLength)
+
+  def render: Doc = {
     implicit class ToDoc(s: String) {
       def t = Doc.text(s)
       def p = Doc.paragraph(s)
@@ -101,27 +103,48 @@ case class DynamoValue(value: AttributeValue) {
     }
     implicit class Ops(d: Doc) {
       def brackets = d.bracketBy("{".t, "}".t)
+      def squareBrackets = d.bracketBy("[".t, "]".t)
       def quotes = "\"".t + d + "\"".t
     }
 
-    def strings(s: String): Doc =
+    def strings(s: String) =
       "S".colon(s.t.quotes)
 
-    def numbers(n: DynamoValue.Number): Doc =
+    def numbers(n: DynamoValue.Number) =
       "N".colon(n.value.t.quotes)
 
-    def bools(bool: Boolean): Doc =
+    def bools(bool: Boolean) =
       "BOOL".colon(Doc.str(bool))
 
     def nuls =
       "NULL".colon(Doc.str(true))
 
+    def lists(l: List[DynamoValue]) =
+      "L".colon(
+        Doc
+          .intercalate(
+            Doc.comma + Doc.line,
+            l.map(_.render.brackets)
+          )
+          .squareBrackets
+      )
+
+    def maps(m: Map[String, DynamoValue]) =
+      "M".colon(
+        Doc
+          .intercalate(
+            Doc.comma + Doc.line,
+            m.map { case (k, v) => k.colon(v.render.brackets) }
+          )
+          .brackets
+      )
+
     this.fold(
       strings,
       numbers,
       bools,
-      _ => Doc.empty,
-      _ => Doc.empty,
+      lists,
+      maps,
       _ => nuls,
       _ => Doc.empty,
       _ => Doc.empty,
