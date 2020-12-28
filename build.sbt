@@ -5,15 +5,19 @@ ThisBuild / organization := "org.systemfw"
 ThisBuild / publishGithubUser := "SystemFw"
 ThisBuild / publishFullName := "Fabio Labella"
 
-replaceCommandAlias("ci","; project /; headerCheckAll; clean; testIfRelevant; docs/mdoc; mimaReportBinaryIssuesIfRelevant")
-
 // sbt-sonatype wants these in Global
 Global / homepage := Some(url("https://github.com/SystemFw/dynosaur"))
 Global / scmInfo := Some(ScmInfo(url("https://github.com/SystemFw/dynosaur"), "git@github.com:SystemFw/dynosaur.git"))
 Global / excludeLintKeys += scmInfo
 ThisBuild / spiewakMainBranches := Seq("main")
 
-ThisBuild / crossScalaVersions := Seq("3.0.0-M2", "2.12.10", "2.13.4")
+val Scala213 = "2.13.4"
+
+ThisBuild / githubWorkflowBuildPostamble +=  WorkflowStep.Sbt(
+  List("docs/mdoc"),
+  cond = Some(s"matrix.scala == '$Scala213'"))
+
+ThisBuild / crossScalaVersions := Seq(Scala213, "3.0.0-M2", "2.12.10")
 ThisBuild / versionIntroduced := Map("3.0.0-M2" -> "3.0.0")
 
 ThisBuild / initialCommands := """
