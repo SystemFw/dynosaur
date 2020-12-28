@@ -21,7 +21,7 @@ import scodec.bits.ByteVector
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import software.amazon.awssdk.core.SdkBytes
 
-import scala.jdk.CollectionConverters._
+import dynosaur.scala.jdk.CollectionConverters._
 
 case class DynamoValue(value: AttributeValue) {
 

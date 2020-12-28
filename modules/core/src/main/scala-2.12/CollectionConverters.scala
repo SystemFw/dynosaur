@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+package dynosaur
 package scala
 
 object jdk {
