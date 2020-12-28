@@ -20,10 +20,75 @@ import dynosaur.{DynamoValue => V}
 import munit.FunSuite
 
 class DynamoValueSuite extends FunSuite {
-  def renderCheck(v: V, s: String) =
-    assertEquals(v.print.render(40), s)
+  def renderCheck(v: V, s: String) = {
+    val r = v.print.render(40)
+    println(r)
+    assertEquals(r, s)
+  }
 
-  test("foo")(assertEquals(true, true))
+  test("pretty prints strings") {
+    val v = V.s("Hello")
+
+    val expected = """
+    |"S": "Hello"
+    """.trim.stripMargin
+
+    renderCheck(v, expected)
+  }
+
+  test("pretty prints numbers") {
+    val v = V.n(123.45)
+
+    val expected = """
+    |"N": "123.45"
+    """.trim.stripMargin
+
+    renderCheck(v, expected)
+  }
+
+  test("pretty prints bools") {
+    val v = V.bool(true)
+
+    val expected = """
+    |"BOOL": true
+    """.trim.stripMargin
+
+    renderCheck(v, expected)
+  }
+
+  test("pretty prints Null") {
+    val v = V.nul
+
+    val expected = """
+    |"NULL": true
+    """.trim.stripMargin
+
+    renderCheck(v, expected)
+  }
+
+  test("pretty prints composite") {
+    val v = V.m(
+      "id" -> V.n(10),
+      "food" -> V.ss(NonEmptySet.of("Rice", "Noodles")),
+      "age" -> V.n(1),
+      "isThatYou" -> V.bool(true),
+      "files" -> V.l(
+        V.m(
+          "filename" -> V.s("myfile.pdf"),
+          "uri" -> V.s("https://mything.co.uk/123454")
+        )
+      ),
+      "day" -> V.s("Tuesday"),
+      "options" -> V.nul
+    )
+
+    val expected = """
+    |
+    """.trim.stripMargin
+
+    renderCheck(v, expected)
+  }
+
   // test("Renders numbers") {
   //   val v = V.n(42)
 

@@ -97,23 +97,24 @@ case class DynamoValue(value: AttributeValue) {
     implicit class ToDoc(s: String) {
       def t = Doc.text(s)
       def p = Doc.paragraph(s)
+      def colon(d: Doc) = s.t.quotes + ":".t & d
     }
     implicit class Ops(d: Doc) {
       def brackets = d.bracketBy("{".t, "}".t)
       def quotes = "\"".t + d + "\"".t
-      def colon(d2: Doc) = d & ":" & d2
     }
 
     def strings(s: String): Doc =
-      "S".t.quotes.colon(s.p.quotes.brackets)
+      "S".colon(s.t.quotes)
 
     def numbers(n: DynamoValue.Number): Doc =
-      "N".t.quotes.colon(n.value.t.quotes.brackets)
+      "N".colon(n.value.t.quotes)
 
     def bools(bool: Boolean): Doc =
-      "BOOL".t.quotes.colon(Doc.str(bool).quotes.brackets)
+      "BOOL".colon(Doc.str(bool))
 
-    def nuls = """{  "NULL": true }"""
+    def nuls =
+      "NULL".colon(Doc.str(true))
 
     this.fold(
       strings,
@@ -121,7 +122,7 @@ case class DynamoValue(value: AttributeValue) {
       bools,
       _ => Doc.empty,
       _ => Doc.empty,
-      _ => Doc.empty,
+      _ => nuls,
       _ => Doc.empty,
       _ => Doc.empty,
       _ => Doc.empty,
