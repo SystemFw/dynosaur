@@ -52,7 +52,8 @@ lazy val docs = project
     mdocIn := file("modules/docs"),
     mdocOut := file("docs"),
     mdocVariables := Map("VERSION" -> version.value),
-    githubWorkflowArtifactUpload := false
+    githubWorkflowArtifactUpload := false,
+    fatalWarningsInCI := false
   ).dependsOn(core)
    .enablePlugins(MdocPlugin, NoPublishPlugin)
 
