@@ -21,8 +21,7 @@ import scodec.bits.ByteVector
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import software.amazon.awssdk.core.SdkBytes
 
-import collection.JavaConverters._ // TODO generates a warning, since it's deprecated for
-//import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters._
 
 case class DynamoValue(value: AttributeValue) {
 
