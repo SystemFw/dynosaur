@@ -42,6 +42,7 @@ lazy val core = project
       dep("org.typelevel", "", "2.3.0")("alleycats-core")() ++
       dep("org.scodec", "scodec-bits", "1.1.22" )("")() ++
       dep("org.scalameta", "munit", "0.7.19")()("", "-scalacheck") ++
+      dep("org.typelevel", "paiges-", "0.3.2")("core", "cats")() ++
       Seq("software.amazon.awssdk" % "dynamodb" % "2.14.15")
   )
 

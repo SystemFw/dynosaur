@@ -17,6 +17,7 @@
 package dynosaur
 
 import cats._, syntax.all._
+import org.typelevel.paiges.Doc
 import scodec.bits.ByteVector
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import software.amazon.awssdk.core.SdkBytes
@@ -64,6 +65,70 @@ case class DynamoValue(value: AttributeValue) {
 
   val ss: Option[NonEmptySet[String]] =
     value.hasSs.guard[Option] >> NonEmptySet.fromSet(value.ss.asScala.toSet)
+
+  def fold[A](
+      s: String => A,
+      n: DynamoValue.Number => A,
+      bool: Boolean => A,
+      l: List[DynamoValue] => A,
+      m: Map[String, DynamoValue] => A,
+      nul: Unit => A,
+      b: ByteVector => A,
+      bs: NonEmptySet[ByteVector] => A,
+      ns: NonEmptySet[DynamoValue.Number] => A,
+      ss: NonEmptySet[String] => A
+  ): A = {
+    this.s.map(s) <+>
+      this.n.map(n) <+>
+      this.bool.map(bool) <+>
+      this.l.map(l) <+>
+      this.m.map(m) <+>
+      this.nul.map(nul) <+>
+      this.b.map(b) <+>
+      this.bs.map(bs) <+>
+      this.ns.map(ns) <+>
+      this.ss.map(ss)
+  }.get
+
+  def print: Doc = {
+    implicit def toDoc(s: String): Doc =
+      Doc.text(s)
+
+    implicit class ToDoc(s: String) {
+      def t = Doc.text(s)
+      def p = Doc.paragraph(s)
+    }
+    implicit class Ops(d: Doc) {
+      def brackets = d.bracketBy("{".t, "}".t)
+      def quotes = "\"".t + d + "\"".t
+      def colon(d2: Doc) = d & ":" & d2
+    }
+
+    def strings(s: String): Doc =
+      "S".t.quotes.colon(s.p.quotes.brackets)
+
+    def numbers(n: DynamoValue.Number): Doc =
+      "N".t.quotes.colon(n.value.t.quotes.brackets)
+
+    def bools(bool: Boolean): Doc =
+      "BOOL".t.quotes.colon(Doc.str(bool).quotes.brackets)
+
+    def nuls = """{  "NULL": true }"""
+
+    this.fold(
+      strings,
+      numbers,
+      bools,
+      _ => Doc.empty,
+      _ => Doc.empty,
+      _ => Doc.empty,
+      _ => Doc.empty,
+      _ => Doc.empty,
+      _ => Doc.empty,
+      _ => Doc.empty
+    )
+  }
+
 }
 object DynamoValue {
   def make(
