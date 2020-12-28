@@ -32,7 +32,6 @@ lazy val root = project
   .enablePlugins(NoPublishPlugin, SonatypeCiReleasePlugin)
   .aggregate(core)
 
-
 lazy val core = project
   .in(file("modules/core"))
   .settings(
@@ -47,10 +46,10 @@ lazy val core = project
   )
 
 lazy val docs = project
-  .in(file("docs"))
+  .in(file("website/mdoc"))
   .settings(
-    mdocIn := file("modules/docs"),
-    mdocOut := file("docs"),
+    mdocIn := file("website/docs"),
+    mdocOut := file("website/preview"),
     mdocVariables := Map("VERSION" -> version.value),
     githubWorkflowArtifactUpload := false,
     fatalWarningsInCI := false
