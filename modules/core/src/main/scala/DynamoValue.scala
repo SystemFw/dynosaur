@@ -159,10 +159,6 @@ case class DynamoValue(value: AttributeValue) {
 
 }
 object DynamoValue {
-  def make(
-      build: AttributeValue.Builder => AttributeValue.Builder
-  ): DynamoValue =
-    DynamoValue(build(AttributeValue.builder).build)
 
   /** DynamoDb Number, which is represented as a string
     */
@@ -215,4 +211,9 @@ object DynamoValue {
 
   def b(value: ByteVector): DynamoValue =
     make(_.b(SdkBytes.fromByteArray(value.toArray)))
+
+  private def make(
+      build: AttributeValue.Builder => AttributeValue.Builder
+  ): DynamoValue =
+    DynamoValue(build(AttributeValue.builder).build)
 }
