@@ -16,6 +16,7 @@
 
 package dynosaur
 
+import scodec.bits.ByteVector
 import dynosaur.{DynamoValue => V}
 import munit.FunSuite
 
@@ -68,6 +69,19 @@ class DynamoValueSuite extends FunSuite {
     assertEquals(s, expected)
   }
 
+  test("pretty prints binary") {
+    val v =
+      V.b(ByteVector.fromValidBase64("dGhpcyB0ZXh0IGlzIGJhc2U2NC1lbmNvZGVk"))
+
+    val expected = """
+    |"B": "dGhpcyB0ZXh0IGlzIGJhc2U2NC1lbmNvZGVk"
+    """.trim.stripMargin
+
+    val s = v.print(100)
+
+    assertEquals(s, expected)
+  }
+
   test("pretty prints lists") {
     val v = V.l(V.s("Cookies"), V.s("Coffee"), V.n(3.14159))
 
@@ -80,11 +94,54 @@ class DynamoValueSuite extends FunSuite {
     assertEquals(s, expected)
   }
 
-  test("pretty print maps") {
+  test("pretty prints maps") {
     val v = V.m("Name" -> V.s("Joe"), "Age" -> V.n(35))
 
     val expected = """
     |"M": { "Age": { "N": "35" }, "Name": { "S": "Joe" } }
+    """.trim.stripMargin
+
+    val s = v.print(100)
+
+    assertEquals(s, expected)
+  }
+
+  test("pretty prints number sets") {
+    val n = DynamoValue.Number
+    val v = V.ns(NonEmptySet.of(n.of(42.2), n.of(-19), n.of(7.5), n.of(3.14)))
+
+    val expected = """
+    |"NS": [ "42.2", "-19", "7.5", "3.14" ]
+    """.trim.stripMargin
+
+    val s = v.print(100)
+
+    assertEquals(s, expected)
+  }
+
+  test("pretty prints string sets") {
+    val v = V.ss(NonEmptySet.of("Giraffe", "Hippo", "Zebra"))
+
+    val expected = """
+    |"SS": [ "Giraffe", "Hippo", "Zebra" ]
+    """.trim.stripMargin
+
+    val s = v.print(100)
+
+    assertEquals(s, expected)
+  }
+
+  test("pretty prints binary sets") {
+    val v = {
+      val binaries =
+        Set("U3Vubnk=", "UmFpbnk=", "U25vd3k=")
+          .map(b => ByteVector.fromValidBase64(b))
+
+      V.bs(NonEmptySet.unsafeFromSet(binaries))
+    }
+
+    val expected = """
+    |"BS": [ "U3Vubnk=", "UmFpbnk=", "U25vd3k=" ]
     """.trim.stripMargin
 
     val s = v.print(100)
@@ -143,19 +200,3 @@ class DynamoValueSuite extends FunSuite {
     assert(true)
   }
 }
-
-// top-level has {}
-// each record field is "name" : { } (even if the contents are maps)
-// each element of a list is enclosed { }
-
-// An attribute of type Binary. For example:
-// "B": "dGhpcyB0ZXh0IGlzIGJhc2U2NC1lbmNvZGVk"
-
-// An attribute of type String Set. For example:
-// "SS": ["Giraffe", "Hippo" ,"Zebra"]
-
-// An attribute of type Number Set. For example:
-// "NS": ["42.2", "-19", "7.5", "3.14"]
-
-// An attribute of type Binary Set. For example:
-// "BS": ["U3Vubnk=", "UmFpbnk=", "U25vd3k="]

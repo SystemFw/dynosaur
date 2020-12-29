@@ -98,7 +98,6 @@ case class DynamoValue(value: AttributeValue) {
   def render: Doc = {
     implicit class ToDoc(s: String) {
       def t = Doc.text(s)
-      def p = Doc.paragraph(s)
       def colon(d: Doc) = s.t.quotes + ":".t & d
     }
     implicit class Ops(d: Doc) {
@@ -107,11 +106,17 @@ case class DynamoValue(value: AttributeValue) {
       def quotes = "\"".t + d + "\"".t
     }
 
+    def csv(d: Iterable[Doc]) =
+      Doc.intercalate(Doc.comma + Doc.line, d)
+
     def strings(s: String) =
       "S".colon(s.t.quotes)
 
     def numbers(n: DynamoValue.Number) =
       "N".colon(n.value.t.quotes)
+
+    def binaries(b: ByteVector) =
+      "B".colon(b.toBase64.t.quotes)
 
     def bools(bool: Boolean) =
       "BOOL".colon(Doc.str(bool))
@@ -120,24 +125,23 @@ case class DynamoValue(value: AttributeValue) {
       "NULL".colon(Doc.str(true))
 
     def lists(l: List[DynamoValue]) =
-      "L".colon(
-        Doc
-          .intercalate(
-            Doc.comma + Doc.line,
-            l.map(_.render.brackets)
-          )
-          .squareBrackets
-      )
+      "L".colon(csv(l.map(_.render.brackets)).squareBrackets)
 
     def maps(m: Map[String, DynamoValue]) =
-      "M".colon(
-        Doc
-          .intercalate(
-            Doc.comma + Doc.line,
-            m.map { case (k, v) => k.colon(v.render.brackets) }
-          )
-          .brackets
-      )
+      "M".colon {
+        csv {
+          m.map { case (k, v) => k.colon(v.render.brackets) }
+        }.brackets
+      }
+
+    def stringSets(ss: NonEmptySet[String]) =
+      "SS".colon(csv(ss.value.map(_.t.quotes)).squareBrackets)
+
+    def numberSets(ns: NonEmptySet[DynamoValue.Number]) =
+      "NS".colon(csv(ns.value.map(_.value.t.quotes)).squareBrackets)
+
+    def binarySets(bs: NonEmptySet[ByteVector]) =
+      "BS".colon(csv(bs.value.map(_.toBase64.t.quotes)).squareBrackets)
 
     this.fold(
       strings,
@@ -146,10 +150,10 @@ case class DynamoValue(value: AttributeValue) {
       lists,
       maps,
       _ => nuls,
-      _ => Doc.empty,
-      _ => Doc.empty,
-      _ => Doc.empty,
-      _ => Doc.empty
+      binaries,
+      binarySets,
+      numberSets,
+      stringSets
     )
   }
 
