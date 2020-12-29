@@ -157,7 +157,7 @@ class DynamoValueSuite extends FunSuite {
       "isThatYou" -> V.bool(true),
       "files" -> V.l(
         V.m(
-          "filename" -> V.s("myfile.pdf"),
+          "fileName" -> V.s("myfile.pdf"),
           "uri" -> V.s("https://mything.co.uk/123454")
         )
       ),
@@ -166,16 +166,10 @@ class DynamoValueSuite extends FunSuite {
     )
 
     val expected = """
-    |{
-    |  "id": {
-    |    "N": "10"
-    |  },
-    |  "food": {
-    |    "SS": ["Rice", "Noodles"]
-    |   },
-    |  "age": {"N": "1"},
-    |  "isThatYou": {"BOOL": true},
-    |  "attachments": {
+    |"M": {
+    |  "isThatYou": { "BOOL": true },
+    |  "age": { "N": "1" },
+    |  "files": {
     |    "L": [
     |      {
     |        "M": {
@@ -189,14 +183,17 @@ class DynamoValueSuite extends FunSuite {
     |      }
     |    ]
     |  },
-    |  "day": {"S": "Tuesday"},
-    |  "options": { "NULL": true }
+    |  "options": { "NULL": true },
+    |  "id": { "N": "10" },
+    |  "food": {
+    |    "SS": [ "Rice", "Noodles" ]
+    |  },
+    |  "day": { "S": "Tuesday" }
     |}
     """.trim.stripMargin
 
     val s = v.print(40)
 
-    //    assertEquals(s, expected)
-    assert(true)
+    assertEquals(s, expected)
   }
 }
