@@ -93,9 +93,9 @@ case class DynamoValue(value: AttributeValue) {
   override def toString: String = print(40)
 
   def print(maxLength: Int): String =
-    render.render(maxLength)
+    toDoc.render(maxLength)
 
-  def render: Doc = {
+  def toDoc: Doc = {
     implicit class ToDoc(s: String) {
       def t = Doc.text(s)
       def colon(d: Doc) = s.t.quotes + ":".t & d
@@ -125,12 +125,12 @@ case class DynamoValue(value: AttributeValue) {
       "NULL".colon(Doc.str(true))
 
     def lists(l: List[DynamoValue]) =
-      "L".colon(csv(l.map(_.render.brackets)).squareBrackets)
+      "L".colon(csv(l.map(_.toDoc.brackets)).squareBrackets)
 
     def maps(m: Map[String, DynamoValue]) =
       "M".colon {
         csv {
-          m.map { case (k, v) => k.colon(v.render.brackets) }
+          m.map { case (k, v) => k.colon(v.toDoc.brackets) }
         }.brackets
       }
 
