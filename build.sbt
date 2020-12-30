@@ -17,7 +17,9 @@ ThisBuild / githubWorkflowBuildPostamble +=  WorkflowStep.Sbt(
   List("docs/mdoc"),
   cond = Some(s"matrix.scala == '$Scala213'"))
 
-ThisBuild / crossScalaVersions := Seq(Scala213, "3.0.0-M2", "2.12.10")
+// blocked on a paiges release for Scala 3
+// ThisBuild / crossScalaVersions := Seq(Scala213, "3.0.0-M2", "2.12.10")
+ThisBuild / crossScalaVersions := Seq(Scala213, "2.12.10")
 ThisBuild / versionIntroduced := Map("3.0.0-M2" -> "3.0.0")
 ThisBuild / scalaVersion := (ThisBuild / crossScalaVersions).value.head
 
