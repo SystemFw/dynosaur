@@ -88,11 +88,24 @@ val e = Auth.Error("Unauthorized")
 // e: Auth.Error = Error(Unauthorized)
 
 schema.write_(u)
-// res0: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={user=AttributeValue(SS=[], NS=[], BS=[], M={name=AttributeValue(S=tim, SS=[], NS=[], BS=[], M={}, L=[]), id=AttributeValue(N=303, SS=[], NS=[], BS=[], M={}, L=[])}, L=[])}, L=[]))
+// res0: DynamoValue = "M": {
+//   "user": {
+//     "M": {
+//       "name": { "S": "tim" },
+//       "id": { "N": "303" }
+//     }
+//   }
+// }
 schema.read_(schema.write_(u))
 // res1: Auth = User(303,tim)
 schema.write_(e)
-// res2: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={error=AttributeValue(SS=[], NS=[], BS=[], M={reason=AttributeValue(S=Unauthorized, SS=[], NS=[], BS=[], M={}, L=[])}, L=[])}, L=[]))
+// res2: DynamoValue = "M": {
+//   "error": {
+//     "M": {
+//       "reason": { "S": "Unauthorized" }
+//     }
+//   }
+// }
 schema.read_(schema.write_(e))
 // res3: Auth = Error(Unauthorized)
 ```
@@ -201,7 +214,7 @@ val eventIdSchema = Schema[String].imap(EventId.apply)(_.value)
 
 ```scala
 eventIdSchema.write_(EventId("event-1234"))
-// res4: DynamoValue = DynamoValue(AttributeValue(S=event-1234, SS=[], NS=[], BS=[], M={}, L=[]))
+// res4: DynamoValue = "S": "event-1234"
 ```
 </details>
 
@@ -231,7 +244,7 @@ def switchSchema = Schema[String].imapErr { s =>
 
 ```scala
 val a = switchSchema.write_(Switch.On)
-// a: DynamoValue = DynamoValue(AttributeValue(S=On, SS=[], NS=[], BS=[], M={}, L=[]))
+// a: DynamoValue = "S": "On"
 ```
 </details>
 
@@ -259,7 +272,10 @@ val fooSchema = Schema.record[Foo] { field =>
 
 ```scala
 fooSchema.write_(Foo("value of Foo", 1))
-// res5: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={a=AttributeValue(S=value of Foo, SS=[], NS=[], BS=[], M={}, L=[]), b=AttributeValue(N=1, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]))
+// res5: DynamoValue = "M": {
+//   "a": { "S": "value of Foo" },
+//   "b": { "N": "1" }
+// }
 ```
 </details>
 
@@ -328,7 +344,15 @@ val nestedSchema: Schema[Bar] =
 val bar = Bar(10, Foo("value of Foo", 40))
 // bar: Bar = Bar(10,Foo(value of Foo,40))
 nestedSchema.write_(bar)
-// res9: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={foo=AttributeValue(SS=[], NS=[], BS=[], M={a=AttributeValue(S=value of Foo, SS=[], NS=[], BS=[], M={}, L=[]), b=AttributeValue(N=40, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]), n=AttributeValue(N=10, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]))
+// res9: DynamoValue = "M": {
+//   "foo": {
+//     "M": {
+//       "a": { "S": "value of Foo" },
+//       "b": { "N": "40" }
+//     }
+//   },
+//   "n": { "N": "10" }
+// }
 ```
 </details>
 
@@ -411,7 +435,15 @@ val envelopeSchema = Schema.record[Foo] { field =>
 
 ```scala
 envelopeSchema.write_(Foo("value of Foo", 150))
-// res12: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={eventId=AttributeValue(S=14tafet143ba, SS=[], NS=[], BS=[], M={}, L=[]), payload=AttributeValue(SS=[], NS=[], BS=[], M={a=AttributeValue(S=value of Foo, SS=[], NS=[], BS=[], M={}, L=[]), b=AttributeValue(N=150, SS=[], NS=[], BS=[], M={}, L=[])}, L=[])}, L=[]))
+// res12: DynamoValue = "M": {
+//   "eventId": { "S": "14tafet143ba" },
+//   "payload": {
+//     "M": {
+//       "a": { "S": "value of Foo" },
+//       "b": { "N": "150" }
+//     }
+//   }
+// }
 ```
 </details>
 
@@ -428,7 +460,21 @@ val taggedSchema = envelopeSchema.tag("event")
 
 ```scala
 taggedSchema.write_(Foo("value of Foo", 150))
-// res13: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={event=AttributeValue(SS=[], NS=[], BS=[], M={eventId=AttributeValue(S=14tafet143ba, SS=[], NS=[], BS=[], M={}, L=[]), payload=AttributeValue(SS=[], NS=[], BS=[], M={a=AttributeValue(S=value of Foo, SS=[], NS=[], BS=[], M={}, L=[]), b=AttributeValue(N=150, SS=[], NS=[], BS=[], M={}, L=[])}, L=[])}, L=[])}, L=[]))
+// res13: DynamoValue = "M": {
+//   "event": {
+//     "M": {
+//       "eventId": {
+//         "S": "14tafet143ba"
+//       },
+//       "payload": {
+//         "M": {
+//           "a": { "S": "value of Foo" },
+//           "b": { "N": "150" }
+//         }
+//       }
+//     }
+//   }
+// }
 ```
 </details>
 
@@ -469,7 +515,11 @@ val versionedFooSchema = Schema.record[Foo] { field =>
 
 ```scala
 versionedFooSchema.write_(Foo("value of Foo", 300))
-// res15: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={a=AttributeValue(S=value of Foo, SS=[], NS=[], BS=[], M={}, L=[]), b=AttributeValue(N=300, SS=[], NS=[], BS=[], M={}, L=[]), version=AttributeValue(S=1.0, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]))
+// res15: DynamoValue = "M": {
+//   "a": { "S": "value of Foo" },
+//   "b": { "N": "300" },
+//   "version": { "S": "1.0" }
+// }
 ```
 </details>
 
@@ -528,9 +578,14 @@ val msgSchemaOpt = Schema.record[Msg] { field =>
 
 ```scala
 msgSchemaOpt.write_(Msg("Topical message", "Interesting topic".some))
-// res16: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={topic=AttributeValue(S=Interesting topic, SS=[], NS=[], BS=[], M={}, L=[]), body=AttributeValue(S=Topical message, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]))
+// res16: DynamoValue = "M": {
+//   "topic": { "S": "Interesting topic" },
+//   "body": { "S": "Topical message" }
+// }
 msgSchemaOpt.write_(Msg("Random message", None))
-// res17: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={body=AttributeValue(S=Random message, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]))
+// res17: DynamoValue = "M": {
+//   "body": { "S": "Random message" }
+// }
 ```
 </details>
 
@@ -555,9 +610,15 @@ In this case, the call to `Schema.nullable` translates to `Schema[String].nullab
 
 ```scala
 msgSchemaNull.write_(Msg("Topical message", "Interesting topic".some))
-// res18: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={topic=AttributeValue(S=Interesting topic, SS=[], NS=[], BS=[], M={}, L=[]), body=AttributeValue(S=Topical message, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]))
+// res18: DynamoValue = "M": {
+//   "topic": { "S": "Interesting topic" },
+//   "body": { "S": "Topical message" }
+// }
 msgSchemaNull.write_(Msg("Random message", None))
-// res19: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={topic=AttributeValue(SS=[], NS=[], BS=[], M={}, L=[], NUL=true), body=AttributeValue(S=Random message, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]))
+// res19: DynamoValue = "M": {
+//   "topic": { "NULL": true },
+//   "body": { "S": "Random message" }
+// }
 ```
 </details>
 
@@ -613,11 +674,11 @@ val two = Two(4)
 // two: Two = Two(4)
 
 basicADTSchema.write_(one)
-// res20: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={s=AttributeValue(S=this is one, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]))
+// res20: DynamoValue = "M": { "s": { "S": "this is one" } }
 basicADTSchema.read_(basicADTSchema.write_(one))
 // res21: Basic = One(this is one)
 basicADTSchema.write_(two)
-// res22: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={n=AttributeValue(N=4, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]))
+// res22: DynamoValue = "M": { "n": { "N": "4" } }
 basicADTSchema.read_(basicADTSchema.write_(two))
 // res23: Basic = Two(4)
 ```
@@ -685,9 +746,9 @@ encoded form is the same:
 
 ```scala
 ambiguous.write_(B("hello"))
-// res24: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={v=AttributeValue(S=hello, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]))
+// res24: DynamoValue = "M": { "v": { "S": "hello" } }
 ambiguous.write_(C("hello"))
-// res25: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={v=AttributeValue(S=hello, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]))
+// res25: DynamoValue = "M": { "v": { "S": "hello" } }
 ambiguous.read_(ambiguous.write_(C("hello"))) // gives incorrect result
 // res26: A = B(hello)
 ```
@@ -776,15 +837,29 @@ val warning = Warning("this is a warning")
 // warning: Warning = Warning(this is a warning)
 
 schemaWithKey.write_(error)
-// res30: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={error=AttributeValue(SS=[], NS=[], BS=[], M={msg=AttributeValue(S=this is an error, SS=[], NS=[], BS=[], M={}, L=[])}, L=[])}, L=[]))
+// res30: DynamoValue = "M": {
+//   "error": {
+//     "M": {
+//       "msg": { "S": "this is an error" }
+//     }
+//   }
+// }
 schemaWithKey.read_(schemaWithKey.write_(error))
 // res31: Problem = Error(this is an error)
 schemaWithKey.write_(warning)
-// res32: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={warning=AttributeValue(SS=[], NS=[], BS=[], M={msg=AttributeValue(S=this is a warning, SS=[], NS=[], BS=[], M={}, L=[])}, L=[])}, L=[]))
+// res32: DynamoValue = "M": {
+//   "warning": {
+//     "M": {
+//       "msg": {
+//         "S": "this is a warning"
+//       }
+//     }
+//   }
+// }
 schemaWithKey.read_(schemaWithKey.write_(warning))
 // res33: Problem = Warning(this is a warning)
 schemaWithKey.write_(Unknown)
-// res34: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={unknown=AttributeValue(SS=[], NS=[], BS=[], M={}, L=[])}, L=[]))
+// res34: DynamoValue = "M": { "unknown": { "M": {  } } }
 schemaWithKey.read_(schemaWithKey.write_(Unknown))
 // res35: Problem = Unknown
 ```
@@ -831,15 +906,21 @@ val schemaWithField = Schema.oneOf[Problem] { alt =>
 
 ```scala
 schemaWithField.write_(error)
-// res36: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={msg=AttributeValue(S=this is an error, SS=[], NS=[], BS=[], M={}, L=[]), type=AttributeValue(S=error, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]))
+// res36: DynamoValue = "M": {
+//   "msg": { "S": "this is an error" },
+//   "type": { "S": "error" }
+// }
 schemaWithField.read_(schemaWithField.write_(error))
 // res37: Problem = Error(this is an error)
 schemaWithField.write_(warning)
-// res38: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={msg=AttributeValue(S=this is a warning, SS=[], NS=[], BS=[], M={}, L=[]), type=AttributeValue(S=warning, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]))
+// res38: DynamoValue = "M": {
+//   "msg": { "S": "this is a warning" },
+//   "type": { "S": "warning" }
+// }
 schemaWithField.read_(schemaWithField.write_(warning))
 // res39: Problem = Warning(this is a warning)
 schemaWithField.write_(Unknown)
-// res40: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={type=AttributeValue(S=unknown, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]))
+// res40: DynamoValue = "M": { "type": { "S": "unknown" } }
 schemaWithField.read_(schemaWithField.write_(Unknown))
 // res41: Problem = Unknown
 ```
@@ -866,9 +947,32 @@ The are all represented as `L` in `AttributeValue`:
 
 ```scala
 Schema[Vector[Int]].write_(Vector(1, 2, 3))
-// res42: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={}, L=[AttributeValue(N=1, SS=[], NS=[], BS=[], M={}, L=[]), AttributeValue(N=2, SS=[], NS=[], BS=[], M={}, L=[]), AttributeValue(N=3, SS=[], NS=[], BS=[], M={}, L=[])]))
+// res42: DynamoValue = "L": [
+//   { "N": "1" },
+//   { "N": "2" },
+//   { "N": "3" }
+// ]
 fooSchema.asList.write_(List(Foo("a", 1), Foo("b", 2), Foo("c", 3)))
-// res43: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={}, L=[AttributeValue(SS=[], NS=[], BS=[], M={a=AttributeValue(S=a, SS=[], NS=[], BS=[], M={}, L=[]), b=AttributeValue(N=1, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]), AttributeValue(SS=[], NS=[], BS=[], M={a=AttributeValue(S=b, SS=[], NS=[], BS=[], M={}, L=[]), b=AttributeValue(N=2, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]), AttributeValue(SS=[], NS=[], BS=[], M={a=AttributeValue(S=c, SS=[], NS=[], BS=[], M={}, L=[]), b=AttributeValue(N=3, SS=[], NS=[], BS=[], M={}, L=[])}, L=[])]))
+// res43: DynamoValue = "L": [
+//   {
+//     "M": {
+//       "a": { "S": "a" },
+//       "b": { "N": "1" }
+//     }
+//   },
+//   {
+//     "M": {
+//       "a": { "S": "b" },
+//       "b": { "N": "2" }
+//     }
+//   },
+//   {
+//     "M": {
+//       "a": { "S": "c" },
+//       "b": { "N": "3" }
+//     }
+//   }
+// ]
 ```
 </details>
 
@@ -887,9 +991,16 @@ As with sequences, there is an inductive instance of
 
 ```scala
 Schema[Map[String, Int]].write_(Map("hello" -> 1))
-// res44: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={hello=AttributeValue(N=1, SS=[], NS=[], BS=[], M={}, L=[])}, L=[]))
+// res44: DynamoValue = "M": { "hello": { "N": "1" } }
 fooSchema.asMap.write_(Map("A foo" -> Foo("a", 1)))
-// res45: DynamoValue = DynamoValue(AttributeValue(SS=[], NS=[], BS=[], M={A foo=AttributeValue(SS=[], NS=[], BS=[], M={a=AttributeValue(S=a, SS=[], NS=[], BS=[], M={}, L=[]), b=AttributeValue(N=1, SS=[], NS=[], BS=[], M={}, L=[])}, L=[])}, L=[]))
+// res45: DynamoValue = "M": {
+//   "A foo": {
+//     "M": {
+//       "a": { "S": "a" },
+//       "b": { "N": "1" }
+//     }
+//   }
+// }
 ```
 </details>
 

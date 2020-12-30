@@ -1,6 +1,13 @@
-# dynosaur
+# Dynosaur
 
-> Awesome
+> Bidirectional codecs for DynamoDb.
 
-[Getting started](start.md)
+- Single Schema for encoding and decoding
+- Declarative, flexible DSL
+- Use SDK2 AttributeValue, with Scala types
+
+
+
+[Getting started](Schema.md)
+
 

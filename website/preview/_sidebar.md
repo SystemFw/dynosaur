@@ -1,4 +1,4 @@
-- **Getting started**
- - [Start](start.md)
-- **Schema**
- - [Schema](Schema.md)
+<!-- - **Schema** -->
+<!--  - [Schema](Schema.md) -->
+
+- [**Docs**](Schema.md)
