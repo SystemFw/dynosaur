@@ -12,9 +12,9 @@ libraryDependencies += "org.systemfw" %% "dynosaur" % "@version@"
 
 # Quick example
 
-`Dynosaur` design is based on defining _schemas_ for your
-data, rather than your typical `Encoder/Decoder` typeclasses.
-Here's a quick example, and you can read on for in depth documentation.
+The design of `Dynosaur` is based on defining _schemas_ for your data,
+rather than your typical `Encoder/Decoder` typeclasses. Here's a quick
+example, and you can read on for in depth documentation.
 
 Given this simple ADT
 
@@ -259,7 +259,7 @@ val eventIdSchema = Schema[String].imap(EventId.apply)(_.value)
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-eventIdSchema.write_(EventId("event-1234"))
+eventIdSchema.write(EventId("event-1234"))
 ```
 </details>
 
@@ -288,7 +288,7 @@ def switchSchema = Schema[String].imapErr { s =>
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-val a = switchSchema.write_(Switch.On)
+val a = switchSchema.write(Switch.On)
 ```
 </details>
 
@@ -315,7 +315,7 @@ val fooSchema = Schema.record[Foo] { field =>
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-fooSchema.write_(Foo("value of Foo", 1))
+fooSchema.write(Foo("value of Foo", 1))
 ```
 </details>
 
@@ -382,7 +382,7 @@ val nestedSchema: Schema[Bar] =
 
 ```scala mdoc:to-string
 val bar = Bar(10, Foo("value of Foo", 40))
-nestedSchema.write_(bar)
+nestedSchema.write(bar)
 ```
 </details>
 
@@ -464,7 +464,7 @@ val envelopeSchema = Schema.record[Foo] { field =>
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-envelopeSchema.write_(Foo("value of Foo", 150))
+envelopeSchema.write(Foo("value of Foo", 150))
 ```
 </details>
 
@@ -480,7 +480,7 @@ val taggedSchema = envelopeSchema.tag("event")
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-taggedSchema.write_(Foo("value of Foo", 150))
+taggedSchema.write(Foo("value of Foo", 150))
 ```
 </details>
 
@@ -520,7 +520,7 @@ val versionedFooSchema = Schema.record[Foo] { field =>
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-versionedFooSchema.write_(Foo("value of Foo", 300))
+versionedFooSchema.write(Foo("value of Foo", 300))
 ```
 </details>
 
@@ -578,8 +578,8 @@ val msgSchemaOpt = Schema.record[Msg] { field =>
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-msgSchemaOpt.write_(Msg("Topical message", "Interesting topic".some))
-msgSchemaOpt.write_(Msg("Random message", None))
+msgSchemaOpt.write(Msg("Topical message", "Interesting topic".some))
+msgSchemaOpt.write(Msg("Random message", None))
 ```
 </details>
 
@@ -603,8 +603,8 @@ In this case, the call to `Schema.nullable` translates to `Schema[String].nullab
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-msgSchemaNull.write_(Msg("Topical message", "Interesting topic".some))
-msgSchemaNull.write_(Msg("Random message", None))
+msgSchemaNull.write(Msg("Topical message", "Interesting topic".some))
+msgSchemaNull.write(Msg("Random message", None))
 ```
 </details>
 
@@ -657,10 +657,10 @@ val basicADTSchema = Schema.oneOf[Basic] { alt =>
 val one = One("this is one")
 val two = Two(4)
 
-basicADTSchema.write_(one)
-basicADTSchema.read_(basicADTSchema.write_(one))
-basicADTSchema.write_(two)
-basicADTSchema.read_(basicADTSchema.write_(two))
+basicADTSchema.write(one)
+basicADTSchema.write(one).flatMap(basicADTSchema.read)
+basicADTSchema.write(two)
+basicADTSchema.write(two).flatMap(basicADTSchema.read)
 
 ```
 </details>
@@ -726,9 +726,10 @@ encoded form is the same:
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-ambiguous.write_(B("hello"))
-ambiguous.write_(C("hello"))
-ambiguous.read_(ambiguous.write_(C("hello"))) // gives incorrect result
+ambiguous.write(B("hello"))
+ambiguous.write(C("hello"))
+// gives incorrect result
+ambiguous.write(C("hello")).flatMap(ambiguous.read)
 ```
 </details>
 
@@ -812,12 +813,12 @@ val schemaWithKey = Schema.oneOf[Problem] { alt =>
 val error = Error("this is an error")
 val warning = Warning("this is a warning")
 
-schemaWithKey.write_(error)
-schemaWithKey.read_(schemaWithKey.write_(error))
-schemaWithKey.write_(warning)
-schemaWithKey.read_(schemaWithKey.write_(warning))
-schemaWithKey.write_(Unknown)
-schemaWithKey.read_(schemaWithKey.write_(Unknown))
+schemaWithKey.write(error)
+schemaWithKey.write(error).flatMap(schemaWithKey.read)
+schemaWithKey.write(warning)
+schemaWithKey.write(warning).flatMap(schemaWithKey.read)
+schemaWithKey.write(Unknown)
+schemaWithKey.write(Unknown).flatMap(schemaWithKey.read)
 ```
 </details>
 
@@ -861,12 +862,12 @@ val schemaWithField = Schema.oneOf[Problem] { alt =>
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-schemaWithField.write_(error)
-schemaWithField.read_(schemaWithField.write_(error))
-schemaWithField.write_(warning)
-schemaWithField.read_(schemaWithField.write_(warning))
-schemaWithField.write_(Unknown)
-schemaWithField.read_(schemaWithField.write_(Unknown))
+schemaWithField.write(error)
+schemaWithField.write(error).flatMap(schemaWithField.read)
+schemaWithField.write(warning)
+schemaWithField.write(warning).flatMap(schemaWithField.read)
+schemaWithField.write(Unknown)
+schemaWithField.write(Unknown).flatMap(schemaWithField.read)
 ```
 </details>
 
@@ -890,8 +891,8 @@ The are all represented as `L` in `AttributeValue`:
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-Schema[Vector[Int]].write_(Vector(1, 2, 3))
-fooSchema.asList.write_(List(Foo("a", 1), Foo("b", 2), Foo("c", 3)))
+Schema[Vector[Int]].write(Vector(1, 2, 3))
+fooSchema.asList.write(List(Foo("a", 1), Foo("b", 2), Foo("c", 3)))
 ```
 </details>
 
@@ -909,8 +910,8 @@ As with sequences, there is an inductive instance of
 <summary>Click to show the resulting AttributeValue</summary>
 
 ```scala mdoc:to-string
-Schema[Map[String, Int]].write_(Map("hello" -> 1))
-fooSchema.asMap.write_(Map("A foo" -> Foo("a", 1)))
+Schema[Map[String, Int]].write(Map("hello" -> 1))
+fooSchema.asMap.write(Map("A foo" -> Foo("a", 1)))
 ```
 </details>
 
