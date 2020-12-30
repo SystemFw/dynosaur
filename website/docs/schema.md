@@ -211,15 +211,14 @@ methods. The primary method is `apply`:
 ```scala mdoc:compile-only
 Schema.record[Foo] { field =>
   val b = field("b", _.b)(Schema[Int])
-  
- ???
+  ???
 }
 ```
 which takes three arguments:
 
-1. the name of the field in the resulting `DynamoValue`.
-2. A function to access the field during the encoding phase, in this case `Foo => Int`.
-3. the schema of the field, which is `Schema[Int]` is this case.
+1. the name of the field in the resulting `DynamoValue`
+2. A function to access the field during the encoding phase, in this case `Foo => Int`
+3. the schema of the field, which is `Schema[Int]` is this case
 
 Once we have declared our fields, we need to tell `dynosaur` how to
 combine them into a `Foo` during the decoding phase. Luckily, the
