@@ -1,84 +1,94 @@
-# ----
+## Basics
 
-`Dynosaur` design for codecs is based on defining _schemas_ for your
-data, rather than your typical `Encoder/Decoder` typeclasses.
-The central type of the DSL is `Schema[A]`, which you can think of as
-either a representation of `A`, or a recipe for _both_ encoding and
-decoding `A`s to and from `AttributeValue`.
+The design of `Dynosaur` is centred around `Schema[A]`, which you can
+think of as either a representation of `A`, or a recipe for _both_
+encoding and decoding `A`s.
 
-**Note:**  basic familiarity with `cats` typeclasses like `Monoid` and
-`Applicative` is required.
-
-
-
-
-## Setup
-
-TODO setup needs to be redone given new AttributeValue and methods
-TODO mention somewhere that schemas are best defined as vals
-
-We are going to need the following imports:
+For the remainder of this document, we're going to assume very basic
+familiarity with `cats` typeclasses such as `Monoid` and
+`Applicative`, and the following two imports:
 
 ```scala mdoc
 import dynosaur._
 import cats.syntax.all._
 ```
 
-We will also define `.read_` and `.write_` helpers to run the examples
-in this page, but you are not going to need them in your own code.
-For the time being, we will ignore potential errors, and show the
-output as `Json` instead of the `AttributeValue` ADT to help with
-readability.
+So let's start by declaring a simple schema for integers:
 
-<details>
-<summary>Click to expand</summary>
-
-```scala mdoc
-implicit class Codecs[A](schema: Schema[A]) {
-  def write_(v: A) =
-    schema
-    .write(v)
-    .toOption.get
-    
-  def read_(v: DynamoValue): A =
-      schema.read(v).toOption.get
-}
-
+```scala mdoc:silent
+val simpleSchema: Schema[Int] =
+  Schema[Int] // provided by the library
 ```
-</details>
 
-In the rest of the document, we will only show encoding since decoding
-comes for free, unless there is something specific to point out about
-the behaviour of the decoder.
+and use it to encode something:
 
+```scala mdoc:to-string
+simpleSchema.write(1)
+```
+
+The result is of type `Either[WriteError, DynamoValue]`, where
+`DynamoValue` is a thin wrapper over DynamoDb `AttributeValue`, which
+offers pretty-printing among other things.
+
+The same schema can be used for decoding:
+
+```scala mdoc:to-string
+val myInt = DynamoValue.n(15)
+simpleSchema.read(myInt)
+```
+
+which means we get roundtrip for free:
+
+```scala mdoc:to-string
+simpleSchema.write(1).flatMap(simpleSchema.read)
+```
+
+We are now ready to move on to exploring different ways of creating
+our schemas.
+
+> **Notes:**
+> - Since decoding comes for free, in the rest of the document we will
+>   only show encoding, unless there is something specific to point out
+>   about the behaviour of the decoder.
+> - To avoid cluttering, the `DynamoValue` output will appear in expandable
+>   snippets like this one:
+>    <details>
+>    <summary>Click to expand</summary>
+>
+>    ```
+>    I'm a snippet!
+>    ```
+>
+>    </details>
+> -  With the exception of recursive schemas, which are treated later,
+>    it's best to declare schemas as `val`, to allow `Dynosaur` to
+>    cache some transformations
+
+## Passthrough schema
+
+The simplest possible schema is the passthrough schema, which you can obtain
+by calling:
+
+```scala mdoc:compile-only
+Schema[DynamoValue]
+```
+
+you won't be using it very often, but it can come in handy when your code needs
+to work directly with the low level representation, instead of custom data types.
 
 ## Primitives
 
-The simplest instances of `Schema` are primitives, for example `Schema[String]`
-represents the ability to encode and decode an arbitrary `String`.
-The following primitives are supported:
+`Dynosaur` provides schemas for the following Scala primitive types:
+
 ```scala
-  Schema[Boolean]
-  Schema[String]
-  Schema[Int]
-  Schema[Long]
-  Schema[Double]
-  Schema[Float]
-  Schema[Short]
-  Schema[AttributeValue]
+ Schema[Boolean]
+ Schema[String]
+ Schema[Int]
+ Schema[Long]
+ Schema[Double]
+ Schema[Float]
+ Schema[Short]
 ```
-
-
-> **Notes:**
-> - `Schema[AttributeValue]` is the identity schema that writes and
->   reads `AttributeValue` without touching it
-> - Infamously, DynamoDB does not support empty strings. `dynosaur`
->    does not introduce any magic to deal with this automatically, but
->    it's flexible enough to allow you to handle this case in several
->    ways, including putting `NULL` or a special
->   value.  
->   Read on to learn about `imapErr`, `nullable` and all the other
->   combinators you can use to mold your data to fit your needs.
 
 ## Bidirectional mappings
 
@@ -86,20 +96,22 @@ New schemas can be created from existing ones by declaring a
 bidirectional mapping between them.  
 The most general way is using the `xmap` method on `Schema`:
 ```scala
-class Schema[A] {
+sealed trait Schema[A] {
   def xmap[B](f: A => Either[ReadError, B])(g: B => Either[WriteError, A]): Schema[B]
-
+  ...
 ```
 
 although in many cases its two specialised variants `imap` and
 `imapErr` are sufficient:
 
 ```scala
-class Schema[A] {
+sealed trait Schema[A] {
   def imap[B](f: A => B)(g: B => A): Schema[B]
   def imapErr[B](f: A => Either[ReadError, B])(g: B => A): Schema[B]
-
+  ...
 ```
+
+#### imap
 
 `imap` defines an isomorphism between `A` and `B`, which often arises
 when using newtypes such as:
@@ -116,12 +128,15 @@ extra nesting.
 val eventIdSchema = Schema[String].imap(EventId.apply)(_.value)
 ```
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala mdoc:to-string
 eventIdSchema.write(EventId("event-1234"))
+eventIdSchema.read(DynamoValue.s("event-5678"))
 ```
 </details>
+
+#### imapErr
 
 `imapErr` encodes the common case where encoding cannot fail but
 decoding can, as seen, for example, in enums:
@@ -145,10 +160,12 @@ def switchSchema = Schema[String].imapErr { s =>
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala mdoc:to-string
 val a = switchSchema.write(Switch.On)
+a.flatMap(switchSchema.read)
+switchSchema.read(DynamoValue.s("blub"))
 ```
 </details>
 
@@ -163,16 +180,16 @@ whose `Schema[Foo]` can be defined as:
 
 ```scala mdoc:silent
 val fooSchema = Schema.record[Foo] { field =>
- (
-   field("a", _.a)(Schema[String]),
-   field("b", _.b)(Schema[Int])
- ).mapN(Foo.apply)
+  (
+    field("a", _.a)(Schema[String]),
+    field("b", _.b)(Schema[Int])
+  ).mapN(Foo.apply)
 }
 
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala mdoc:to-string
 fooSchema.write(Foo("value of Foo", 1))
@@ -189,60 +206,76 @@ Schema.record[Foo] { field =>
 
 Which states that the type `Foo` is represented by a record, and gives
 you the `field` builder to create fields by calling its various
-methods. The primary method is `apply`
+methods. The primary method is `apply`:
 
 ```scala mdoc:compile-only
 Schema.record[Foo] { field =>
- val b = field("b", _.b)(Schema[Int])
+  val b = field("b", _.b)(Schema[Int])
   
  ???
 }
 ```
 which takes three arguments:
 
-1. the name of the field in the resulting `AttributeValue`
-2. A function to access the field during the encoding phase, in this case `Foo => Int`
-3. the schema of the field, which is `Schema[Int]` is this case
+1. the name of the field in the resulting `DynamoValue`.
+2. A function to access the field during the encoding phase, in this case `Foo => Int`.
+3. the schema of the field, which is `Schema[Int]` is this case.
 
 Once we have declared our fields, we need to tell `dynosaur` how to
 combine them into a `Foo` during the decoding phase. Luckily, the
-computations returned by `field.apply` are monadic, so we can use
+computations returned by `field.apply` are applicative, so we can use
 `mapN` from cats:
 
 ```scala mdoc:silent
 Schema.record[Foo] { field =>
- (
-   field("a",_.a)(Schema[String]),
-   field("b", _.b)(Schema[Int])
- ).mapN(Foo.apply)
+  (
+    field("a",_.a)(Schema[String]),
+    field("b", _.b)(Schema[Int])
+  ).mapN(Foo.apply)
 }
 ```
 
 These definitions nest in the obvious way:
 
 ```scala mdoc:silent
-case class Bar(n: Int, foo: Foo)
+case class Bar(num: Int, foo: Foo)
 val nestedSchema: Schema[Bar] =
   Schema.record { field =>
-   (
-     field("n", _.n)(Schema[Int]),
-     field("foo", _.foo) {
-       Schema.record { field =>
-         (
-          field("a", _.a)(Schema[String]),
-          field("b",_.b)(Schema[Int])
-         ).mapN(Foo.apply)
-       }
-     }
+    (
+      field("num", _.num)(Schema[Int]),
+      field("foo", _.foo) {
+        Schema.record { field =>
+          (
+            field("a", _.a)(Schema[String]),
+            field("b",_.b)(Schema[Int])
+          ).mapN(Foo.apply)
+        }
+      }
     ).mapN(Bar.apply)
-  }
+}
 ```
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala mdoc:to-string
 val bar = Bar(10, Foo("value of Foo", 40))
 nestedSchema.write(bar)
+```
+</details>
+
+and you can simply use `map` for a record with only one field:
+
+```scala mdoc:silent
+case class Baz(word: String)
+val bazSchema = Schema.record[Baz] { field =>
+  field("word", _.word)(Schema[String]).map(Baz.apply)
+}
+```
+<details>
+<summary>Click to show the resulting DynamoValue</summary>
+
+```scala mdoc:to-string
+bazSchema.write(Baz("hello"))
 ```
 </details>
 
@@ -277,17 +310,14 @@ guideline:
 
 ```scala mdoc:compile-only
 Schema.record[Bar] { field =>
- (
-   field("n", _.n),
-   field("foo", _.foo) {
-     Schema.record { field =>
-       (
-         field("a", _.a),
-         field("b", _.b)
-       ).mapN(Foo.apply)
-     }
-   }
- ).mapN(Bar.apply)
+  (
+    field("num", _.num),
+    field("foo", _.foo) {
+      Schema.record { field =>
+        (field("a", _.a), field("b", _.b)).mapN(Foo.apply)
+      }
+    }
+  ).mapN(Bar.apply)
 }
 ```
 
@@ -321,7 +351,7 @@ val envelopeSchema = Schema.record[Foo] { field =>
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala mdoc:to-string
 envelopeSchema.write(Foo("value of Foo", 150))
@@ -337,7 +367,7 @@ val taggedSchema = envelopeSchema.tag("event")
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala mdoc:to-string
 taggedSchema.write(Foo("value of Foo", 150))
@@ -377,7 +407,7 @@ val versionedFooSchema = Schema.record[Foo] { field =>
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala mdoc:to-string
 versionedFooSchema.write(Foo("value of Foo", 300))
@@ -435,7 +465,7 @@ val msgSchemaOpt = Schema.record[Msg] { field =>
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala mdoc:to-string
 msgSchemaOpt.write(Msg("Topical message", "Interesting topic".some))
@@ -460,7 +490,7 @@ val msgSchemaNull = Schema.record[Msg] { field =>
 In this case, the call to `Schema.nullable` translates to `Schema[String].nullable`.
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala mdoc:to-string
 msgSchemaNull.write(Msg("Topical message", "Interesting topic".some))
@@ -511,7 +541,7 @@ val basicADTSchema = Schema.oneOf[Basic] { alt =>
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala mdoc:to-string
 val one = One("this is one")
@@ -583,7 +613,7 @@ val ambiguous: Schema[A] = Schema.oneOf { alt =>
 encoded form is the same:
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala mdoc:to-string
 ambiguous.write(B("hello"))
@@ -667,7 +697,7 @@ val schemaWithKey = Schema.oneOf[Problem] { alt =>
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala mdoc:to-string
 val error = Error("this is an error")
@@ -719,7 +749,7 @@ val schemaWithField = Schema.oneOf[Problem] { alt =>
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala mdoc:to-string
 schemaWithField.write(error)
@@ -748,7 +778,7 @@ If you are passing schemas explicitly, you can call `asList`,
 The are all represented as `L` in `AttributeValue`:
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala mdoc:to-string
 Schema[Vector[Int]].write(Vector(1, 2, 3))
@@ -767,7 +797,7 @@ As with sequences, there is an inductive instance of
 `asMap` on a schema.
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala mdoc:to-string
 Schema[Map[String, Int]].write(Map("hello" -> 1))

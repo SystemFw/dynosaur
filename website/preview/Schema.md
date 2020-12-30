@@ -1,83 +1,98 @@
-# ----
+## Basics
 
-`Dynosaur` design for codecs is based on defining _schemas_ for your
-data, rather than your typical `Encoder/Decoder` typeclasses.
-The central type of the DSL is `Schema[A]`, which you can think of as
-either a representation of `A`, or a recipe for _both_ encoding and
-decoding `A`s to and from `AttributeValue`.
+The design of `Dynosaur` is centred around `Schema[A]`, which you can
+think of as either a representation of `A`, or a recipe for _both_
+encoding and decoding `A`s.
 
-**Note:**  basic familiarity with `cats` typeclasses like `Monoid` and
-`Applicative` is required.
-
-
-
-
-## Setup
-
-TODO setup needs to be redone given new AttributeValue and methods
-TODO mention somewhere that schemas are best defined as vals
-
-We are going to need the following imports:
+For the remainder of this document, we're going to assume very basic
+familiarity with `cats` typeclasses such as `Monoid` and
+`Applicative`, and the following two imports:
 
 ```scala
 import dynosaur._
 import cats.syntax.all._
 ```
 
-We will also define `.read_` and `.write_` helpers to run the examples
-in this page, but you are not going to need them in your own code.
-For the time being, we will ignore potential errors, and show the
-output as `Json` instead of the `AttributeValue` ADT to help with
-readability.
-
-<details>
-<summary>Click to expand</summary>
+So let's start by declaring a simple schema for integers:
 
 ```scala
-implicit class Codecs[A](schema: Schema[A]) {
-  def write_(v: A) =
-    schema
-    .write(v)
-    .toOption.get
-    
-  def read_(v: DynamoValue): A =
-      schema.read(v).toOption.get
-}
+val simpleSchema: Schema[Int] =
+  Schema[Int] // provided by the library
 ```
-</details>
 
-In the rest of the document, we will only show encoding since decoding
-comes for free, unless there is something specific to point out about
-the behaviour of the decoder.
+and use it to encode something:
 
+```scala
+simpleSchema.write(1)
+// res0: Either[Schema.WriteError, DynamoValue] = Right("N": "1")
+```
+
+The result is of type `Either[WriteError, DynamoValue]`, where
+`DynamoValue` is a thin wrapper over DynamoDb `AttributeValue`, which
+offers pretty-printing among other things.
+
+The same schema can be used for decoding:
+
+```scala
+val myInt = DynamoValue.n(15)
+// myInt: DynamoValue = "N": "15"
+simpleSchema.read(myInt)
+// res1: Either[Schema.ReadError, Int] = Right(15)
+```
+
+which means we get roundtrip for free:
+
+```scala
+simpleSchema.write(1).flatMap(simpleSchema.read)
+// res2: Either[Schema.DynosaurError, Int] = Right(1)
+```
+
+We are now ready to move on to exploring different ways of creating
+our schemas.
+
+> **Notes:**
+> - Since decoding comes for free, in the rest of the document we will
+>   only show encoding, unless there is something specific to point out
+>   about the behaviour of the decoder.
+> - To avoid cluttering, the `DynamoValue` output will appear in expandable
+>   snippets like this one:
+>    <details>
+>    <summary>Click to expand</summary>
+>
+>    ```
+>    I'm a snippet!
+>    ```
+>
+>    </details>
+> -  With the exception of recursive schemas, which are treated later,
+>    it's best to declare schemas as `val`, to allow `Dynosaur` to
+>    cache some transformations
+
+## Passthrough schema
+
+The simplest possible schema is the passthrough schema, which you can obtain
+by calling:
+
+```scala
+Schema[DynamoValue]
+```
+
+you won't be using it very often, but it can come in handy when your code needs
+to work directly with the low level representation, instead of custom data types.
 
 ## Primitives
 
-The simplest instances of `Schema` are primitives, for example `Schema[String]`
-represents the ability to encode and decode an arbitrary `String`.
-The following primitives are supported:
+`Dynosaur` provides schemas for the following Scala primitive types:
+
 ```scala
-  Schema[Boolean]
-  Schema[String]
-  Schema[Int]
-  Schema[Long]
-  Schema[Double]
-  Schema[Float]
-  Schema[Short]
-  Schema[AttributeValue]
+ Schema[Boolean]
+ Schema[String]
+ Schema[Int]
+ Schema[Long]
+ Schema[Double]
+ Schema[Float]
+ Schema[Short]
 ```
-
-
-> **Notes:**
-> - `Schema[AttributeValue]` is the identity schema that writes and
->   reads `AttributeValue` without touching it
-> - Infamously, DynamoDB does not support empty strings. `dynosaur`
->    does not introduce any magic to deal with this automatically, but
->    it's flexible enough to allow you to handle this case in several
->    ways, including putting `NULL` or a special
->   value.  
->   Read on to learn about `imapErr`, `nullable` and all the other
->   combinators you can use to mold your data to fit your needs.
 
 ## Bidirectional mappings
 
@@ -85,20 +100,22 @@ New schemas can be created from existing ones by declaring a
 bidirectional mapping between them.  
 The most general way is using the `xmap` method on `Schema`:
 ```scala
-class Schema[A] {
+sealed trait Schema[A] {
   def xmap[B](f: A => Either[ReadError, B])(g: B => Either[WriteError, A]): Schema[B]
-
+  ...
 ```
 
 although in many cases its two specialised variants `imap` and
 `imapErr` are sufficient:
 
 ```scala
-class Schema[A] {
+sealed trait Schema[A] {
   def imap[B](f: A => B)(g: B => A): Schema[B]
   def imapErr[B](f: A => Either[ReadError, B])(g: B => A): Schema[B]
-
+  ...
 ```
+
+#### imap
 
 `imap` defines an isomorphism between `A` and `B`, which often arises
 when using newtypes such as:
@@ -115,13 +132,17 @@ extra nesting.
 val eventIdSchema = Schema[String].imap(EventId.apply)(_.value)
 ```
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala
 eventIdSchema.write(EventId("event-1234"))
-// res0: Either[Schema.WriteError, DynamoValue] = Right("S": "event-1234")
+// res4: Either[Schema.WriteError, DynamoValue] = Right("S": "event-1234")
+eventIdSchema.read(DynamoValue.s("event-5678"))
+// res5: Either[Schema.ReadError, EventId] = Right(EventId(event-5678))
 ```
 </details>
+
+#### imapErr
 
 `imapErr` encodes the common case where encoding cannot fail but
 decoding can, as seen, for example, in enums:
@@ -145,11 +166,15 @@ def switchSchema = Schema[String].imapErr { s =>
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala
 val a = switchSchema.write(Switch.On)
 // a: Either[Schema.WriteError, DynamoValue] = Right("S": "On")
+a.flatMap(switchSchema.read)
+// res6: Either[Schema.DynosaurError, Switch] = Right(On)
+switchSchema.read(DynamoValue.s("blub"))
+// res7: Either[Schema.ReadError, Switch] = Left(dynosaur.Schema$ReadError)
 ```
 </details>
 
@@ -164,20 +189,20 @@ whose `Schema[Foo]` can be defined as:
 
 ```scala
 val fooSchema = Schema.record[Foo] { field =>
- (
-   field("a", _.a)(Schema[String]),
-   field("b", _.b)(Schema[Int])
- ).mapN(Foo.apply)
+  (
+    field("a", _.a)(Schema[String]),
+    field("b", _.b)(Schema[Int])
+  ).mapN(Foo.apply)
 }
 
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala
 fooSchema.write(Foo("value of Foo", 1))
-// res1: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res8: Either[Schema.WriteError, DynamoValue] = Right("M": {
 //   "a": { "S": "value of Foo" },
 //   "b": { "N": "1" }
 // })
@@ -194,70 +219,87 @@ Schema.record[Foo] { field =>
 
 Which states that the type `Foo` is represented by a record, and gives
 you the `field` builder to create fields by calling its various
-methods. The primary method is `apply`
+methods. The primary method is `apply`:
 
 ```scala
 Schema.record[Foo] { field =>
- val b = field("b", _.b)(Schema[Int])
+  val b = field("b", _.b)(Schema[Int])
   
  ???
 }
 ```
 which takes three arguments:
 
-1. the name of the field in the resulting `AttributeValue`
-2. A function to access the field during the encoding phase, in this case `Foo => Int`
-3. the schema of the field, which is `Schema[Int]` is this case
+1. the name of the field in the resulting `DynamoValue`.
+2. A function to access the field during the encoding phase, in this case `Foo => Int`.
+3. the schema of the field, which is `Schema[Int]` is this case.
 
 Once we have declared our fields, we need to tell `dynosaur` how to
 combine them into a `Foo` during the decoding phase. Luckily, the
-computations returned by `field.apply` are monadic, so we can use
+computations returned by `field.apply` are applicative, so we can use
 `mapN` from cats:
 
 ```scala
 Schema.record[Foo] { field =>
- (
-   field("a",_.a)(Schema[String]),
-   field("b", _.b)(Schema[Int])
- ).mapN(Foo.apply)
+  (
+    field("a",_.a)(Schema[String]),
+    field("b", _.b)(Schema[Int])
+  ).mapN(Foo.apply)
 }
 ```
 
 These definitions nest in the obvious way:
 
 ```scala
-case class Bar(n: Int, foo: Foo)
+case class Bar(num: Int, foo: Foo)
 val nestedSchema: Schema[Bar] =
   Schema.record { field =>
-   (
-     field("n", _.n)(Schema[Int]),
-     field("foo", _.foo) {
-       Schema.record { field =>
-         (
-          field("a", _.a)(Schema[String]),
-          field("b",_.b)(Schema[Int])
-         ).mapN(Foo.apply)
-       }
-     }
+    (
+      field("num", _.num)(Schema[Int]),
+      field("foo", _.foo) {
+        Schema.record { field =>
+          (
+            field("a", _.a)(Schema[String]),
+            field("b",_.b)(Schema[Int])
+          ).mapN(Foo.apply)
+        }
+      }
     ).mapN(Bar.apply)
-  }
+}
 ```
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala
 val bar = Bar(10, Foo("value of Foo", 40))
 // bar: Bar = Bar(10,Foo(value of Foo,40))
 nestedSchema.write(bar)
-// res5: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res12: Either[Schema.WriteError, DynamoValue] = Right("M": {
+//   "num": { "N": "10" },
 //   "foo": {
 //     "M": {
 //       "a": { "S": "value of Foo" },
 //       "b": { "N": "40" }
 //     }
-//   },
-//   "n": { "N": "10" }
+//   }
 // })
+```
+</details>
+
+and you can simply use `map` for a record with only one field:
+
+```scala
+case class Baz(word: String)
+val bazSchema = Schema.record[Baz] { field =>
+  field("word", _.word)(Schema[String]).map(Baz.apply)
+}
+```
+<details>
+<summary>Click to show the resulting DynamoValue</summary>
+
+```scala
+bazSchema.write(Baz("hello"))
+// res13: Either[Schema.WriteError, DynamoValue] = Right("M": { "word": { "S": "hello" } })
 ```
 </details>
 
@@ -292,17 +334,14 @@ guideline:
 
 ```scala
 Schema.record[Bar] { field =>
- (
-   field("n", _.n),
-   field("foo", _.foo) {
-     Schema.record { field =>
-       (
-         field("a", _.a),
-         field("b", _.b)
-       ).mapN(Foo.apply)
-     }
-   }
- ).mapN(Bar.apply)
+  (
+    field("num", _.num),
+    field("foo", _.foo) {
+      Schema.record { field =>
+        (field("a", _.a), field("b", _.b)).mapN(Foo.apply)
+      }
+    }
+  ).mapN(Bar.apply)
 }
 ```
 
@@ -336,11 +375,11 @@ val envelopeSchema = Schema.record[Foo] { field =>
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala
 envelopeSchema.write(Foo("value of Foo", 150))
-// res8: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res16: Either[Schema.WriteError, DynamoValue] = Right("M": {
 //   "eventId": { "S": "14tafet143ba" },
 //   "payload": {
 //     "M": {
@@ -361,11 +400,11 @@ val taggedSchema = envelopeSchema.tag("event")
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala
 taggedSchema.write(Foo("value of Foo", 150))
-// res9: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res17: Either[Schema.WriteError, DynamoValue] = Right("M": {
 //   "event": {
 //     "M": {
 //       "eventId": {
@@ -416,11 +455,11 @@ val versionedFooSchema = Schema.record[Foo] { field =>
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala
 versionedFooSchema.write(Foo("value of Foo", 300))
-// res11: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res19: Either[Schema.WriteError, DynamoValue] = Right("M": {
 //   "a": { "S": "value of Foo" },
 //   "b": { "N": "300" },
 //   "version": { "S": "1.0" }
@@ -479,16 +518,16 @@ val msgSchemaOpt = Schema.record[Msg] { field =>
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala
 msgSchemaOpt.write(Msg("Topical message", "Interesting topic".some))
-// res12: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res20: Either[Schema.WriteError, DynamoValue] = Right("M": {
 //   "topic": { "S": "Interesting topic" },
 //   "body": { "S": "Topical message" }
 // })
 msgSchemaOpt.write(Msg("Random message", None))
-// res13: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res21: Either[Schema.WriteError, DynamoValue] = Right("M": {
 //   "body": { "S": "Random message" }
 // })
 ```
@@ -511,16 +550,16 @@ val msgSchemaNull = Schema.record[Msg] { field =>
 In this case, the call to `Schema.nullable` translates to `Schema[String].nullable`.
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala
 msgSchemaNull.write(Msg("Topical message", "Interesting topic".some))
-// res14: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res22: Either[Schema.WriteError, DynamoValue] = Right("M": {
 //   "topic": { "S": "Interesting topic" },
 //   "body": { "S": "Topical message" }
 // })
 msgSchemaNull.write(Msg("Random message", None))
-// res15: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res23: Either[Schema.WriteError, DynamoValue] = Right("M": {
 //   "topic": { "NULL": true },
 //   "body": { "S": "Random message" }
 // })
@@ -570,7 +609,7 @@ val basicADTSchema = Schema.oneOf[Basic] { alt =>
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala
 val one = One("this is one")
@@ -579,13 +618,13 @@ val two = Two(4)
 // two: Two = Two(4)
 
 basicADTSchema.write(one)
-// res16: Either[Schema.WriteError, DynamoValue] = Right("M": { "s": { "S": "this is one" } })
+// res24: Either[Schema.WriteError, DynamoValue] = Right("M": { "s": { "S": "this is one" } })
 basicADTSchema.write(one).flatMap(basicADTSchema.read)
-// res17: Either[Schema.DynosaurError, Basic] = Right(One(this is one))
+// res25: Either[Schema.DynosaurError, Basic] = Right(One(this is one))
 basicADTSchema.write(two)
-// res18: Either[Schema.WriteError, DynamoValue] = Right("M": { "n": { "N": "4" } })
+// res26: Either[Schema.WriteError, DynamoValue] = Right("M": { "n": { "N": "4" } })
 basicADTSchema.write(two).flatMap(basicADTSchema.read)
-// res19: Either[Schema.DynosaurError, Basic] = Right(Two(4))
+// res27: Either[Schema.DynosaurError, Basic] = Right(Two(4))
 ```
 </details>
 
@@ -647,16 +686,16 @@ val ambiguous: Schema[A] = Schema.oneOf { alt =>
 encoded form is the same:
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala
 ambiguous.write(B("hello"))
-// res20: Either[Schema.WriteError, DynamoValue] = Right("M": { "v": { "S": "hello" } })
+// res28: Either[Schema.WriteError, DynamoValue] = Right("M": { "v": { "S": "hello" } })
 ambiguous.write(C("hello"))
-// res21: Either[Schema.WriteError, DynamoValue] = Right("M": { "v": { "S": "hello" } })
+// res29: Either[Schema.WriteError, DynamoValue] = Right("M": { "v": { "S": "hello" } })
 // gives incorrect result
 ambiguous.write(C("hello")).flatMap(ambiguous.read)
-// res22: Either[Schema.DynosaurError, A] = Right(B(hello))
+// res30: Either[Schema.DynosaurError, A] = Right(B(hello))
 ```
 </details>
 
@@ -734,7 +773,7 @@ val schemaWithKey = Schema.oneOf[Problem] { alt =>
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala
 val error = Error("this is an error")
@@ -743,7 +782,7 @@ val warning = Warning("this is a warning")
 // warning: Warning = Warning(this is a warning)
 
 schemaWithKey.write(error)
-// res26: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res34: Either[Schema.WriteError, DynamoValue] = Right("M": {
 //   "error": {
 //     "M": {
 //       "msg": { "S": "this is an error" }
@@ -751,9 +790,9 @@ schemaWithKey.write(error)
 //   }
 // })
 schemaWithKey.write(error).flatMap(schemaWithKey.read)
-// res27: Either[Schema.DynosaurError, Problem] = Right(Error(this is an error))
+// res35: Either[Schema.DynosaurError, Problem] = Right(Error(this is an error))
 schemaWithKey.write(warning)
-// res28: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res36: Either[Schema.WriteError, DynamoValue] = Right("M": {
 //   "warning": {
 //     "M": {
 //       "msg": {
@@ -763,11 +802,11 @@ schemaWithKey.write(warning)
 //   }
 // })
 schemaWithKey.write(warning).flatMap(schemaWithKey.read)
-// res29: Either[Schema.DynosaurError, Problem] = Right(Warning(this is a warning))
+// res37: Either[Schema.DynosaurError, Problem] = Right(Warning(this is a warning))
 schemaWithKey.write(Unknown)
-// res30: Either[Schema.WriteError, DynamoValue] = Right("M": { "unknown": { "M": {  } } })
+// res38: Either[Schema.WriteError, DynamoValue] = Right("M": { "unknown": { "M": {  } } })
 schemaWithKey.write(Unknown).flatMap(schemaWithKey.read)
-// res31: Either[Schema.DynosaurError, Problem] = Right(Unknown)
+// res39: Either[Schema.DynosaurError, Problem] = Right(Unknown)
 ```
 </details>
 
@@ -808,27 +847,27 @@ val schemaWithField = Schema.oneOf[Problem] { alt =>
 ```
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala
 schemaWithField.write(error)
-// res32: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res40: Either[Schema.WriteError, DynamoValue] = Right("M": {
 //   "msg": { "S": "this is an error" },
 //   "type": { "S": "error" }
 // })
 schemaWithField.write(error).flatMap(schemaWithField.read)
-// res33: Either[Schema.DynosaurError, Problem] = Right(Error(this is an error))
+// res41: Either[Schema.DynosaurError, Problem] = Right(Error(this is an error))
 schemaWithField.write(warning)
-// res34: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res42: Either[Schema.WriteError, DynamoValue] = Right("M": {
 //   "msg": { "S": "this is a warning" },
 //   "type": { "S": "warning" }
 // })
 schemaWithField.write(warning).flatMap(schemaWithField.read)
-// res35: Either[Schema.DynosaurError, Problem] = Right(Warning(this is a warning))
+// res43: Either[Schema.DynosaurError, Problem] = Right(Warning(this is a warning))
 schemaWithField.write(Unknown)
-// res36: Either[Schema.WriteError, DynamoValue] = Right("M": { "type": { "S": "unknown" } })
+// res44: Either[Schema.WriteError, DynamoValue] = Right("M": { "type": { "S": "unknown" } })
 schemaWithField.write(Unknown).flatMap(schemaWithField.read)
-// res37: Either[Schema.DynosaurError, Problem] = Right(Unknown)
+// res45: Either[Schema.DynosaurError, Problem] = Right(Unknown)
 ```
 </details>
 
@@ -849,17 +888,17 @@ If you are passing schemas explicitly, you can call `asList`,
 The are all represented as `L` in `AttributeValue`:
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala
 Schema[Vector[Int]].write(Vector(1, 2, 3))
-// res38: Either[Schema.WriteError, DynamoValue] = Right("L": [
+// res46: Either[Schema.WriteError, DynamoValue] = Right("L": [
 //   { "N": "1" },
 //   { "N": "2" },
 //   { "N": "3" }
 // ])
 fooSchema.asList.write(List(Foo("a", 1), Foo("b", 2), Foo("c", 3)))
-// res39: Either[Schema.WriteError, DynamoValue] = Right("L": [
+// res47: Either[Schema.WriteError, DynamoValue] = Right("L": [
 //   {
 //     "M": {
 //       "a": { "S": "a" },
@@ -893,13 +932,13 @@ As with sequences, there is an inductive instance of
 `asMap` on a schema.
 
 <details>
-<summary>Click to show the resulting AttributeValue</summary>
+<summary>Click to show the resulting DynamoValue</summary>
 
 ```scala
 Schema[Map[String, Int]].write(Map("hello" -> 1))
-// res40: Either[Schema.WriteError, DynamoValue] = Right("M": { "hello": { "N": "1" } })
+// res48: Either[Schema.WriteError, DynamoValue] = Right("M": { "hello": { "N": "1" } })
 fooSchema.asMap.write(Map("A foo" -> Foo("a", 1)))
-// res41: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res49: Either[Schema.WriteError, DynamoValue] = Right("M": {
 //   "A foo": {
 //     "M": {
 //       "a": { "S": "a" },

@@ -23,7 +23,7 @@ import cats.syntax.all._
 val schema: Schema[Auth] = Schema.oneOf { alt =>
   val error = Schema.record[Auth.Error] { field =>
     field("reason", _.reason).map(Auth.Error.apply)
-   }
+  }
    
   val user = Schema.record[Auth.User] { field =>
     (
