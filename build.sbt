@@ -19,6 +19,8 @@ ThisBuild / githubWorkflowBuildPostamble +=  WorkflowStep.Sbt(
 
 ThisBuild / crossScalaVersions := Seq(Scala213, "3.0.0-M2", "2.12.10")
 ThisBuild / versionIntroduced := Map("3.0.0-M2" -> "3.0.0")
+ThisBuild / scalaVersion := (ThisBuild / crossScalaVersions).value.head
+
 
 ThisBuild / initialCommands := """
   |import cats._, data._, syntax.all._
@@ -51,7 +53,10 @@ lazy val docs = project
   .settings(
     mdocIn := file("website/docs"),
     mdocOut := file("website/preview"),
-    mdocVariables := Map("VERSION" -> version.value),
+    mdocVariables := Map(
+      "VERSION" -> version.value,
+      "SCALA_VERSIONS" -> crossScalaVersions.value.mkString(" ")
+    ),
     githubWorkflowArtifactUpload := false,
     fatalWarningsInCI := false
   ).dependsOn(core)
