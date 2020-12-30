@@ -1,66 +1,3 @@
-# Installation
-
-Add to your `build.sbt`
-
-```scala
-libraryDependencies += "org.systemfw" %% "dynosaur" % "@version@"
-```
-
-`Dynosaur` is published for the following versions of Scala:
-
-@scalaVersions@
-
-# Quick example
-
-The design of `Dynosaur` is based on defining _schemas_ for your data,
-rather than your typical `Encoder/Decoder` typeclasses. Here's a quick
-example, and you can read on for in depth documentation.
-
-Given this simple ADT
-
-```scala mdoc
-sealed trait Auth
-object Auth {
-  case class Error(reason: String) extends Auth
-  case class User(id: Int, name: String) extends Auth
-}
-```
-
-We define a schema for it
-
-```scala mdoc:silent
-import dynosaur._
-import cats.syntax.all._
-
-val schema: Schema[Auth] = Schema.oneOf { alt =>
-  val error = Schema.record[Auth.Error] { field =>
-    field("reason", _.reason).map(Auth.Error.apply)
-   }
-   
-  val user = Schema.record[Auth.User] { field =>
-    (
-      field("id", _.id),
-      field("name", _.name)
-    ).mapN(Auth.User.apply)
-  }
-  
-  alt(error tag "error") |+| alt(user tag "user") 
-}
-```
-
-Which can then be used for both encoding and decoding:
-
-```scala mdoc:to-string
-val u = Auth.User(303, "tim")
-val e = Auth.Error("Unauthorized")
-
-schema.write(u)
-schema.write(u).flatMap(schema.read)
-schema.write(e)
-schema.write(e).flatMap(schema.read)
-```
-
-
 # ----
 
 `Dynosaur` design for codecs is based on defining _schemas_ for your
@@ -110,87 +47,10 @@ implicit class Codecs[A](schema: Schema[A]) {
 ```
 </details>
 
-<!-- ## Quick example  -->
-
-<!-- Given this simple ADT -->
-
-<!-- ```scala mdoc -->
-<!-- sealed trait Auth -->
-<!-- object Auth { -->
-<!--   case class Error(reason: String) extends Auth -->
-<!--   case class User(id: Int, name: String) extends Auth -->
-<!-- } -->
-
-<!-- ``` -->
-<!-- We define a schema for it -->
-
-<!-- ```scala mdoc:silent -->
-<!-- val schema: Schema[Auth] = Schema.oneOf { alt => -->
-<!--   val error = Schema.record[Auth.Error] { field => -->
-<!--     field("reason", _.reason).map(Auth.Error.apply) -->
-<!--    } -->
-   
-<!--   val user = Schema.record[Auth.User] { field => -->
-<!--     ( -->
-<!--       field("id", _.id), -->
-<!--       field("name", _.name) -->
-<!--     ).mapN(Auth.User.apply) -->
-<!--   } -->
-  
-<!--   alt(error tag "error") |+| alt(user tag "user")  -->
-<!-- } -->
-<!-- ``` -->
-
-<!-- Which can then be used for both encoding and decoding: -->
-
-<!-- <details> -->
-<!-- <summary>Click to show the resulting AttributeValue</summary> -->
-
-<!-- ```scala mdoc:to-string -->
-<!-- val u = Auth.User(303, "tim") -->
-<!-- val e = Auth.Error("Unauthorized") -->
-
-<!-- schema.write_(u) -->
-<!-- schema.read_(schema.write_(u)) -->
-<!-- schema.write_(e) -->
-<!-- schema.read_(schema.write_(e)) -->
-<!-- ``` -->
-<!-- </details> -->
-
 In the rest of the document, we will only show encoding since decoding
 comes for free, unless there is something specific to point out about
 the behaviour of the decoder.
 
-## Motivation
-
-The typical approach most libraries use for codecs involves
-`Encoder/Decoder` typeclasses, sometimes including automatic derivation.
-This approach has the following drawbacks:
-- Automatic derivation is _opaque_ : you cannot easily read how your
-  format looks like, you need to recall the implicit mapping rules
-  between your data and the format.
-- Automatic derivation is _brittle_: generally harmless
-  transformations like rename refactoring on your data can break your
-  format.
-- Automatic derivation is _inflexible_ : it cannot cover many useful
-  transformations on your format like different naming, encoding of
-  ADTs, flattening some records, approach to optionality and so on.
-- Juggling different formats for the same data is cumbersome.
-- On the other hand, writing explicit encoders and decoders is
-  annoying because you need to keep them in sync, and the required
-  code is similar enough to be tedious, but different enough to be error prone.  
-  Even without this duplication, the process is still made hard by the
-  fact that you are dealing with the practical details of traversing a
-  low level data structure like Json or AttributeValue.
-  
-As a result, people abuse automatic derivation, and end up with either
-ugly serialised data and a nice code model, or nice serialised data
-and an ugly code model.   
-The schema DSL provided by Dynosaur, on the other hand, allows you to
-be flexible in how you define your serialised data, without
-duplicating code for encoders and decoders, and with a declarative
-focus on the _structure_ of the data, rather than the traversal of a
-low level representation.
 
 ## Primitives
 
@@ -936,21 +796,4 @@ Set of newtypes, use imap appropriately on it (example with string sets?)
 ## Section with expandable examples using `for` only
 
 
-## Inspiration
-
-The approach of using `GADT`s for schemas and free constructions for
-records was pioneered by the
-[xenomorph](https://github.com/nuttycom/xenomorph) library, however
-the approach used here is different along at least two axes:
-
-- It focuses on representing data in a specific format
-  (AttributeValue) rather than providing a schema to be reused for
-  multiple formats. This results in much greater control over the
-  data, and a simpler api for users.
-- The implementation differs in several aspects including improved
-  inference and a more flexible encoding of sums.
-
-The invariant combinators (`imap`, `imapErr`, `xmap`) and the
-integration of implicit and explicit codecs is influenced by
-[scodec](https://github.com/scodec/scodec).
 
