@@ -1,52 +1,22 @@
----
-id: schema
-title: Encoding and decoding
----
+# Installation
 
-`Dynosaur` design for codecs is based on defining _schemas_ for your
+Add to your `build.sbt`
+
+```scala
+libraryDependencies += "org.systemfw" %% "dynosaur" % "0.1.0-ad088f7-SNAPSHOT"
+```
+
+`Dynosaur` is published for the following versions of Scala:
+
+- **2.13.4**
+- **3.0.0-M2**
+- **2.12.10**
+
+# Quick example
+
+`Dynosaur` design is based on defining _schemas_ for your
 data, rather than your typical `Encoder/Decoder` typeclasses.
-The central type of the DSL is `Schema[A]`, which you can think of as
-either a representation of `A`, or a recipe for _both_ encoding and
-decoding `A`s to and from `AttributeValue`.
-
-**Note:**  basic familiarity with `cats` typeclasses like `Monoid` and
-`Applicative` is required.
-
-## Setup
-
-TODO setup needs to be redone given new AttributeValue and methods
-TODO mention somewhere that schemas are best defined as vals
-
-We are going to need the following imports:
-
-```scala
-import dynosaur._
-import cats.syntax.all._
-```
-
-We will also define `.read_` and `.write_` helpers to run the examples
-in this page, but you are not going to need them in your own code.  
-For the time being, we will ignore potential errors, and show the
-output as `Json` instead of the `AttributeValue` ADT to help with
-readability.
-
-<details>
-<summary>Click to expand</summary>
-
-```scala
-implicit class Codecs[A](schema: Schema[A]) {
-  def write_(v: A) = 
-    schema
-    .write(v)
-    .toOption.get
-    
-  def read_(v: DynamoValue): A =
-      schema.read(v).toOption.get
-}
-```
-</details>
-
-## Quick example 
+Here's a quick example, and you can read on for in depth documentation.
 
 Given this simple ADT
 
@@ -57,9 +27,13 @@ object Auth {
   case class User(id: Int, name: String) extends Auth
 }
 ```
+
 We define a schema for it
 
 ```scala
+import dynosaur._
+import cats.syntax.all._
+
 val schema: Schema[Auth] = Schema.oneOf { alt =>
   val error = Schema.record[Auth.Error] { field =>
     field("reason", _.reason).map(Auth.Error.apply)
@@ -78,38 +52,130 @@ val schema: Schema[Auth] = Schema.oneOf { alt =>
 
 Which can then be used for both encoding and decoding:
 
-<details>
-<summary>Click to show the resulting AttributeValue</summary>
-
 ```scala
 val u = Auth.User(303, "tim")
 // u: Auth.User = User(303,tim)
 val e = Auth.Error("Unauthorized")
 // e: Auth.Error = Error(Unauthorized)
 
-schema.write_(u)
-// res0: DynamoValue = "M": {
+schema.write(u)
+// res0: Either[Schema.WriteError, DynamoValue] = Right("M": {
 //   "user": {
 //     "M": {
 //       "name": { "S": "tim" },
 //       "id": { "N": "303" }
 //     }
 //   }
-// }
-schema.read_(schema.write_(u))
-// res1: Auth = User(303,tim)
-schema.write_(e)
-// res2: DynamoValue = "M": {
+// })
+schema.write(u).flatMap(schema.read)
+// res1: Either[Exception with Product, Auth] = Right(User(303,tim))
+schema.write(e)
+// res2: Either[Schema.WriteError, DynamoValue] = Right("M": {
 //   "error": {
 //     "M": {
 //       "reason": { "S": "Unauthorized" }
 //     }
 //   }
-// }
-schema.read_(schema.write_(e))
-// res3: Auth = Error(Unauthorized)
+// })
+schema.write(e).flatMap(schema.read)
+// res3: Either[Exception with Product, Auth] = Right(Error(Unauthorized))
+```
+
+
+# ----
+
+`Dynosaur` design for codecs is based on defining _schemas_ for your
+data, rather than your typical `Encoder/Decoder` typeclasses.
+The central type of the DSL is `Schema[A]`, which you can think of as
+either a representation of `A`, or a recipe for _both_ encoding and
+decoding `A`s to and from `AttributeValue`.
+
+**Note:**  basic familiarity with `cats` typeclasses like `Monoid` and
+`Applicative` is required.
+
+
+
+
+## Setup
+
+TODO setup needs to be redone given new AttributeValue and methods
+TODO mention somewhere that schemas are best defined as vals
+
+We are going to need the following imports:
+
+```scala
+import dynosaur._
+import cats.syntax.all._
+```
+
+We will also define `.read_` and `.write_` helpers to run the examples
+in this page, but you are not going to need them in your own code.
+For the time being, we will ignore potential errors, and show the
+output as `Json` instead of the `AttributeValue` ADT to help with
+readability.
+
+<details>
+<summary>Click to expand</summary>
+
+```scala
+implicit class Codecs[A](schema: Schema[A]) {
+  def write_(v: A) =
+    schema
+    .write(v)
+    .toOption.get
+    
+  def read_(v: DynamoValue): A =
+      schema.read(v).toOption.get
+}
 ```
 </details>
+
+<!-- ## Quick example  -->
+
+<!-- Given this simple ADT -->
+
+<!-- ```scala mdoc -->
+<!-- sealed trait Auth -->
+<!-- object Auth { -->
+<!--   case class Error(reason: String) extends Auth -->
+<!--   case class User(id: Int, name: String) extends Auth -->
+<!-- } -->
+
+<!-- ``` -->
+<!-- We define a schema for it -->
+
+<!-- ```scala mdoc:silent -->
+<!-- val schema: Schema[Auth] = Schema.oneOf { alt => -->
+<!--   val error = Schema.record[Auth.Error] { field => -->
+<!--     field("reason", _.reason).map(Auth.Error.apply) -->
+<!--    } -->
+   
+<!--   val user = Schema.record[Auth.User] { field => -->
+<!--     ( -->
+<!--       field("id", _.id), -->
+<!--       field("name", _.name) -->
+<!--     ).mapN(Auth.User.apply) -->
+<!--   } -->
+  
+<!--   alt(error tag "error") |+| alt(user tag "user")  -->
+<!-- } -->
+<!-- ``` -->
+
+<!-- Which can then be used for both encoding and decoding: -->
+
+<!-- <details> -->
+<!-- <summary>Click to show the resulting AttributeValue</summary> -->
+
+<!-- ```scala mdoc:to-string -->
+<!-- val u = Auth.User(303, "tim") -->
+<!-- val e = Auth.Error("Unauthorized") -->
+
+<!-- schema.write_(u) -->
+<!-- schema.read_(schema.write_(u)) -->
+<!-- schema.write_(e) -->
+<!-- schema.read_(schema.write_(e)) -->
+<!-- ``` -->
+<!-- </details> -->
 
 In the rest of the document, we will only show encoding since decoding
 comes for free, unless there is something specific to point out about

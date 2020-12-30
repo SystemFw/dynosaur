@@ -54,8 +54,11 @@ lazy val docs = project
     mdocIn := file("website/docs"),
     mdocOut := file("website/preview"),
     mdocVariables := Map(
-      "VERSION" -> version.value,
-      "SCALA_VERSIONS" -> crossScalaVersions.value.mkString(" ")
+      "version" -> version.value,
+      "scalaVersions" -> crossScalaVersions
+        .value
+        .map(v => s"- **$v**")
+        .mkString("\n")
     ),
     githubWorkflowArtifactUpload := false,
     fatalWarningsInCI := false
