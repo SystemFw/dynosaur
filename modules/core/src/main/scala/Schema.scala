@@ -99,8 +99,9 @@ sealed trait Schema[A] { self =>
 object Schema {
   import structure._
 
-  case class ReadError() extends Exception
-  case class WriteError() extends Exception
+  trait DynosaurError extends Exception with Product with Serializable
+  case class ReadError() extends DynosaurError
+  case class WriteError() extends DynosaurError
 
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 

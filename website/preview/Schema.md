@@ -3,13 +3,12 @@
 Add to your `build.sbt`
 
 ```scala
-libraryDependencies += "org.systemfw" %% "dynosaur" % "0.1.0-ad088f7-SNAPSHOT"
+libraryDependencies += "org.systemfw" %% "dynosaur" % "0.1.0-5fd85ef-SNAPSHOT"
 ```
 
 `Dynosaur` is published for the following versions of Scala:
 
 - **2.13.4**
-- **3.0.0-M2**
 - **2.12.10**
 
 # Quick example
@@ -68,7 +67,7 @@ schema.write(u)
 //   }
 // })
 schema.write(u).flatMap(schema.read)
-// res1: Either[Exception with Product, Auth] = Right(User(303,tim))
+// res1: Either[Schema.DynosaurError, Auth] = Right(User(303,tim))
 schema.write(e)
 // res2: Either[Schema.WriteError, DynamoValue] = Right("M": {
 //   "error": {
@@ -78,7 +77,7 @@ schema.write(e)
 //   }
 // })
 schema.write(e).flatMap(schema.read)
-// res3: Either[Exception with Product, Auth] = Right(Error(Unauthorized))
+// res3: Either[Schema.DynosaurError, Auth] = Right(Error(Unauthorized))
 ```
 
 
