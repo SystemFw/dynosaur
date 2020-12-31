@@ -9,7 +9,7 @@
  
 - Types
 
- - [Schema](Schema.md)
+ - [Schema](schema.md)
  - [DynamoValue](dynamo-value.md)
  
 - [Inspiration](inspiration.md)

@@ -8,6 +8,6 @@
 
 
 
-[Getting started](Schema.md)
+[Getting started](installing.md)
 
 

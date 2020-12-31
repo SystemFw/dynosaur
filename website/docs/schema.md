@@ -322,7 +322,7 @@ Schema.record[Bar] { field =>
 
 ### Additional structure
 
-The monadic nature of the `field` builder allows to give additional
+The applicative nature of the `field` builder allows to give additional
 structure to the serialised record without affecting the code
 representation. For example, given our `Foo`:
 
@@ -330,10 +330,7 @@ representation. For example, given our `Foo`:
 case class Foo(a: String, b: Int)
 
 val fooSchema = Schema.record[Foo] { field =>
- (
-   field("a", _.a),
-   field("b", _.b)
- ).mapN(Foo.apply)
+  (field("a", _.a), field("b", _.b)).mapN(Foo.apply)
 }
 ```
 
@@ -373,7 +370,9 @@ taggedSchema.write(Foo("value of Foo", 150))
 ```
 </details>
 
-Finally, it's worth specifying the meaning of `pure`, e.g. :
+Finally, since the `field` builder is `Applicative`,it's worth
+specifying the meaning of `pure`, e.g. :
+
 ```scala mdoc:compile-only
 Schema.record[Foo](_.pure(Foo("a", 1)))
 ```
@@ -398,10 +397,10 @@ For example, asserting that our `Foo` has `version: 1.0` is as simple as:
 
 ```scala mdoc:silent
 val versionedFooSchema = Schema.record[Foo] { field =>
- field.const("version", "1.0") *> (
-   field("a", _.a),
-   field("b", _.b)
- ).mapN(Foo.apply)
+  field.const("version", "1.0") *> (
+    field("a", _.a),
+    field("b", _.b)
+  ).mapN(Foo.apply)
 }
 ```
 
@@ -409,12 +408,21 @@ val versionedFooSchema = Schema.record[Foo] { field =>
 <summary>Click to show the resulting DynamoValue</summary>
 
 ```scala mdoc:to-string
-versionedFooSchema.write(Foo("value of Foo", 300))
+val versioned = versionedFooSchema.write(Foo("value of Foo", 300))
+versioned.flatMap(versionedFooSchema.read)
+
+val wrongVersion = DynamoValue.m(
+  "a" -> DynamoValue.s("value of Foo"),
+  "b" -> DynamoValue.n(300),
+  "version" -> DynamoValue.s("3.0")
+)
+
+versionedFooSchema.read(wrongVersion)
 ```
 </details>
 
-Note how the resulting record has a `version` field set to `1.0`, the
-use of `const` guarantees that any other value will result in a
+Note how the resulting record has a `version` field set to `1.0`, and
+how use of `const` guarantees that any other value will result in a
 `ReadError`. Equality is performed using `==`.
 
 ### Case classes with more than 22 fields
