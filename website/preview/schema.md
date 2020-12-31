@@ -487,30 +487,43 @@ how use of `const` guarantees that any other value will result in a
 
 ### Case classes with more than 22 fields
 
-Scala's tuples have a hard limit of 22 elements, so if your case class has
-more than 22 fields you won't be able to call `(f1, ..., f23).mapN`.  
-Just use `for` for this case:
+Scala's tuples and functions have a hard limit of 22 elements, so if
+your case class has more than 22 fields you won't be able to call
+`(f1, ..., f23).mapN`.  
+The workaround is to use `tupled` from `cats` and nest tuples, e.g
+if you have 24 fields:
 
 ```scala
 record[BigClass] { field =>
-  for {
-    f1 <- field(...)
+  (
+    field("1", _.one),
+    field("2", _.two),
     ...
-    f23 <- field(...)
-  } yield BigClass(f1, .., f23)
+    field("21", _.twoOne),
+    (
+      field("22", _.twoTwo),
+      field("23", _.twoThree),
+      field("24", _.twoFour),
+    ).tupled
+  ).mapN { case (one, two, ..., twoOne, (twoTwo, twoThree, twoFour)) =>
+    BigClass(one, two, ..., twoFour)
+  }
 }
 ```
 
+> **Note:** Thankfully, the 22-limit has been removed in Scala 3, so
+> the normal usage of `mapN` just works there, regardless of the size
+> of your case class
+
 ### Optional fields & nullable values
 
-In order to fully capture the semantics of AttributeValue (which are
-like JSON in this case), `dynosaur` draws a distinction between
-_optional fields_ and _nullable values_:
+In order to fully capture the semantics of `DynamoValue`, `dynosaur`
+draws a distinction between _optional fields_ and _nullable values_:
 
 - An optional field may or may not be part of the serialised record,
-  but if it's there it cannot be `AttributeValue.Nul` for decoding to
+  but if it's there it cannot be `DynamoValue.Nul` for decoding to
   succeed.
-- A nullable value can be `AttributeValue.Nul`, but it has to always
+- A nullable value can be `DynamoValue.Nul`, but it has to always
   be part of the record for decoding to succeed. It can also appear
   outside of records.
 
@@ -523,10 +536,10 @@ has type `Record => Option[Field]` instead of `Record => Field`.
 case class Msg(body: String, topic: Option[String])
 
 val msgSchemaOpt = Schema.record[Msg] { field =>
- (
-   field("body", _.body),
-   field.opt("topic", _.topic)
- ).mapN(Msg.apply)
+  (
+    field("body", _.body),
+    field.opt("topic", _.topic)
+  ).mapN(Msg.apply)
 }
 
 ```
@@ -581,25 +594,22 @@ msgSchemaNull.write(Msg("Random message", None))
 </details>
 
 > **Notes:**
+> - DynamoDb represents null as boolean-valued key-value pair with a
+>   key named `NULL`. Dynosaur only supports `NULL: true`.
 > - Because of the choice between optionality and nullability, there
 >   is no inductive implicit instance of `Schema` for `Option`. Schema
 >   has an implicitNotFound annotation to warn you to use `opt` or
->   `nullable`
+>   `nullable`.
 > - If desired, one can be lenient and accept both missing and null fields.
     The following code favours missing fields on writes, but accepts both on reads:
-      ```scala
        field
          .opt("topic", _.topic.map(_.some))(Schema.nullable)
          .map(_.flatten)
-      ```
     whereas this one favours null fields on writes, equally accepting both on reads:
-      ```scala
        field
          .opt("topic", _.topic.some)(Schema.nullable)
          .map(_.flatten)
-      ```
 >   These cases are rare enough, and at moment `dynosaur` does not offer a shortcut for them.
-> TODO NULL:true, NULL:false is not supported
 
 ## Coproducts
 
