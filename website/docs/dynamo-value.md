@@ -50,8 +50,8 @@ val ex = V.m(
 
 `toString` gives you a pretty printed string:
 
-```scala mdoc
-println(ex.toString)
+```scala mdoc:to-string
+ex.toString
 ```
 
 when reading, `DynamoValue` mirrors the `AttributeValue` convention

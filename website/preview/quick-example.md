@@ -45,24 +45,28 @@ val e = Auth.Error("Unauthorized")
 // e: Auth.Error = Error(Unauthorized)
 
 schema.write(u)
-// res0: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res0: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "user": {
 //     "M": {
 //       "name": { "S": "tim" },
 //       "id": { "N": "303" }
 //     }
 //   }
-// })
+// }
+// )
 schema.write(u).flatMap(schema.read)
 // res1: Either[Schema.DynosaurError, Auth] = Right(User(303,tim))
 schema.write(e)
-// res2: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res2: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "error": {
 //     "M": {
 //       "reason": { "S": "Unauthorized" }
 //     }
 //   }
-// })
+// }
+// )
 schema.write(e).flatMap(schema.read)
 // res3: Either[Schema.DynosaurError, Auth] = Right(Error(Unauthorized))
 ```

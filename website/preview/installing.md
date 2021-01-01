@@ -3,7 +3,7 @@
 Add to your `build.sbt`
 
 ```scala
-libraryDependencies += "org.systemfw" %% "dynosaur" % "0.1.0-e4378aa-SNAPSHOT"
+libraryDependencies += "org.systemfw" %% "dynosaur" % "0.1.0-c64927c"
 ```
 
 `Dynosaur` is published for the following versions of Scala:

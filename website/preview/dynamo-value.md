@@ -54,7 +54,8 @@ val ex = V.m(
 `toString` gives you a pretty printed string:
 
 ```scala
-println(ex.toString)
+ex.toString
+// res0: String = 
 // "M": {
 //   "no": { "N": "1245" },
 //   "id": { "S": "61c9f0d406a3" },
@@ -75,6 +76,7 @@ println(ex.toString)
 //     ]
 //   }
 // }
+//
 ```
 
 when reading, `DynamoValue` mirrors the `AttributeValue` convention

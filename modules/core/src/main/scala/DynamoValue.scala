@@ -90,7 +90,10 @@ case class DynamoValue(value: AttributeValue) {
       this.ss.map(ss)
   }.get
 
-  override def toString: String = print(40)
+  override def toString: String = {
+    val str = print(40)
+    if (str.contains("\n")) s"\n$str\n" else str
+  }
 
   def print(maxLength: Int): String =
     toDoc.render(maxLength)

@@ -202,10 +202,12 @@ val fooSchema = Schema.record[Foo] { field =>
 
 ```scala
 fooSchema.write(Foo("value of Foo", 1))
-// res8: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res8: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "a": { "S": "value of Foo" },
 //   "b": { "N": "1" }
-// })
+// }
+// )
 ```
 </details>
 
@@ -273,7 +275,8 @@ val nestedSchema: Schema[Bar] =
 val bar = Bar(10, Foo("value of Foo", 40))
 // bar: Bar = Bar(10,Foo(value of Foo,40))
 nestedSchema.write(bar)
-// res12: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res12: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "num": { "N": "10" },
 //   "foo": {
 //     "M": {
@@ -281,7 +284,8 @@ nestedSchema.write(bar)
 //       "b": { "N": "40" }
 //     }
 //   }
-// })
+// }
+// )
 ```
 </details>
 
@@ -377,7 +381,8 @@ val envelopeSchema = Schema.record[Foo] { field =>
 
 ```scala
 envelopeSchema.write(Foo("value of Foo", 150))
-// res16: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res16: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "eventId": { "S": "14tafet143ba" },
 //   "payload": {
 //     "M": {
@@ -385,7 +390,8 @@ envelopeSchema.write(Foo("value of Foo", 150))
 //       "b": { "N": "150" }
 //     }
 //   }
-// })
+// }
+// )
 ```
 </details>
 
@@ -402,7 +408,8 @@ val taggedSchema = envelopeSchema.tag("event")
 
 ```scala
 taggedSchema.write(Foo("value of Foo", 150))
-// res17: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res17: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "event": {
 //     "M": {
 //       "eventId": {
@@ -416,7 +423,8 @@ taggedSchema.write(Foo("value of Foo", 150))
 //       }
 //     }
 //   }
-// })
+// }
+// )
 ```
 </details>
 
@@ -459,11 +467,13 @@ val versionedFooSchema = Schema.record[Foo] { field =>
 
 ```scala
 val versioned = versionedFooSchema.write(Foo("value of Foo", 300))
-// versioned: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// versioned: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "a": { "S": "value of Foo" },
 //   "b": { "N": "300" },
 //   "version": { "S": "1.0" }
-// })
+// }
+// )
 versioned.flatMap(versionedFooSchema.read)
 // res19: Either[Schema.DynosaurError, Foo] = Right(Foo(value of Foo,300))
 
@@ -472,11 +482,13 @@ val wrongVersion = DynamoValue.m(
   "b" -> DynamoValue.n(300),
   "version" -> DynamoValue.s("3.0")
 )
-// wrongVersion: DynamoValue = "M": {
+// wrongVersion: DynamoValue = 
+// "M": {
 //   "a": { "S": "value of Foo" },
 //   "b": { "N": "300" },
 //   "version": { "S": "3.0" }
 // }
+// 
 
 versionedFooSchema.read(wrongVersion)
 // res20: Either[Schema.ReadError, Foo] = Left(dynosaur.Schema$ReadError)
@@ -551,14 +563,18 @@ val msgSchemaOpt = Schema.record[Msg] { field =>
 
 ```scala
 msgSchemaOpt.write(Msg("Topical message", "Interesting topic".some))
-// res21: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res21: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "topic": { "S": "Interesting topic" },
 //   "body": { "S": "Topical message" }
-// })
+// }
+// )
 msgSchemaOpt.write(Msg("Random message", None))
-// res22: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res22: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "body": { "S": "Random message" }
-// })
+// }
+// )
 ```
 </details>
 
@@ -583,15 +599,19 @@ In this case, the call to `Schema.nullable` translates to `Schema[String].nullab
 
 ```scala
 msgSchemaNull.write(Msg("Topical message", "Interesting topic".some))
-// res23: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res23: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "topic": { "S": "Interesting topic" },
 //   "body": { "S": "Topical message" }
-// })
+// }
+// )
 msgSchemaNull.write(Msg("Random message", None))
-// res24: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res24: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "topic": { "NULL": true },
 //   "body": { "S": "Random message" }
-// })
+// }
+// )
 ```
 </details>
 
@@ -805,17 +825,20 @@ val warning = Warning("this is a warning")
 // warning: Warning = Warning(this is a warning)
 
 schemaWithKey.write(error)
-// res35: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res35: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "error": {
 //     "M": {
 //       "msg": { "S": "this is an error" }
 //     }
 //   }
-// })
+// }
+// )
 schemaWithKey.write(error).flatMap(schemaWithKey.read)
 // res36: Either[Schema.DynosaurError, Problem] = Right(Error(this is an error))
 schemaWithKey.write(warning)
-// res37: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res37: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "warning": {
 //     "M": {
 //       "msg": {
@@ -823,7 +846,8 @@ schemaWithKey.write(warning)
 //       }
 //     }
 //   }
-// })
+// }
+// )
 schemaWithKey.write(warning).flatMap(schemaWithKey.read)
 // res38: Either[Schema.DynosaurError, Problem] = Right(Warning(this is a warning))
 schemaWithKey.write(Unknown)
@@ -874,17 +898,21 @@ val schemaWithField = Schema.oneOf[Problem] { alt =>
 
 ```scala
 schemaWithField.write(error)
-// res41: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res41: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "msg": { "S": "this is an error" },
 //   "type": { "S": "error" }
-// })
+// }
+// )
 schemaWithField.write(error).flatMap(schemaWithField.read)
 // res42: Either[Schema.DynosaurError, Problem] = Right(Error(this is an error))
 schemaWithField.write(warning)
-// res43: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res43: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "msg": { "S": "this is a warning" },
 //   "type": { "S": "warning" }
-// })
+// }
+// )
 schemaWithField.write(warning).flatMap(schemaWithField.read)
 // res44: Either[Schema.DynosaurError, Problem] = Right(Warning(this is a warning))
 schemaWithField.write(Unknown)
@@ -915,13 +943,16 @@ The are all represented as `L` in `DynamoValue`:
 
 ```scala
 Schema[Vector[Int]].write(Vector(1, 2, 3))
-// res47: Either[Schema.WriteError, DynamoValue] = Right("L": [
+// res47: Either[Schema.WriteError, DynamoValue] = Right(
+// "L": [
 //   { "N": "1" },
 //   { "N": "2" },
 //   { "N": "3" }
-// ])
+// ]
+// )
 fooSchema.asList.write(List(Foo("a", 1), Foo("b", 2), Foo("c", 3)))
-// res48: Either[Schema.WriteError, DynamoValue] = Right("L": [
+// res48: Either[Schema.WriteError, DynamoValue] = Right(
+// "L": [
 //   {
 //     "M": {
 //       "a": { "S": "a" },
@@ -940,7 +971,8 @@ fooSchema.asList.write(List(Foo("a", 1), Foo("b", 2), Foo("c", 3)))
 //       "b": { "N": "3" }
 //     }
 //   }
-// ])
+// ]
+// )
 ```
 </details>
 
@@ -959,14 +991,16 @@ As with sequences, there is an inductive instance of
 Schema[Map[String, Int]].write(Map("hello" -> 1))
 // res49: Either[Schema.WriteError, DynamoValue] = Right("M": { "hello": { "N": "1" } })
 fooSchema.asMap.write(Map("A foo" -> Foo("a", 1)))
-// res50: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res50: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "A foo": {
 //     "M": {
 //       "a": { "S": "a" },
 //       "b": { "N": "1" }
 //     }
 //   }
-// })
+// }
+// )
 ```
 </details>
 
@@ -1030,7 +1064,8 @@ val departments = Department(
 // departments: Department = Department(STEM,List(Department(CS,List()), Department(Maths,List(Department(Applied,List()), Department(Theoretical,List())))))
 
 depSchema.write(departments)
-// res52: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res52: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "subdeps": {
 //     "L": [
 //       {
@@ -1071,7 +1106,8 @@ depSchema.write(departments)
 //     ]
 //   },
 //   "name": { "S": "STEM" }
-// })
+// }
+// )
 ```
 </details>
 
@@ -1124,7 +1160,8 @@ val text = Section(
 // text: Section = Section(A,List(Paragraph(lorem ipsum), Section(A.b,List(Paragraph(dolor sit amet)))))
 
 textSchema.write(text)
-// res53: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res53: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "section": {
 //     "M": {
 //       "contents": {
@@ -1171,7 +1208,8 @@ textSchema.write(text)
 //       "title": { "S": "A" }
 //     }
 //   }
-// })
+// }
+// )
 ```
 </details>
 
@@ -1218,10 +1256,12 @@ val commandSchema = Schema.record[Command] { field =>
 
 ```scala
 commandSchema.write(Command("open", Set("o", "O")))
-// res54: Either[Schema.WriteError, DynamoValue] = Right("M": {
+// res54: Either[Schema.WriteError, DynamoValue] = Right(
+// "M": {
 //   "aliases": { "SS": [ "o", "O" ] },
 //   "name": { "S": "open" }
-// })
+// }
+// )
 commandSchema.write(Command("close", Set.empty))
 // res55: Either[Schema.WriteError, DynamoValue] = Right("M": { "name": { "S": "close" } })
 ```
