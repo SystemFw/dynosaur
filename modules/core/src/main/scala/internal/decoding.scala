@@ -28,7 +28,8 @@ import Schema.ReadError
 import Schema.structure._
 
 object decoding {
-  def fromSchema[A](s: Schema[A]): DynamoValue => Either[ReadError, A] =
+  def fromSchema[A](s: Schema[A]): DynamoValue => Either[ReadError, A] = {
+    println(s"building $s - decoder")
     s match {
       case Identity => _.asRight
       case Num => decodeNum
@@ -47,6 +48,7 @@ object decoding {
       case Isos(iso) => decodeIsos(iso, _)
       case Defer(schema) => schema().read
     }
+  }
 
   type Res[B] = Either[ReadError, B]
 
@@ -96,10 +98,12 @@ object decoding {
   def decodeRecord[R](
       recordSchema: FreeApplicative[Field[R, *], R],
       v: Map[String, DynamoValue]
-  ): Res[R] =
+  ): Res[R] = {
+    println("compiling records - decoder")
     recordSchema.foldMap {
       new (Field[R, *] ~> Res) {
-        def apply[B](field: Field[R, B]): Res[B] =
+        def apply[B](field: Field[R, B]): Res[B] = {
+          println("traversing record structure")
           field match {
             case Field.Required(name, elemSchema, _) =>
               v.get(name)
@@ -110,15 +114,20 @@ object decoding {
                 .get(name)
                 .traverse(v => elemSchema.read(v))
           }
+        }
       }
     }
+  }
 
-  def decodeSum[B](cases: Chain[Alt[B]], v: DynamoValue): Res[B] =
+  def decodeSum[B](cases: Chain[Alt[B]], v: DynamoValue): Res[B] = {
+    println("compiling sums - decoder")
     cases
       .foldMapK { alt =>
+        println("traversing sum structure - decoder")
         alt.caseSchema.read(v).map(alt.prism.inject).toOption
       }
       .toRight(ReadError())
+  }
 
   def decodeIsos[V](xmap: XMap[V], v: DynamoValue): Res[V] =
     xmap.schema

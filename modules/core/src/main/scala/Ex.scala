@@ -19,23 +19,72 @@ import dynosaur.Schema
 /** caching example, only encoding so far, depends on printlns in encoding */
 object Ex {
   case class Foo(a: Int)
-  val s = Schema.record[Foo](field => field("a", _.a).map(Foo.apply))
+  val s = Schema.oneOf[Foo] { alt =>
+    alt(Schema.record[Foo](field => field("a", _.a).map(Foo.apply)))
+  }
   val a = Foo(3)
 
   // run a few times
   def test = s.write(a)
 
-// scala> Ex.test
-// building Record(Free(...))
-// compiling records
-// traversing record structure
-// building Isos(dynosaur.Schema$$anon$3@3b939a6d)
-// building Num
-// val res0: Either[dynosaur.Schema.WriteError,dynosaur.DynamoValue] = Right("M": { "a": { "N": "3" } })
+  def read = {
+    s.write(a).flatMap(s.read)
+  }
 
-// scala> Ex.test
-// compiling records
-// traversing record structure
-// val res1: Either[dynosaur.Schema.WriteError,dynosaur.DynamoValue] = Right("M": { "a": { "N": "3" } })
+  // the static structures (Chain, FreeAp) get recompiled each time, even though the schema is a val
+  // scala> Ex.test
+  // building Sum(Chain(dynosaur.Schema$AltBuilder$$anon$4@7f88013f))
+  // compiling sums
+  // traversing sum structure
+  // building Record(FreeApplicative(...))
+  // compiling records
+  // traversing record structure
+  // building Isos(dynosaur.Schema$$anon$3@70af4b56)
+  // building Num
+  // val res1: Either[dynosaur.Schema.WriteError,dynosaur.DynamoValue] = Right("M": { "a": { "N": "3" } })
+
+  // scala> Ex.test
+  // compiling sums
+  // traversing sum structure
+  // compiling records
+  // traversing record structure
+  // val res2: Either[dynosaur.Schema.WriteError,dynosaur.DynamoValue] = Right("M": { "a": { "N": "3" } })
+
+  // scala> Ex.read
+  // compiling sums
+  // traversing sum structure
+  // compiling records
+  // traversing record structure
+  // building Sum(Chain(dynosaur.Schema$AltBuilder$$anon$4@7f88013f)) - decoder
+  // compiling sums - decoder
+  // traversing sum structure - decoder
+  // building Record(FreeApplicative(...)) - decoder
+  // compiling records - decoder
+  // traversing record structure
+  // building Isos(dynosaur.Schema$$anon$3@70af4b56) - decoder
+  // building Num - decoder
+  // val res3: scala.util.Either[dynosaur.Schema.DynosaurError,Ex.Foo] = Right(Foo(3))
+
+  // scala> Ex.read
+  // compiling sums
+  // traversing sum structure
+  // compiling records
+  // traversing record structure
+  // compiling sums - decoder
+  // traversing sum structure - decoder
+  // compiling records - decoder
+  // traversing record structure
+
+  // val res4: scala.util.Either[dynosaur.Schema.DynosaurError,Ex.Foo] = Right(Foo(3))
+  // scala> Ex.test
+  // building Sum(Chain(dynosaur.Schema$AltBuilder$$anon$4@7f88013f))
+  // compiling sums
+  // traversing sum structure
+  // building Record(FreeApplicative(...))
+  // compiling records
+  // traversing record structure
+  // building Isos(dynosaur.Schema$$anon$3@70af4b56)
+  // building Num
+  // val res1: Either[dynosaur.Schema.WriteError,dynosaur.DynamoValue] = Right("M": { "a": { "N": "3" } })
 
 }

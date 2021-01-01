@@ -123,15 +123,17 @@ object encoding {
       .map(DynamoValue.m)
   }
 
-  def encodeSum[C](cases: Chain[Alt[C]], coproduct: C): Res =
+  def encodeSum[C](cases: Chain[Alt[C]], coproduct: C): Res = {
+    println("compiling sums")
     cases
       .foldMapK { alt =>
+        println("traversing sum structure")
         alt.prism.tryGet(coproduct).map { elem =>
           alt.caseSchema.write(elem)
         }
       }
       .getOrElse(WriteError().asLeft)
-
+  }
   def encodeIsos[V](xmap: XMap[V], value: V): Res =
     xmap.w(value).flatMap(v => xmap.schema.write(v))
 }
