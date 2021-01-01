@@ -934,9 +934,9 @@ textSchema.write(text)
 </details>
 
 
-## ByteSet, StringSet and NumberSet
+## String Set, Number Set and Binary Set
 
-DynamoDb's `ByteSet`, `StringSet` and `NumberSet` cannot be empty, so
+DynamoDb's `Binary Set`, `String Set` and `Number Set` cannot be empty, so
 `dynosaur` defines a simple custom type for non empty sets, and offers
 the following instances:
 

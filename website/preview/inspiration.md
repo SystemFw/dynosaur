@@ -6,7 +6,7 @@ records was pioneered by the
 the approach used here is different along at least two axes:
 
 - It focuses on representing data in a specific format
-  (AttributeValue) rather than providing a schema to be reused for
+  (`DynamoValue`/`AttributeValue`) rather than providing a schema to be reused for
   multiple formats. This results in much greater control over the
   data, and a simpler api for users.
 - The implementation differs in several aspects including improved
