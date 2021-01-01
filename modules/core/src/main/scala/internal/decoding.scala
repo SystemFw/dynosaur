@@ -20,7 +20,7 @@ package internal
 import cats.~>
 import cats.syntax.all._
 import alleycats.std.map._
-import cats.free.Free
+import cats.free.FreeApplicative
 import cats.data.Chain
 import scodec.bits.ByteVector
 
@@ -94,7 +94,7 @@ object decoding {
       )
 
   def decodeRecord[R](
-      recordSchema: Free[Field[R, *], R],
+      recordSchema: FreeApplicative[Field[R, *], R],
       v: Map[String, DynamoValue]
   ): Res[R] =
     recordSchema.foldMap {

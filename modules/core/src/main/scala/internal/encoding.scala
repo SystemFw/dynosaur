@@ -21,7 +21,7 @@ import cats.{~>, Monoid, MonoidK}
 import cats.syntax.all._
 import alleycats.std.map._
 import cats.data.{Chain, WriterT}
-import cats.free.Free
+import cats.free.FreeApplicative
 
 import scodec.bits.ByteVector
 
@@ -78,7 +78,10 @@ object encoding {
       .traverse(schema.write)
       .map(DynamoValue.m)
 
-  def encodeRecord[R](recordSchema: Free[Field[R, *], R], record: R): Res = {
+  def encodeRecord[R](
+      recordSchema: FreeApplicative[Field[R, *], R],
+      record: R
+  ): Res = {
     println("compiling records")
     implicit def overrideKeys: Monoid[Map[String, DynamoValue]] =
       MonoidK[Map[String, *]].algebra

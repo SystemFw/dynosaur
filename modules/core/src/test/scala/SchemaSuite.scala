@@ -432,57 +432,85 @@ class SchemaSuite extends ScalaCheckSuite {
       "f"
     )
 
-    val bigSchema = Schema.record[Big](field =>
-      for {
-        a <- field("1", _.one)
-        b <- field("2", _.two)
-        c <- field("3", _.three)
-        d <- field("4", _.four)
-        e <- field("5", _.five)
-        f <- field("6", _.six)
-        g <- field("7", _.seven)
-        h <- field("8", _.eight)
-        i <- field("9", _.nine)
-        j <- field("10", _.ten)
-        k <- field("11", _.eleven)
-        l <- field("12", _.twelve)
-        m <- field("13", _.thirteen)
-        n <- field("14", _.fourteen)
-        o <- field("15", _.fifteen)
-        p <- field("16", _.sixteen)
-        q <- field("17", _.seventeen)
-        r <- field("18", _.eighteen)
-        s <- field("19", _.nineteen)
-        t <- field("20", _.twenty)
-        u <- field("21", _.twentyOne)
-        v <- field("22", _.twentyTwo)
-        w <- field("23", _.twentyThree)
-      } yield Big(
-        a,
-        b,
-        c,
-        d,
-        e,
-        f,
-        g,
-        h,
-        i,
-        j,
-        k,
-        l,
-        m,
-        n,
-        o,
-        p,
-        q,
-        r,
-        s,
-        t,
-        u,
-        v,
-        w
-      )
-    )
+    val bigSchema = Schema.record[Big] { field =>
+      (
+        field("1", _.one),
+        field("2", _.two),
+        field("3", _.three),
+        field("4", _.four),
+        field("5", _.five),
+        field("6", _.six),
+        field("7", _.seven),
+        field("8", _.eight),
+        field("9", _.nine),
+        field("10", _.ten),
+        field("11", _.eleven),
+        field("12", _.twelve),
+        field("13", _.thirteen),
+        field("14", _.fourteen),
+        field("15", _.fifteen),
+        field("16", _.sixteen),
+        field("17", _.seventeen),
+        field("18", _.eighteen),
+        field("19", _.nineteen),
+        field("20", _.twenty),
+        field("21", _.twentyOne),
+        (
+          field("22", _.twentyTwo),
+          field("23", _.twentyThree)
+        ).tupled
+      ).mapN {
+        case (
+              a,
+              b,
+              c,
+              d,
+              e,
+              f,
+              g,
+              h,
+              i,
+              j,
+              k,
+              l,
+              m,
+              n,
+              o,
+              p,
+              q,
+              r,
+              s,
+              t,
+              u,
+              (v, w)
+            ) =>
+          Big(
+            a,
+            b,
+            c,
+            d,
+            e,
+            f,
+            g,
+            h,
+            i,
+            j,
+            k,
+            l,
+            m,
+            n,
+            o,
+            p,
+            q,
+            r,
+            s,
+            t,
+            u,
+            v,
+            w
+          )
+      }
+    }
 
     val expected = V.m(
       "1" -> V.s(big.one),
