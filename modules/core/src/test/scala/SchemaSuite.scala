@@ -395,7 +395,7 @@ class SchemaSuite extends ScalaCheckSuite {
       )
     )
 
-    def schema: Schema[Department] = Schema.record { field =>
+    lazy val schema: Schema[Department] = Schema.record { field =>
       (
         field("name", _.name),
         field("subdeps", _.subdeps)(Schema.defer(schema.asList))
@@ -778,7 +778,7 @@ class SchemaSuite extends ScalaCheckSuite {
       )
     )
 
-    def schema: Schema[Text] = Schema.oneOf[Text] { alt =>
+    lazy val schema: Schema[Text] = Schema.oneOf[Text] { alt =>
       val paragraph = Schema
         .record[Paragraph] { field =>
           field("text", _.text).map(Paragraph.apply)
@@ -819,9 +819,9 @@ class SchemaSuite extends ScalaCheckSuite {
       Schema[String].imap(TraceToken.apply)(_.value)
 
     // random impl but it does not matter
-    def completedSchema: Schema[Completed.type] =
+    val completedSchema: Schema[Completed.type] =
       Schema.record(_("foo", _.toString).as(Completed))
-    def startedSchema: Schema[Started.type] =
+    val startedSchema: Schema[Started.type] =
       Schema.record(_("foo", _.toString).as(Started))
 
     val eventTypeSchema: Schema[EventType] = Schema.oneOf { alt =>

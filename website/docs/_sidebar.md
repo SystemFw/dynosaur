@@ -11,5 +11,6 @@
 
  - [Schema](schema.md)
  - [DynamoValue](dynamo-value.md)
+ - [NonEmptySet](nonemptyset.md)
  
 - [Inspiration](inspiration.md)

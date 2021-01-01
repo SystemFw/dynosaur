@@ -314,6 +314,8 @@ bazSchema.write(Baz("hello"))
     ```
 > - You can name the builder that `record` gives you however you want
   obviously, but `field` is nice and descriptive.
+> - Because you give record fields explicit names, you can rename your
+>   code representation without changing the format in DynamoDb
 
 ### Implicit vs explicit schemas in `field`
 
@@ -617,16 +619,16 @@ Let's now move on to coproducts, by looking at this basic ADT:
 
 ```scala
 sealed trait Basic
-case class One(s: String) extends Basic
-case class Two(n: Int) extends Basic
+case class One(str: String) extends Basic
+case class Two(num: Int) extends Basic
 ```
 
 with the corresponding schema:
 
 ```scala
 val basicADTSchema = Schema.oneOf[Basic] { alt =>
-  val one = Schema.record[One]{ field => field("s", _.s).map(One.apply) }
-  val two = Schema.record[Two]{ field => field("n", _.n).map(Two.apply) }
+  val one = Schema.record[One]{ field => field("str", _.str).map(One.apply) }
+  val two = Schema.record[Two]{ field => field("num", _.num).map(Two.apply) }
 
   alt(one) |+| alt(two)
 }
@@ -642,11 +644,11 @@ val two = Two(4)
 // two: Two = Two(4)
 
 basicADTSchema.write(one)
-// res25: Either[Schema.WriteError, DynamoValue] = Right("M": { "s": { "S": "this is one" } })
+// res25: Either[Schema.WriteError, DynamoValue] = Right("M": { "str": { "S": "this is one" } })
 basicADTSchema.write(one).flatMap(basicADTSchema.read)
 // res26: Either[Schema.DynosaurError, Basic] = Right(One(this is one))
 basicADTSchema.write(two)
-// res27: Either[Schema.WriteError, DynamoValue] = Right("M": { "n": { "N": "4" } })
+// res27: Either[Schema.WriteError, DynamoValue] = Right("M": { "num": { "N": "4" } })
 basicADTSchema.write(two).flatMap(basicADTSchema.read)
 // res28: Either[Schema.DynosaurError, Basic] = Right(Two(4))
 ```
@@ -709,9 +711,6 @@ val ambiguous: Schema[A] = Schema.oneOf { alt =>
 `a` needs to distinguish between `b` and `c` when decoding, but their
 encoded form is the same:
 
-<details>
-<summary>Click to show the resulting DynamoValue</summary>
-
 ```scala
 ambiguous.write(B("hello"))
 // res29: Either[Schema.WriteError, DynamoValue] = Right("M": { "v": { "S": "hello" } })
@@ -721,7 +720,6 @@ ambiguous.write(C("hello"))
 ambiguous.write(C("hello")).flatMap(ambiguous.read)
 // res31: Either[Schema.DynosaurError, A] = Right(B(hello))
 ```
-</details>
 
 `dynosaur` is expressive enough to solve this problem in several ways,
 in this document we will have a look at two possible strategies:
@@ -768,8 +766,9 @@ Now the two records have different keys ("error" vs "warning"), and
 decoding is no longer ambiguous.  
 The final question is how to encode `Unknown`, we need to `tag` a
 schema that produces an empty record on encoding, and always succeeds
-with `Unknown` on decoding, but as we saw in the `Additional
-structure` section, these are _exactly_ the semantics of `field.pure`:
+with `Unknown` on decoding, but as we saw in the [Additional
+structure](#additional-structure) section, these are
+_exactly_ the semantics of `field.pure`:
 
 ```scala
 val unknown = Schema.record[Unknown.type](_.pure(Unknown)).tag("unknown")
@@ -855,7 +854,7 @@ The schema looks like this:
 ```scala
 val schemaWithField = Schema.oneOf[Problem] { alt =>
   val err = Schema.record[Error] { field =>
-     field.const("type", "error") *> field("msg", _.msg).map(Error.apply)
+    field.const("type", "error") *> field("msg", _.msg).map(Error.apply)
   }
 
   val warn = Schema.record[Warning] { field =>
@@ -909,7 +908,7 @@ schemaWithField.write(Unknown).flatMap(schemaWithField.read)
 If you are passing schemas explicitly, you can call `asList`,
 `asVector` or `asSeq` on a `Schema[A]` to obtain the corresponding
 `Schema[Collection[A]]`.
-The are all represented as `L` in `AttributeValue`:
+The are all represented as `L` in `DynamoValue`:
 
 <details>
 <summary>Click to show the resulting DynamoValue</summary>
@@ -947,9 +946,7 @@ fooSchema.asList.write(List(Foo("a", 1), Foo("b", 2), Foo("c", 3)))
 
 Note that bytes do not fit the above description: the library has
 separate instances for `Array[Byte]` and `scodec.bits.ByteVector`, and
-both are represented as `B` in `AttributeValue`. This requires the
-bytes to be base 64 encoded/decoded , which is done automatically for
-you.
+both are represented as `B` in `DynamoValue`.
 
 As with sequences, there is an inductive instance of
 `Schema[Map[String, A]]` given `Schema[A]`, also available by calling
@@ -974,24 +971,259 @@ fooSchema.asMap.write(Map("A foo" -> Foo("a", 1)))
 </details>
 
 > **Notes:**
+> - You need to base64 encode binary data to use it with DynamoDb `B`
+>   type. `ByteVector` has helpers for that.
 > - If you need to represent a Map whose keys aren't directly
 >   `String`, but instead newtypes or enums, just use
 >   `imap`/`imapErr`/`xmap` on the Map schema.
 
 ## Recursive schemas
 
-TODO use Schema.defer
+Imagine you're dealing with a recursive type, such as:
+
+```scala
+case class Department(name: String, subdeps: List[Department] = Nil)
+```
+
+we will need to define its schema as a `lazy val`, and give it an explicit type:
+
+```scala
+lazy val wrongDepSchema: Schema[Department] = Schema.record { field =>
+  (
+    field("name", _.name),
+    field("subdeps", _.subdeps)(wrongDepSchema.asList)
+  ).mapN(Department.apply)
+}
+```
+
+this code will compile fine, **but result in infinite recursion at runtime**.
+To make it work, we need to wrap the recursive occurrence of the
+schema in `Schema.defer`, like so:
+
+```scala
+lazy val depSchema: Schema[Department] = Schema.record { field =>
+  (
+    field("name", _.name),
+    field("subdeps", _.subdeps)(Schema.defer(depSchema.asList))
+  ).mapN(Department.apply)
+}
+
+```
+
+<details>
+<summary>Click to show the resulting DynamoValue</summary>
+
+```scala
+val departments = Department(
+  "STEM",
+  List(
+    Department("CS"),
+    Department(
+      "Maths",
+      List(
+        Department("Applied"),
+        Department("Theoretical")
+      )
+    )
+  )
+)
+// departments: Department = Department(STEM,List(Department(CS,List()), Department(Maths,List(Department(Applied,List()), Department(Theoretical,List())))))
+
+depSchema.write(departments)
+// res52: Either[Schema.WriteError, DynamoValue] = Right("M": {
+//   "subdeps": {
+//     "L": [
+//       {
+//         "M": {
+//           "subdeps": { "L": [  ] },
+//           "name": { "S": "CS" }
+//         }
+//       },
+//       {
+//         "M": {
+//           "subdeps": {
+//             "L": [
+//               {
+//                 "M": {
+//                   "subdeps": {
+//                     "L": [  ]
+//                   },
+//                   "name": {
+//                     "S": "Applied"
+//                   }
+//                 }
+//               },
+//               {
+//                 "M": {
+//                   "subdeps": {
+//                     "L": [  ]
+//                   },
+//                   "name": {
+//                     "S": "Theoretical"
+//                   }
+//                 }
+//               }
+//             ]
+//           },
+//           "name": { "S": "Maths" }
+//         }
+//       }
+//     ]
+//   },
+//   "name": { "S": "STEM" }
+// })
+```
+</details>
+
+> So to recap, to define a recursive schema:
+>
+> - Declare it as a `lazy val` with an explicit type signature
+> - Pass the recursive schema *explicitly* to the `field`s that need it
+> - Wrap recursive arguments to `field` in `Schema.defer`
+
+The same principles apply to more complex recursive structures such as ADTs:
+
+<details>
+<summary>Click to show ADT example</summary>
+
+```scala
+sealed trait Text
+case class Paragraph(text: String) extends Text
+case class Section(title: String, contents: List[Text]) extends Text
+
+lazy val textSchema: Schema[Text] = Schema.oneOf[Text] { alt =>
+  val paragraph = Schema.record[Paragraph] { field =>
+    field("text", _.text).map(Paragraph.apply)
+  }
+   .tag("paragraph")
+
+  val section = Schema.record[Section] { field =>
+    (
+      field("title", _.title),
+      field("contents", _.contents)(Schema.defer(textSchema.asList))
+    ).mapN(Section.apply)
+  }
+   .tag("section")
+
+  alt(section) |+| alt(paragraph)
+}
+
+```
+
+```scala
+val text = Section(
+  "A",
+  List(
+    Paragraph("lorem ipsum"),
+    Section(
+      "A.b",
+      List(Paragraph("dolor sit amet"))
+    )
+  )
+)
+// text: Section = Section(A,List(Paragraph(lorem ipsum), Section(A.b,List(Paragraph(dolor sit amet)))))
+
+textSchema.write(text)
+// res53: Either[Schema.WriteError, DynamoValue] = Right("M": {
+//   "section": {
+//     "M": {
+//       "contents": {
+//         "L": [
+//           {
+//             "M": {
+//               "paragraph": {
+//                 "M": {
+//                   "text": {
+//                     "S": "lorem ipsum"
+//                   }
+//                 }
+//               }
+//             }
+//           },
+//           {
+//             "M": {
+//               "section": {
+//                 "M": {
+//                   "contents": {
+//                     "L": [
+//                       {
+//                         "M": {
+//                           "paragraph": {
+//                             "M": {
+//                               "text": {
+//                                 "S": "dolor sit amet"
+//                               }
+//                             }
+//                           }
+//                         }
+//                       }
+//                     ]
+//                   },
+//                   "title": {
+//                     "S": "A.b"
+//                   }
+//                 }
+//               }
+//             }
+//           }
+//         ]
+//       },
+//       "title": { "S": "A" }
+//     }
+//   }
+// })
+```
+</details>
 
 
 ## ByteSet, StringSet and NumberSet
 
-TODO what to do about SS BS and NS?
-NonEmpty vs what scanamo does (puts NULL, can conflict with Option)
-implicit inductive instances on NonEmptySet[String], and NonEmptySet(numeric stuff), with corresponding as* methods
-only on the appropriate schemas. If you have something you wish to represent as NS or SS, e.g. a
-Set of newtypes, use imap appropriately on it (example with string sets?)
+DynamoDb's `ByteSet`, `StringSet` and `NumberSet` cannot be empty, so
+`dynosaur` defines a simple custom type for non empty sets, and offers
+the following instances:
 
-## Section with expandable examples using `for` only
+```scala
+Schema[NonEmptySet[Int]]
+Schema[NonEmptySet[Long]]
+Schema[NonEmptySet[Double]]
+Schema[NonEmptySet[Float]]
+Schema[NonEmptySet[Short]]
+Schema[NonEmptySet[String]]
+Schema[NonEmptySet[ByteVector]]
+Schema[NonEmptySet[Array[Byte]]]
+```
 
+If you have a normal `Set` that you wish to represent as one of Dynamo
+set types, you need to convert it to `NonEmptySet`, and decide how to
+deal with emptyness. Here's an example with a `StringSet`, where we
+omit the field if the set is empty.
 
+```scala
+
+case class Command(name: String, aliases: Set[String])
+
+val commandSchema = Schema.record[Command] { field =>
+  (
+    field("name", _.name),
+    field
+      .opt("aliases", c => NonEmptySet.fromSet(c.aliases))
+      .map(NonEmptySet.toSet)
+  ).mapN(Command.apply)
+}
+
+```
+
+<details>
+<summary>Click to show the resulting DynamoValue</summary>
+
+```scala
+commandSchema.write(Command("open", Set("o", "O")))
+// res54: Either[Schema.WriteError, DynamoValue] = Right("M": {
+//   "aliases": { "SS": [ "o", "O" ] },
+//   "name": { "S": "open" }
+// })
+commandSchema.write(Command("close", Set.empty))
+// res55: Either[Schema.WriteError, DynamoValue] = Right("M": { "name": { "S": "close" } })
+```
+</details>
 

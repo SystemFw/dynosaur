@@ -43,6 +43,9 @@ object NonEmptySet {
         "Cannot create NonEmptySet from empty set"
       )
 
+  def toSet[A](v: Option[NonEmptySet[A]]): Set[A] =
+    v.map(_.value).getOrElse(Set.empty)
+
   private def create[A](set: Set[A]) =
     new NonEmptySet(set) {}
 }
