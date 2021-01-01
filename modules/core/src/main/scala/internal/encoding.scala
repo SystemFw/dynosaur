@@ -29,7 +29,8 @@ import Schema.WriteError
 import Schema.structure._
 
 object encoding {
-  def fromSchema[A](s: Schema[A]): A => Either[WriteError, DynamoValue] =
+  def fromSchema[A](s: Schema[A]): A => Either[WriteError, DynamoValue] = {
+    println(s"building $s")
     s match {
       case Identity => (_: DynamoValue).asRight
       case Num => encodeNum
@@ -47,6 +48,7 @@ object encoding {
       case Isos(iso) => encodeIsos(iso, _)
       case Defer(schema) => schema().write
     }
+  }
 
   type Res = Either[WriteError, DynamoValue]
 
@@ -77,6 +79,7 @@ object encoding {
       .map(DynamoValue.m)
 
   def encodeRecord[R](recordSchema: Free[Field[R, *], R], record: R): Res = {
+    println("compiling records")
     implicit def overrideKeys: Monoid[Map[String, DynamoValue]] =
       MonoidK[Map[String, *]].algebra
 
@@ -94,19 +97,22 @@ object encoding {
           Map[String, DynamoValue],
           *
         ]) {
-          def apply[B](field: Field[R, B]) = field match {
-            case Field.Required(name, elemSchema, get) =>
-              WriterT {
-                val elem = get(record)
-                write(name, elemSchema, elem).tupleRight(elem)
-              }
-            case Field.Optional(name, elemSchema, get) =>
-              WriterT {
-                val elem = get(record)
-                elem
-                  .foldMap(write(name, elemSchema, _))
-                  .tupleRight(elem)
-              }
+          def apply[B](field: Field[R, B]) = {
+            println("traversing record structure")
+            field match {
+              case Field.Required(name, elemSchema, get) =>
+                WriterT {
+                  val elem = get(record)
+                  write(name, elemSchema, elem).tupleRight(elem)
+                }
+              case Field.Optional(name, elemSchema, get) =>
+                WriterT {
+                  val elem = get(record)
+                  elem
+                    .foldMap(write(name, elemSchema, _))
+                    .tupleRight(elem)
+                }
+            }
           }
         }
       }
