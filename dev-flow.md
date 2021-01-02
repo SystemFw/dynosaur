@@ -78,7 +78,7 @@ Your repo -> settings -> left sidebar -> Secrets -> new repository secret.
 
 You can obtain the PGP_SECRET by running
 
-> gpg --export-secret-keys | base64.
+> gpg --export-secret-keys | base64
 
 Please make sure that this key is not password protected in the export
 (GitHub Actions itself will encrypt it).
