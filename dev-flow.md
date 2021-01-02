@@ -26,6 +26,10 @@ For live preview, start a webserver in `/docs` , e.g. with
 
 > python -m SimpleHttpServer 8000
 
+(or, in python3)
+
+> python -m http.server
+
 and in `sbt`, run `docs/mdoc --watch`
 
 ## Publishing

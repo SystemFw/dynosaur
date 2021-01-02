@@ -16,8 +16,6 @@
 
 package dynosaur
 
-class HelloSuite extends munit.FunSuite {
-  test("hello") {
-    assertEquals(Hello.hello("you"), "Hello you")
-  }
+object CollectionConverters {
+  val all = collection.JavaConverters
 }

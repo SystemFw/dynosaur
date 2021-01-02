@@ -1,4 +1,0 @@
-- **Getting started**
- - [Start](start.md)
-- **Examples**
- - [Example](hello.md)

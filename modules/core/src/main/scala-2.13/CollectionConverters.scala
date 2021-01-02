@@ -16,6 +16,6 @@
 
 package dynosaur
 
-object Hello {
-  def hello(name: String) = "Hello " + name
+object CollectionConverters {
+  val all = _root_.scala.jdk.CollectionConverters
 }
