@@ -87,8 +87,8 @@ Enable Github pages in Settings.
 
 ## Links
 
-https://github.com/djspiewak/sbt-spiewak
-https://github.com/djspiewak/sbt-github-actions
-https://docs.github.com/en/free-pro-team@latest/actions/reference/encrypted-secrets
-https://docsify.js.org/#/
-https://scalameta.org/mdoc/
+- https://github.com/djspiewak/sbt-spiewak
+- https://github.com/djspiewak/sbt-github-actions
+- https://docs.github.com/en/free-pro-team@latest/actions/reference/encrypted-secrets
+- https://docsify.js.org/#/
+- https://scalameta.org/mdoc/
