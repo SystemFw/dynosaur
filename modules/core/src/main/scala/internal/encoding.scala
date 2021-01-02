@@ -80,7 +80,7 @@ object encoding {
       recordSchema: FreeApplicative[Field[R, *], R]
   ): R => Res = {
 
-    implicit def overrideKeys[A]: Monoid[Map[String, A]] =
+    implicit def overrideKeys[T]: Monoid[Map[String, T]] =
       MonoidK[Map[String, *]].algebra
 
     type Target[A] = R => Either[WriteError, Map[String, DynamoValue]]
@@ -117,7 +117,7 @@ object encoding {
   }
 
   def encodeSum[C](cases: Chain[Alt[C]]): C => Res = {
-    implicit def orElse[A]: Monoid[Option[A]] =
+    implicit def orElse[T]: Monoid[Option[T]] =
       MonoidK[Option].algebra
 
     cases

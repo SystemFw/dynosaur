@@ -125,7 +125,7 @@ object decoding {
 
   def decodeSum[A](cases: Chain[Alt[A]]): DynamoValue => Res[A] = {
 
-    implicit def orElse[A]: Monoid[Option[A]] =
+    implicit def orElse[T]: Monoid[Option[T]] =
       MonoidK[Option].algebra
 
     cases
