@@ -29,8 +29,7 @@ import Schema.WriteError
 import Schema.structure._
 
 object encoding {
-  def fromSchema[A](s: Schema[A]): A => Either[WriteError, DynamoValue] = {
-    println(s"building $s")
+  def fromSchema[A](s: Schema[A]): A => Either[WriteError, DynamoValue] =
     s match {
       case Identity => (_: DynamoValue).asRight
       case Num => encodeNum
@@ -48,7 +47,6 @@ object encoding {
       case Isos(iso) => encodeIsos(iso, _)
       case Defer(schema) => schema().write
     }
-  }
 
   type Res = Either[WriteError, DynamoValue]
 
@@ -81,7 +79,7 @@ object encoding {
   def encodeRecord[R](
       recordSchema: FreeApplicative[Field[R, *], R]
   ): R => Res = {
-    println("compiling records")
+
     implicit def overrideKeys[A]: Monoid[Map[String, A]] =
       MonoidK[Map[String, *]].algebra
 
@@ -98,8 +96,7 @@ object encoding {
           ): Either[WriteError, Map[String, DynamoValue]] =
             schema.write(elem).map { av => Map(name -> av) }
 
-          def apply[B](field: Field[R, B]) = {
-            println("traversing record structure")
+          def apply[B](field: Field[R, B]) =
             field match {
               case Field.Required(name, elemSchema, get) =>
                 (record: R) => {
@@ -113,7 +110,6 @@ object encoding {
                     .foldMap(write(name, elemSchema, _))
                 }
             }
-          }
         }
       }
       .andThen(_.map(DynamoValue.m))
@@ -121,17 +117,14 @@ object encoding {
   }
 
   def encodeSum[C](cases: Chain[Alt[C]]): C => Res = {
-    println("compiling sums")
     implicit def orElse[A]: Monoid[Option[A]] =
       MonoidK[Option].algebra
 
     cases
-      .foldMap { alt =>
-        println("traversing sum structure")
-        (coproduct: C) =>
-          alt.prism.tryGet(coproduct).map { elem =>
-            alt.caseSchema.write(elem)
-          }
+      .foldMap { alt => (coproduct: C) =>
+        alt.prism.tryGet(coproduct).map { elem =>
+          alt.caseSchema.write(elem)
+        }
       }
       .andThen(_.getOrElse(WriteError().asLeft))
   }

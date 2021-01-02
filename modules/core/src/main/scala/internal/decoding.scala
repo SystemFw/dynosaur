@@ -28,8 +28,7 @@ import Schema.ReadError
 import Schema.structure._
 
 object decoding {
-  def fromSchema[A](s: Schema[A]): DynamoValue => Either[ReadError, A] = {
-    println(s"building $s - decoder")
+  def fromSchema[A](s: Schema[A]): DynamoValue => Either[ReadError, A] =
     s match {
       case Identity => _.asRight
       case Num => decodeNum
@@ -50,7 +49,6 @@ object decoding {
       case Isos(iso) => decodeIsos(iso, _)
       case Defer(schema) => schema().read
     }
-  }
 
   type Res[A] = Either[ReadError, A]
 
@@ -100,15 +98,13 @@ object decoding {
   def decodeRecord[R](
       recordSchema: FreeApplicative[Field[R, *], R]
   ): Map[String, DynamoValue] => Res[R] = {
-    println("compiling records - decoder")
 
     type Target[A] =
       Kleisli[Either[ReadError, *], Map[String, DynamoValue], A]
 
     recordSchema.foldMap {
       new (Field[R, *] ~> Target) {
-        def apply[A](field: Field[R, A]) = {
-          println("traversing record structure - decoder")
+        def apply[A](field: Field[R, A]) =
           field match {
             case Field.Required(name, elemSchema, _) =>
               Kleisli { (v: Map[String, DynamoValue]) =>
@@ -123,22 +119,18 @@ object decoding {
                   .traverse(v => elemSchema.read(v))
               }
           }
-        }
       }
     }.run
   }
 
   def decodeSum[A](cases: Chain[Alt[A]]): DynamoValue => Res[A] = {
-    println("compiling sums - decoder")
 
     implicit def orElse[A]: Monoid[Option[A]] =
       MonoidK[Option].algebra
 
     cases
-      .foldMap { alt =>
-        println("traversing sum structure - decoder")
-        (v: DynamoValue) =>
-          alt.caseSchema.read(v).map(alt.prism.inject).toOption
+      .foldMap { alt => (v: DynamoValue) =>
+        alt.caseSchema.read(v).map(alt.prism.inject).toOption
       }
       .andThen(_.toRight(ReadError()))
   }
