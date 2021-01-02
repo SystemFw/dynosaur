@@ -20,7 +20,7 @@ package internal
 import cats.{~>, Monoid, MonoidK}
 import cats.syntax.all._
 import alleycats.std.map._
-import cats.data.{Chain, WriterT}
+import cats.data.Chain
 import cats.free.FreeApplicative
 
 import scodec.bits.ByteVector
@@ -43,8 +43,8 @@ object encoding {
       case Nul => encodeNull
       case Sequence(elem) => encodeSequence(elem, _)
       case Dictionary(elem) => encodeDictionary(elem, _)
-      case Record(rec) => encodeRecord(rec, _)
-      case Sum(cases) => encodeSum(cases, _)
+      case Record(rec) => encodeRecord(rec)
+      case Sum(cases) => encodeSum(cases)
       case Isos(iso) => encodeIsos(iso, _)
       case Defer(schema) => schema().write
     }
@@ -79,61 +79,63 @@ object encoding {
       .map(DynamoValue.m)
 
   def encodeRecord[R](
-      recordSchema: FreeApplicative[Field[R, *], R],
-      record: R
-  ): Res = {
+      recordSchema: FreeApplicative[Field[R, *], R]
+  ): R => Res = {
     println("compiling records")
-    implicit def overrideKeys: Monoid[Map[String, DynamoValue]] =
+    implicit def overrideKeys[A]: Monoid[Map[String, A]] =
       MonoidK[Map[String, *]].algebra
 
-    def write[E](
-        name: String,
-        schema: Schema[E],
-        elem: E
-    ): Either[WriteError, Map[String, DynamoValue]] =
-      schema.write(elem).map { av => Map(name -> av) }
+    type Target[A] = R => Either[WriteError, Map[String, DynamoValue]]
 
     recordSchema
-      .foldMap {
-        new (Field[R, *] ~> WriterT[
-          Either[WriteError, *],
-          Map[String, DynamoValue],
-          *
-        ]) {
+      .analyze {
+        new (Field[R, *] ~> Target) {
+
+          def write[E](
+              name: String,
+              schema: Schema[E],
+              elem: E
+          ): Either[WriteError, Map[String, DynamoValue]] =
+            schema.write(elem).map { av => Map(name -> av) }
+
           def apply[B](field: Field[R, B]) = {
             println("traversing record structure")
             field match {
               case Field.Required(name, elemSchema, get) =>
-                WriterT {
+                (record: R) => {
                   val elem = get(record)
-                  write(name, elemSchema, elem).tupleRight(elem)
+                  write(name, elemSchema, elem)
                 }
               case Field.Optional(name, elemSchema, get) =>
-                WriterT {
+                (record: R) => {
                   val elem = get(record)
                   elem
                     .foldMap(write(name, elemSchema, _))
-                    .tupleRight(elem)
                 }
             }
           }
         }
       }
-      .written
-      .map(DynamoValue.m)
+      .andThen(_.map(DynamoValue.m))
+
   }
 
-  def encodeSum[C](cases: Chain[Alt[C]], coproduct: C): Res = {
+  def encodeSum[C](cases: Chain[Alt[C]]): C => Res = {
     println("compiling sums")
+    implicit def orElse[A]: Monoid[Option[A]] =
+      MonoidK[Option].algebra
+
     cases
-      .foldMapK { alt =>
+      .foldMap { alt =>
         println("traversing sum structure")
-        alt.prism.tryGet(coproduct).map { elem =>
-          alt.caseSchema.write(elem)
-        }
+        (coproduct: C) =>
+          alt.prism.tryGet(coproduct).map { elem =>
+            alt.caseSchema.write(elem)
+          }
       }
-      .getOrElse(WriteError().asLeft)
+      .andThen(_.getOrElse(WriteError().asLeft))
   }
+
   def encodeIsos[V](xmap: XMap[V], value: V): Res =
     xmap.w(value).flatMap(v => xmap.schema.write(v))
 }
