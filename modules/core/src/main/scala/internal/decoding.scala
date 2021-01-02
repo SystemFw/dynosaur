@@ -17,11 +17,11 @@
 package dynosaur
 package internal
 
-import cats.~>
+import cats.{~>, Monoid, MonoidK}
 import cats.syntax.all._
 import alleycats.std.map._
 import cats.free.FreeApplicative
-import cats.data.Chain
+import cats.data.{Chain, Kleisli}
 import scodec.bits.ByteVector
 
 import Schema.ReadError
@@ -43,14 +43,16 @@ object decoding {
       case Sequence(elem) => decodeSequence(elem, _)
       case Dictionary(elem) => decodeDictionary(elem, _)
       case Record(rec) =>
-        _.m.toRight(ReadError()).flatMap(decodeRecord(rec, _))
-      case Sum(cases) => decodeSum(cases, _)
+        // val here caches the traversal of the record
+        val cachedDecoder = decodeRecord(rec)
+        _.m.toRight(ReadError()).flatMap(cachedDecoder)
+      case Sum(cases) => decodeSum(cases)
       case Isos(iso) => decodeIsos(iso, _)
       case Defer(schema) => schema().read
     }
   }
 
-  type Res[B] = Either[ReadError, B]
+  type Res[A] = Either[ReadError, A]
 
   def decodeBool: DynamoValue => Res[Boolean] =
     _.bool.toRight(ReadError())
@@ -96,37 +98,49 @@ object decoding {
       )
 
   def decodeRecord[R](
-      recordSchema: FreeApplicative[Field[R, *], R],
-      v: Map[String, DynamoValue]
-  ): Res[R] = {
+      recordSchema: FreeApplicative[Field[R, *], R]
+  ): Map[String, DynamoValue] => Res[R] = {
     println("compiling records - decoder")
+
+    type Target[A] =
+      Kleisli[Either[ReadError, *], Map[String, DynamoValue], A]
+
     recordSchema.foldMap {
-      new (Field[R, *] ~> Res) {
-        def apply[B](field: Field[R, B]): Res[B] = {
-          println("traversing record structure")
+      new (Field[R, *] ~> Target) {
+        def apply[A](field: Field[R, A]) = {
+          println("traversing record structure - decoder")
           field match {
             case Field.Required(name, elemSchema, _) =>
-              v.get(name)
-                .toRight(ReadError())
-                .flatMap(v => elemSchema.read(v))
+              Kleisli { (v: Map[String, DynamoValue]) =>
+                v.get(name)
+                  .toRight(ReadError())
+                  .flatMap(v => elemSchema.read(v))
+              }
             case Field.Optional(name, elemSchema, _) =>
-              v
-                .get(name)
-                .traverse(v => elemSchema.read(v))
+              Kleisli { (v: Map[String, DynamoValue]) =>
+                v
+                  .get(name)
+                  .traverse(v => elemSchema.read(v))
+              }
           }
         }
       }
-    }
+    }.run
   }
 
-  def decodeSum[B](cases: Chain[Alt[B]], v: DynamoValue): Res[B] = {
+  def decodeSum[A](cases: Chain[Alt[A]]): DynamoValue => Res[A] = {
     println("compiling sums - decoder")
+
+    implicit def orElse[A]: Monoid[Option[A]] =
+      MonoidK[Option].algebra
+
     cases
-      .foldMapK { alt =>
+      .foldMap { alt =>
         println("traversing sum structure - decoder")
-        alt.caseSchema.read(v).map(alt.prism.inject).toOption
+        (v: DynamoValue) =>
+          alt.caseSchema.read(v).map(alt.prism.inject).toOption
       }
-      .toRight(ReadError())
+      .andThen(_.toRight(ReadError()))
   }
 
   def decodeIsos[V](xmap: XMap[V], v: DynamoValue): Res[V] =
