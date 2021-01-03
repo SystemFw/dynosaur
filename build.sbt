@@ -13,7 +13,7 @@ ThisBuild / spiewakMainBranches := Seq("main")
 
 val Scala213 = "2.13.4"
 
-ThisBuild / githubWorkflowPublishPreamble +=
+ThisBuild / githubWorkflowPublishPreamble :=
     WorkflowStep.Run(
       List("echo $PGP_SECRET | base64 -d | gpg --import --no-tty --batch --yes"),
       name = Some("Import signing key")
