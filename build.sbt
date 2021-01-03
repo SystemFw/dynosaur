@@ -13,6 +13,12 @@ ThisBuild / spiewakMainBranches := Seq("main")
 
 val Scala213 = "2.13.4"
 
+ThisBuild / githubWorkflowPublishPreamble +=
+    WorkflowStep.Run(
+      List("echo $PGP_SECRET | base64 -d | gpg --import --no-tty --batch --yes"),
+      name = Some("Import signing key")
+    )
+
 ThisBuild / githubWorkflowBuildPostamble +=  WorkflowStep.Sbt(
   List("docs/mdoc"),
   cond = Some(s"matrix.scala == '$Scala213'"))
