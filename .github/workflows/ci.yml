@@ -123,6 +123,6 @@ jobs:
           rm targets.tar
 
       - name: Import signing key
-        run: echo $PGP_SECRET | base64 -d | gpg --import --no-tty --batch --yes
+        run: echo $PGP_SECRET | base64 -d | gpg --import
 
       - run: sbt ++${{ matrix.scala }} release
