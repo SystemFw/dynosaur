@@ -14,7 +14,7 @@ Global / scmInfo := Some(
   )
 )
 Global / excludeLintKeys += scmInfo
-ThisBuild / spiewakMainBranches := Seq("main")
+// ThisBuild / spiewakMainBranches := Seq("main") // TODO reenable when CI release happens
 
 val Scala213 = "2.13.4"
 
@@ -23,7 +23,7 @@ ThisBuild / githubWorkflowBuildPostamble +=  WorkflowStep.Sbt(
   cond = Some(s"matrix.scala == '$Scala213'")
 )
 
-// blocked on a paiges release for Scala 3
+// TODO blocked on a paiges release for Scala 3
 // ThisBuild / crossScalaVersions := Seq(Scala213, "3.0.0-M2", "2.12.10")
 ThisBuild / crossScalaVersions := Seq(Scala213, "2.12.10")
 ThisBuild / versionIntroduced := Map("3.0.0-M2" -> "3.0.0")
@@ -38,7 +38,8 @@ ThisBuild / testFrameworks += new TestFramework("munit.Framework")
 
 lazy val root = project
   .in(file("."))
-  .enablePlugins(NoPublishPlugin, SonatypeCiReleasePlugin)
+  .enablePlugins(NoPublishPlugin, // SonatypeCiReleasePlugin // TODO blocked on passphrase issue
+  )
   .aggregate(core)
 
 lazy val core = project
