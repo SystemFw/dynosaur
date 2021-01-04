@@ -1,6 +1,3 @@
-<!-- - **Schema** -->
-<!--  - [Schema](Schema.md) -->
-
 - Getting Started
 
  - [Installing](installing.md)
