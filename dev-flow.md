@@ -1,3 +1,21 @@
+## Interim flow
+
+- release manually, by adding a tag and running `release`
+- release docs manually, by coping them from `website/preview` to `docs`,
+and changing the version in `installing.md` in the `docs` folder only.
+
+## Docs
+
+This info will be valid always, altough publishing will be smoother eventually.
+
+the docs are in `website/docs`, and `docs/mdoc --watch` will compile them to `website/preview`. You should use the docsify cli to preview (python server doesn't reload properly), `cd website/preview` and `docsify serve .`
+`npm i docsify-cli -g` to install it. You should commit both `website/docs` and `website/preview`
+
+
+
+
+-----
+
 ## Documentation
 
 Docs are based on:
