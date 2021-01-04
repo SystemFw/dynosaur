@@ -110,3 +110,5 @@ Enable Github pages in Settings.
 - https://docs.github.com/en/free-pro-team@latest/actions/reference/encrypted-secrets
 - https://docsify.js.org/#/
 - https://scalameta.org/mdoc/
+- https://github.com/jodersky/sbt-gpg
+- https://github.com/olafurpg/sbt-ci-release

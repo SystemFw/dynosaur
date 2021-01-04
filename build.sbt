@@ -14,7 +14,7 @@ Global / scmInfo := Some(
   )
 )
 Global / excludeLintKeys += scmInfo
-// ThisBuild / spiewakMainBranches := Seq("main") // TODO reenable when CI release happens
+ThisBuild / spiewakMainBranches := Seq("main")
 
 val Scala213 = "2.13.4"
 
@@ -38,8 +38,7 @@ ThisBuild / testFrameworks += new TestFramework("munit.Framework")
 
 lazy val root = project
   .in(file("."))
-  .enablePlugins(NoPublishPlugin, // SonatypeCiReleasePlugin // TODO blocked on passphrase issue
-  )
+  .enablePlugins(NoPublishPlugin, SonatypeCiReleasePlugin)
   .aggregate(core)
 
 lazy val core = project
