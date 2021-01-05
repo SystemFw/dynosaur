@@ -5,9 +5,8 @@ ThisBuild / organization := "org.systemfw"
 ThisBuild / publishGithubUser := "SystemFw"
 ThisBuild / publishFullName := "Fabio Labella"
 
-// sbt-sonatype wants these in Global
-Global / homepage := Some(url("https://github.com/SystemFw/dynosaur"))
-Global / scmInfo := Some(
+ThisBuild / homepage := Some(url("https://github.com/SystemFw/dynosaur"))
+ThisBuild / scmInfo := Some(
   ScmInfo(
     url("https://github.com/SystemFw/dynosaur"),
     "git@github.com:SystemFw/dynosaur.git"
