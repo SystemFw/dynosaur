@@ -61,10 +61,11 @@ jobs:
         run: sbt ++${{ matrix.scala }} docs/mdoc
 
       - name: Upload website directories
+        if: matrix.scala == '2.13.4'
         uses: actions/upload-artifact@v2
         with:
-          name: website/preview
-          path: website
+          name: website
+          path: website/preview
 
       - name: Compress target directories
         run: tar cf targets.tar target modules/core/target project/target

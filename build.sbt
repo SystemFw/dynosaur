@@ -28,8 +28,9 @@ ThisBuild / githubWorkflowBuildPostamble ++= List(
     "v2",
     name = Some(s"Upload website directories"),
     params = Map(
-      "name" -> s"website/preview",
-      "path" -> "website")
+      "name" -> "website",
+      "path" -> "website/preview"),
+    cond = Some(s"matrix.scala == '$Scala213'")
   )
 )
 
