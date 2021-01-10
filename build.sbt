@@ -65,7 +65,7 @@ lazy val docs = project
         .map(v => s"- **$v**")
         .mkString("\n")
     ),
-    githubWorkflowArtifactUpload := false,
+    githubWorkflowArtifactUpload := true,
     fatalWarningsInCI := false
   )
   .dependsOn(core)
