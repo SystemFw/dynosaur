@@ -17,9 +17,20 @@ ThisBuild / spiewakMainBranches := Seq("main")
 
 val Scala213 = "2.13.4"
 
-ThisBuild / githubWorkflowBuildPostamble +=  WorkflowStep.Sbt(
-  List("docs/mdoc"),
-  cond = Some(s"matrix.scala == '$Scala213'")
+ThisBuild / githubWorkflowBuildPostamble ++= List(
+  WorkflowStep.Sbt(
+    List("docs/mdoc"),
+    cond = Some(s"matrix.scala == '$Scala213'")
+  ),
+  WorkflowStep.Use(
+    "actions",
+    "upload-artifact",
+    "v2",
+    name = Some(s"Upload website directories"),
+    params = Map(
+      "name" -> s"website/preview",
+      "path" -> "website")
+  )
 )
 
 // TODO blocked on a paiges release for Scala 3
@@ -58,14 +69,14 @@ lazy val docs = project
   .in(file("website/mdoc"))
   .settings(
     mdocIn := file("website/docs"),
-    mdocOut := file("website/mdoc/target/site"),
+    mdocOut := file("website/preview"),
     mdocVariables := Map(
       "version" -> version.value,
       "scalaVersions" -> crossScalaVersions.value
         .map(v => s"- **$v**")
         .mkString("\n")
     ),
-    githubWorkflowArtifactUpload := true,
+    githubWorkflowArtifactUpload := false,
     fatalWarningsInCI := false
   )
   .dependsOn(core)
