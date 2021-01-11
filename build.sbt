@@ -34,6 +34,24 @@ ThisBuild / githubWorkflowBuildPostamble ++= List(
   )
 )
 
+ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
+  id = "docs",
+  name = "Deploy docs",
+  steps = List(
+    WorkflowStep.Use(
+      "peaceiris",
+      "action-gh-pages",
+      "v3",
+      name = Some(s"Deploy docs"),
+      params = Map(
+        "publish_dir" -> "website/preview",
+        "github_token" -> "${{ secrets.GITHUB_TOKEN }}"
+      )
+    )
+  )
+)
+
+
 // TODO blocked on a paiges release for Scala 3
 // ThisBuild / crossScalaVersions := Seq(Scala213, "3.0.0-M2", "2.12.10")
 ThisBuild / crossScalaVersions := Seq(Scala213, "2.12.10")
