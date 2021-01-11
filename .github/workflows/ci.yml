@@ -144,6 +144,8 @@ jobs:
         java: [adopt@1.8]
     runs-on: ${{ matrix.os }}
     steps:
+      - uses: actions/checkout@v2
+
       - name: Deploy docs
         uses: peaceiris/actions-gh-pages@v3
         with:

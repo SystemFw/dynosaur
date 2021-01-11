@@ -40,6 +40,11 @@ ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
   needs = List("build"),
   steps = List(
     WorkflowStep.Use(
+      "actions",
+      "checkout",
+      "v2"
+    ),
+    WorkflowStep.Use(
       "peaceiris",
       "actions-gh-pages",
       "v3",
