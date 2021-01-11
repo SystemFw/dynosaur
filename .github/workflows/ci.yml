@@ -136,6 +136,7 @@ jobs:
 
   docs:
     name: Deploy docs
+    needs: [build]
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -146,5 +147,5 @@ jobs:
       - name: Deploy docs
         uses: peaceiris/actions-gh-pages@v3
         with:
-          publish_dir: ./public
+          publish_dir: ./website/preview
           github_token: ${{ secrets.GITHUB_TOKEN }}

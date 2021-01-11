@@ -37,6 +37,7 @@ ThisBuild / githubWorkflowBuildPostamble ++= List(
 ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
   id = "docs",
   name = "Deploy docs",
+  needs = List("build"),
   steps = List(
     WorkflowStep.Use(
       "peaceiris",
@@ -44,7 +45,7 @@ ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
       "v3",
       name = Some(s"Deploy docs"),
       params = Map(
-        "publish_dir" -> "./public",
+        "publish_dir" -> "./website/preview",
         "github_token" -> "${{ secrets.GITHUB_TOKEN }}"
       )
     )
