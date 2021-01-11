@@ -40,7 +40,7 @@ ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
   steps = List(
     WorkflowStep.Use(
       "peaceiris",
-      "action-gh-pages",
+      "actions-gh-pages",
       "v3",
       name = Some(s"Deploy docs"),
       params = Map(
