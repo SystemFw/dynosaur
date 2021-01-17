@@ -129,7 +129,7 @@ jobs:
 
   docs:
     name: Deploy docs
-    needs: [build]
+    needs: [publish]
     strategy:
       matrix:
         os: [ubuntu-latest]

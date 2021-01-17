@@ -27,7 +27,7 @@ ThisBuild / githubWorkflowBuildPostamble ++= List(
 ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
   id = "docs",
   name = "Deploy docs",
-  needs = List("build"),
+  needs = List("publish"),
   steps =
     githubWorkflowGeneratedDownloadSteps.value.toList :+
     WorkflowStep.Use(
