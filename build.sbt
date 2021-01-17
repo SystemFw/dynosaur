@@ -32,7 +32,7 @@ ThisBuild / githubWorkflowBuildPostamble ++= List(
   //     "path" -> "website/preview"),
   //   cond = Some(s"matrix.scala == '$Scala213'")
   // )
-
+  
 )
 
 ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
@@ -52,7 +52,7 @@ ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
       "v3",
       name = Some(s"Deploy docs"),
       params = Map(
-        "publish_dir" -> ("target-${{ matrix.os }}-" + Scala213 + "-${{ matrix.java }}/website"),
+        "publish_dir" -> ".targets/target/website",
         "github_token" -> "${{ secrets.GITHUB_TOKEN }}"
       )
     )
