@@ -94,14 +94,14 @@ lazy val docs = project
   .in(file("website/mdoc"))
   .settings(
     mdocIn := file("website/docs"),
-    mdocOut := file("website/preview"),
+    mdocOut := file("website/target"),
     mdocVariables := Map(
       "version" -> version.value,
       "scalaVersions" -> crossScalaVersions.value
         .map(v => s"- **$v**")
         .mkString("\n")
     ),
-    githubWorkflowArtifactUpload := false,
+    githubWorkflowArtifactUpload := true,
     fatalWarningsInCI := false
   )
   .dependsOn(core)
