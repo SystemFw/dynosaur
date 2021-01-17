@@ -52,7 +52,7 @@ ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
       "v3",
       name = Some(s"Deploy docs"),
       params = Map(
-        "publish_dir" -> ".targets/target/website",
+        "publish_dir" -> "./target/website",
         "github_token" -> "${{ secrets.GITHUB_TOKEN }}"
       )
     )
