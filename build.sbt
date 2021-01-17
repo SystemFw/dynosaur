@@ -22,17 +22,6 @@ ThisBuild / githubWorkflowBuildPostamble ++= List(
     List("docs/mdoc"),
     cond = Some(s"matrix.scala == '$Scala213'")
   ),
-  // WorkflowStep.Use(
-  //   "actions",
-  //   "upload-artifact",
-  //   "v2",
-  //   name = Some(s"Upload website directories"),
-  //   params = Map(
-  //     "name" -> "website",
-  //     "path" -> "website/preview"),
-  //   cond = Some(s"matrix.scala == '$Scala213'")
-  // )
-  
 )
 
 ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
@@ -40,12 +29,7 @@ ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
   name = "Deploy docs",
   needs = List("build"),
   steps =
-    githubWorkflowGeneratedDownloadSteps.value.toList :+ // List(
-    // WorkflowStep.Use(
-    //   "actions",
-    //   "checkout",
-    //   "v2"
-    // ),
+    githubWorkflowGeneratedDownloadSteps.value.toList :+
     WorkflowStep.Use(
       "peaceiris",
       "actions-gh-pages",
@@ -56,7 +40,6 @@ ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
         "github_token" -> "${{ secrets.GITHUB_TOKEN }}"
       )
     )
-//  )
 )
 
 
