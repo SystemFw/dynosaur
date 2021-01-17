@@ -76,9 +76,9 @@ lazy val core = project
   )
 
 lazy val docs = project
-  .in(file("website/mdoc"))
+  .in(file("mdoc"))
   .settings(
-    mdocIn := file("website/docs"),
+    mdocIn := file("docs"),
     mdocOut := file("target/website"),
     mdocVariables := Map(
       "version" -> version.value,
