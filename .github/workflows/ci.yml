@@ -126,3 +126,9 @@ jobs:
         run: echo $PGP_SECRET | base64 -d | gpg --import
 
       - run: sbt ++${{ matrix.scala }} release
+
+      - name: Deploy docs
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          publish_dir: ./target/website
+          github_token: ${{ secrets.GITHUB_TOKEN }}

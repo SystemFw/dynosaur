@@ -9,21 +9,18 @@ SDK's `AttributeValue`.
 If you have an `AttributeValue`, you can convert to `DynamoValue` via
 `apply`:
 
-```scala
+```scala mdoc:to-string
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import dynosaur.DynamoValue
 
 val av = AttributeValue.builder.s("hello").build
-// av: AttributeValue = AttributeValue(S=hello, SS=[], NS=[], BS=[], M={}, L=[])
 val dv = DynamoValue(av)
-// dv: DynamoValue = "S": "hello"
 ```
 
 and back to `AttributeValue` with `_.value`
 
-```scala
+```scala mdoc:to-string
 val av2 = dv.value
-// av2: AttributeValue = AttributeValue(S=hello, SS=[], NS=[], BS=[], M={}, L=[])
 ```
 
 Of course, the reason `DynamoValue` exists is to provide a nicer Scala
@@ -32,7 +29,7 @@ companion object, which all take Scala types, instead of using the Java builder.
 
 Here's an example:
 
-```scala
+```scala mdoc:silent
 val V = DynamoValue
 
 val ex = V.m(
@@ -53,30 +50,8 @@ val ex = V.m(
 
 `toString` gives you a pretty printed string:
 
-```scala
+```scala mdoc:to-string
 ex.toString
-// res0: String = 
-// "M": {
-//   "no": { "N": "1245" },
-//   "id": { "S": "61c9f0d406a3" },
-//   "items": {
-//     "L": [
-//       {
-//         "M": {
-//           "price": { "N": "3" },
-//           "id": { "S": "93ed9348f407" }
-//         }
-//       },
-//       {
-//         "M": {
-//           "price": { "N": "50" },
-//           "id": { "S": "96d5e9ed1db8" }
-//         }
-//       }
-//     ]
-//   }
-// }
-//
 ```
 
 when reading, `DynamoValue` mirrors the `AttributeValue` convention
@@ -86,7 +61,7 @@ before using them.
 
 Let's read the `id` of the first item:
 
-```scala
+```scala mdoc
 val firstId: Option[String] =
   for {
     ex <- ex.m
@@ -94,7 +69,6 @@ val firstId: Option[String] =
     firstItem <- items.headOption.flatMap(_.m)
     id <- firstItem.get("id").flatMap(_.s)
   } yield id
-// firstId: Option[String] = Some(value = "93ed9348f407")
 ```
 
 Finally, there is a general `fold` method as a replacement for direct

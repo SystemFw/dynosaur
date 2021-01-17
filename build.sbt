@@ -17,9 +17,22 @@ ThisBuild / spiewakMainBranches := Seq("main")
 
 val Scala213 = "2.13.4"
 
-ThisBuild / githubWorkflowBuildPostamble +=  WorkflowStep.Sbt(
-  List("docs/mdoc"),
-  cond = Some(s"matrix.scala == '$Scala213'")
+ThisBuild / githubWorkflowBuildPostamble ++= List(
+  WorkflowStep.Sbt(
+    List("docs/mdoc"),
+    cond = Some(s"matrix.scala == '$Scala213'")
+  ),
+)
+
+ThisBuild / githubWorkflowPublishPostamble += WorkflowStep.Use(
+  "peaceiris",
+  "actions-gh-pages",
+  "v3",
+  name = Some(s"Deploy docs"),
+  params = Map(
+    "publish_dir" -> "./target/website",
+    "github_token" -> "${{ secrets.GITHUB_TOKEN }}"
+  )
 )
 
 // TODO blocked on a paiges release for Scala 3
@@ -55,10 +68,10 @@ lazy val core = project
   )
 
 lazy val docs = project
-  .in(file("website/mdoc"))
+  .in(file("mdoc"))
   .settings(
-    mdocIn := file("website/docs"),
-    mdocOut := file("website/preview"),
+    mdocIn := file("docs"),
+    mdocOut := file("target/website"),
     mdocVariables := Map(
       "version" -> version.value,
       "scalaVersions" -> crossScalaVersions.value

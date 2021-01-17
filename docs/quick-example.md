@@ -6,7 +6,7 @@ example, and you can read on for in depth documentation.
 
 Given this simple ADT
 
-```scala
+```scala mdoc
 sealed trait Auth
 object Auth {
   case class Error(reason: String) extends Auth
@@ -16,7 +16,7 @@ object Auth {
 
 We define a schema for it
 
-```scala
+```scala mdoc:silent
 import dynosaur._
 import cats.syntax.all._
 
@@ -38,35 +38,12 @@ val schema: Schema[Auth] = Schema.oneOf { alt =>
 
 Which can then be used for both encoding and decoding:
 
-```scala
+```scala mdoc:to-string
 val u = Auth.User(303, "tim")
-// u: Auth.User = User(303,tim)
 val e = Auth.Error("Unauthorized")
-// e: Auth.Error = Error(Unauthorized)
 
 schema.write(u)
-// res0: Either[Schema.WriteError, DynamoValue] = Right(
-// "M": {
-//   "user": {
-//     "M": {
-//       "name": { "S": "tim" },
-//       "id": { "N": "303" }
-//     }
-//   }
-// }
-// )
 schema.write(u).flatMap(schema.read)
-// res1: Either[Schema.DynosaurError, Auth] = Right(User(303,tim))
 schema.write(e)
-// res2: Either[Schema.WriteError, DynamoValue] = Right(
-// "M": {
-//   "error": {
-//     "M": {
-//       "reason": { "S": "Unauthorized" }
-//     }
-//   }
-// }
-// )
 schema.write(e).flatMap(schema.read)
-// res3: Either[Schema.DynosaurError, Auth] = Right(Error(Unauthorized))
 ```
