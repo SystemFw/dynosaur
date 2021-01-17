@@ -22,16 +22,16 @@ ThisBuild / githubWorkflowBuildPostamble ++= List(
     List("docs/mdoc"),
     cond = Some(s"matrix.scala == '$Scala213'")
   ),
-  WorkflowStep.Use(
-    "actions",
-    "upload-artifact",
-    "v2",
-    name = Some(s"Upload website directories"),
-    params = Map(
-      "name" -> "website",
-      "path" -> "website/preview"),
-    cond = Some(s"matrix.scala == '$Scala213'")
-  )
+  // WorkflowStep.Use(
+  //   "actions",
+  //   "upload-artifact",
+  //   "v2",
+  //   name = Some(s"Upload website directories"),
+  //   params = Map(
+  //     "name" -> "website",
+  //     "path" -> "website/preview"),
+  //   cond = Some(s"matrix.scala == '$Scala213'")
+  // )
 )
 
 ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
