@@ -52,8 +52,8 @@ jobs:
             ~/Library/Caches/Coursier/v1
           key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
 
-      - name: Check that workflows are up to date
-        run: sbt ++${{ matrix.scala }} githubWorkflowCheck
+      # - name: Check that workflows are up to date
+      #   run: sbt ++${{ matrix.scala }} githubWorkflowCheck
 
       - run: sbt ++${{ matrix.scala }} ci
 
@@ -130,6 +130,7 @@ jobs:
   docs:
     name: Deploy docs
     needs: [publish]
+    if: always() && ((needs.publish.result == 'skipped') && startsWith(github.ref, 'refs/tags/docs'))
     strategy:
       matrix:
         os: [ubuntu-latest]
