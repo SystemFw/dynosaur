@@ -32,29 +32,31 @@ ThisBuild / githubWorkflowBuildPostamble ++= List(
   //     "path" -> "website/preview"),
   //   cond = Some(s"matrix.scala == '$Scala213'")
   // )
+
 )
 
 ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
   id = "docs",
   name = "Deploy docs",
   needs = List("build"),
-  steps = List(
-    WorkflowStep.Use(
-      "actions",
-      "checkout",
-      "v2"
-    ),
+  steps =
+    githubWorkflowGeneratedDownloadSteps.value.toList :+ // List(
+    // WorkflowStep.Use(
+    //   "actions",
+    //   "checkout",
+    //   "v2"
+    // ),
     WorkflowStep.Use(
       "peaceiris",
       "actions-gh-pages",
       "v3",
       name = Some(s"Deploy docs"),
       params = Map(
-        "publish_dir" -> "./website/preview",
+        "publish_dir" -> ("target-${{ matrix.os }}-" + Scala213 + "-${{ matrix.java }}/website"),
         "github_token" -> "${{ secrets.GITHUB_TOKEN }}"
       )
     )
-  )
+//  )
 )
 
 

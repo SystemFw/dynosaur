@@ -137,10 +137,28 @@ jobs:
         java: [adopt@1.8]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - name: Download target directories (2.13.4)
+        uses: actions/download-artifact@v2
+        with:
+          name: target-${{ matrix.os }}-2.13.4-${{ matrix.java }}
+
+      - name: Inflate target directories (2.13.4)
+        run: |
+          tar xf targets.tar
+          rm targets.tar
+
+      - name: Download target directories (2.12.10)
+        uses: actions/download-artifact@v2
+        with:
+          name: target-${{ matrix.os }}-2.12.10-${{ matrix.java }}
+
+      - name: Inflate target directories (2.12.10)
+        run: |
+          tar xf targets.tar
+          rm targets.tar
 
       - name: Deploy docs
         uses: peaceiris/actions-gh-pages@v3
         with:
-          publish_dir: ./website/preview
+          publish_dir: target-${{ matrix.os }}-2.13.4-${{ matrix.java }}/website
           github_token: ${{ secrets.GITHUB_TOKEN }}
