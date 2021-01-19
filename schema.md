@@ -64,9 +64,20 @@ our schemas.
 >    ```
 >
 >    </details>
-> -  With the exception of recursive schemas, which are treated later,
->    it's best to declare schemas as `val`, to allow `Dynosaur` to
->    cache some transformations
+
+## Schema caching
+
+With the exception of recursive schemas, which are treated later, it's
+best to declare schemas as `val`, to allow `Dynosaur` to cache some
+transformations.
+
+```scala
+val mySchema: Schema[Thing] = ??? // good
+
+lazy val myRecursiveSchema: Schema[RecursiveThing] = ??? // good
+
+def mySchema: Schema[Thing] = ??? // best avoided if possible, no caching
+```
 
 ## Passthrough schema
 
