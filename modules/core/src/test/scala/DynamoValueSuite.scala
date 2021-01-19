@@ -188,7 +188,7 @@ class DynamoValueSuite extends FunSuite {
     |  "food": {
     |    "SS": [ "Rice", "Noodles" ]
     |  },
-    |  "day": { "S": "Tuesday" }
+    |  "day": { "S": "Tuesday" 
     |}
     """.trim.stripMargin
 
