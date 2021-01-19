@@ -52,8 +52,8 @@ jobs:
             ~/Library/Caches/Coursier/v1
           key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
 
-      - name: Check that workflows are up to date
-        run: sbt ++${{ matrix.scala }} githubWorkflowCheck
+      # - name: Check that workflows are up to date
+      #   run: sbt ++${{ matrix.scala }} githubWorkflowCheck
 
       - run: sbt ++${{ matrix.scala }} ci
 
@@ -132,3 +132,19 @@ jobs:
         with:
           publish_dir: ./target/website
           github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  skipper:
+    name: It's going to be skipped
+    needs: build
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Compress target directories
+        run: echo 'should be skipped'
+
+  followup:
+    name: It's going to be executed
+    needs: skipper
+    if: needs.skipper.result == 'skipped'
+    steps:
+      - name: Compress target directories
+        run: echo 'should be happening'
