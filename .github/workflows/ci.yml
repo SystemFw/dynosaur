@@ -146,7 +146,7 @@ jobs:
     name: It's going to be executed
     runs-on: ubuntu-latest
     needs: skipper
-    if: needs.skipper.result == 'skipped'
+    if: always && needs.skipper.result == 'skipped'
     steps:
       - name: Compress target directories
         run: echo 'should be happening'
