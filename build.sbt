@@ -31,7 +31,7 @@ ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
   cond = """
   | always() &&
   | needs.build.result == 'success' &&
-  | (needs.publish.result == 'success' || github.ref == 'refs/head/docs-deploy')
+  | (needs.publish.result == 'success' || github.ref == 'refs/heads/docs-deploy')
   """.stripMargin.trim.linesIterator.mkString.some,
   steps =
     githubWorkflowGeneratedDownloadSteps.value.toList :+
