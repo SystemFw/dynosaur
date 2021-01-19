@@ -30,7 +30,7 @@ ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
   needs = List("publish"),
   cond = """
   | always() &&
-  | needs.build.result == 'success &&
+  | needs.build.result == 'success' &&
   | (needs.publish.result == 'success' || github.ref == 'refs/head/docs-deploy')
   """.stripMargin.trim.linesIterator.mkString.some,
   steps =

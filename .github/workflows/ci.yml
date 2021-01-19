@@ -130,7 +130,7 @@ jobs:
   docs:
     name: Deploy docs
     needs: [publish]
-    if: always() && needs.build.result == 'success && (needs.publish.result == 'success' || github.ref == 'refs/head/docs-deploy')
+    if: always() && needs.build.result == 'success' && (needs.publish.result == 'success' || github.ref == 'refs/head/docs-deploy')
     strategy:
       matrix:
         os: [ubuntu-latest]
