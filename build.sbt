@@ -4,7 +4,6 @@ ThisBuild / baseVersion := "0.1.0"
 ThisBuild / organization := "org.systemfw"
 ThisBuild / publishGithubUser := "SystemFw"
 ThisBuild / publishFullName := "Fabio Labella"
-
 ThisBuild / homepage := Some(url("https://github.com/SystemFw/dynosaur"))
 ThisBuild / scmInfo := Some(
   ScmInfo(
@@ -13,53 +12,25 @@ ThisBuild / scmInfo := Some(
   )
 )
 Global / excludeLintKeys += scmInfo
-ThisBuild / spiewakMainBranches := Seq("main")
 
 val Scala213 = "2.13.4"
-
-ThisBuild / githubWorkflowBuildPostamble ++= List(
-  WorkflowStep.Sbt(
-    List("docs/mdoc"),
-    cond = Some(s"matrix.scala == '$Scala213'")
-  ),
-)
-
-ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
-  id = "docs",
-  name = "Deploy docs",
-  needs = List("publish"),
-  cond = """
-  | always() &&
-  | needs.build.result == 'success' &&
-  | (needs.publish.result == 'success' || github.ref == 'refs/heads/docs-deploy')
-  """.stripMargin.trim.linesIterator.mkString.some,
-  steps =
-    githubWorkflowGeneratedDownloadSteps.value.toList :+
-    WorkflowStep.Use(
-      "peaceiris",
-      "actions-gh-pages",
-      "v3",
-      name = Some(s"Deploy docs"),
-      params = Map(
-        "publish_dir" -> "./target/website",
-        "github_token" -> "${{ secrets.GITHUB_TOKEN }}"
-      )
-    )
-)
-
-
+ThisBuild / spiewakMainBranches := Seq("main")
 // TODO blocked on a paiges release for Scala 3
 // ThisBuild / crossScalaVersions := Seq(Scala213, "3.0.0-M2", "2.12.10")
 ThisBuild / crossScalaVersions := Seq(Scala213, "2.12.10")
 ThisBuild / versionIntroduced := Map("3.0.0-M2" -> "3.0.0")
 ThisBuild / scalaVersion := (ThisBuild / crossScalaVersions).value.head
-
 ThisBuild / initialCommands := """
   |import cats._, data._, syntax.all._
   |import dynosaur._
 """.stripMargin
-
 ThisBuild / testFrameworks += new TestFramework("munit.Framework")
+
+def dep(org: String, prefix: String, version: String)(modules: String*)(
+    testModules: String*
+) =
+  modules.map(m => org %% (prefix ++ m) % version) ++
+    testModules.map(m => org %% (prefix ++ m) % version % Test)
 
 lazy val root = project
   .in(file("."))
@@ -97,8 +68,31 @@ lazy val docs = project
   .dependsOn(core)
   .enablePlugins(MdocPlugin, NoPublishPlugin)
 
-def dep(org: String, prefix: String, version: String)(modules: String*)(
-    testModules: String*
-) =
-  modules.map(m => org %% (prefix ++ m) % version) ++
-    testModules.map(m => org %% (prefix ++ m) % version % Test)
+ThisBuild / githubWorkflowBuildPostamble ++= List(
+  WorkflowStep.Sbt(
+    List("docs/mdoc"),
+    cond = Some(s"matrix.scala == '$Scala213'")
+  )
+)
+
+ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
+  id = "docs",
+  name = "Deploy docs",
+  needs = List("publish"),
+  cond = """
+  | always() &&
+  | needs.build.result == 'success' &&
+  | (needs.publish.result == 'success' || github.ref == 'refs/heads/docs-deploy')
+  """.stripMargin.trim.linesIterator.mkString.some,
+  steps = githubWorkflowGeneratedDownloadSteps.value.toList :+
+    WorkflowStep.Use(
+      "peaceiris",
+      "actions-gh-pages",
+      "v3",
+      name = Some(s"Deploy docs"),
+      params = Map(
+        "publish_dir" -> "./target/website",
+        "github_token" -> "${{ secrets.GITHUB_TOKEN }}"
+      )
+    )
+)
