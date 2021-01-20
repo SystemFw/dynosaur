@@ -1,59 +1,51 @@
-## Interim flow
+# Developer flow
 
-- release manually, by adding a tag and running `release`
-- release docs manually, by coping them from `website/preview` to `docs`,
-and changing the version in `installing.md` in the `docs` folder only.
-
-## Docs
-
-This info will be valid always, altough publishing will be smoother eventually.
-
-the docs are in `website/docs`, and `docs/mdoc --watch` will compile them to `website/preview`. You should use the docsify cli to preview (python server doesn't reload properly), `cd website/preview` and `docsify serve .`
-`npm i docsify-cli -g` to install it. You should commit both `website/docs` and `website/preview`
-
-
-
-
------
-
-## Documentation
+## Local docs
 
 Docs are based on:
 
 - `docsify`, a _dynamic_ , markdown based generator.
 - `mdoc`, typechecked scala/markdown compiler
 
-### Releasing docs
+The source for the docs is in `yourProject/docs`, the website in
+`yourProject/target/website`. The currently deployed website is in the
+`gh-pages` branch.
 
-During the `release` task, `mdoc` takes `.md` from `modules/docs`,
-compiles them and sends them do `/docs`, where `docsify` can serve
-them without any build. The `/docs` folder is deployed automatically
-by Github Pages.
+To preview the site locally, you need to install:
 
-Note: Don't PR things in `/docs`, or they will be published once they
-get merged to `main`, even though the corresponding commit might not
-be a tagged release (so the docs will be more recent to the latest
-official version)
+```
+npm i docsify-cli -g
+```
 
-### Local doc flow
+then, start mdoc in an sbt session:
 
-The input files are in `modules/docs`.
-`_coverpage.md` and `_sidebar.md` are special, and control the site structure.
+```
+sbt docs/mdoc --watch
+```
 
-For live preview, start a webserver in `/docs` , e.g. with
+and docsify in a shell session:
 
-> python -m SimpleHttpServer 8000
+```
+cd yourProject/target/website
+docsify serve .
+```
 
-(or, in python3)
+and you'll get an updating preview.
+Note that `mdoc` watches the markdown files, so if you change the code
+itself it will need a manual recompile.
 
-> python -m http.server
+`docsify` uses 3 special files: `index.html`, `_coverpage.md`, `_sidebar.md`,
+the sidebar needs to have a specific format:
 
-and in `sbt`, run `docs/mdoc --watch`
+- newlines in between headers
+- and no extra modifiers inside links `[good]`, `[**bad**]` (or collapse will not work)
 
-## Publishing
+## Release
 
-Push a tag on the `main` branch to release.
-It will fail if semver isn't respected wrt bincompat.
+Push a `vx.y.z` tag on `main` to release. It will fail if semver isn't
+respected wrt bincompat.
+Docs are released automatically on each code release, if you need a
+docs-only deploy, (force) push `main` to the `docs-deploy` branch.
 
 To change/add branches to release:
 
@@ -72,19 +64,14 @@ If you are publishing snapshots, you need to make sure that new
 commits are fully built before you push a proper release tag: push
 `main`, wait for the snapshot release to complete, and then push the
 tag.
-Daniel will get around to fixing this someday...
 
 ## Initial setup
 
-Do this once, when setting up the repo.
+These steps only need to be done once when setting up the repo.
 
-Make sure the default branch is named `main`
-
-Generate ci definitions
-
-> sbt githubWorkflowGenerate
-
-and commit the results.
+- Make sure the default branch is named `main`
+- Generate ci definitions with `sbt githubWorkflowGenerate` and commit the results.
+- Create and push a `gh-pages` branch. Enable Github Pages on that branch
 
 Then, configure the following encrypted secrets within GitHub Actions:
 
@@ -92,16 +79,44 @@ Then, configure the following encrypted secrets within GitHub Actions:
 - SONATYPE_PASSWORD
 - PGP_SECRET
 
-Your repo -> settings -> left sidebar -> Secrets -> new repository secret.
+Once you know the value for a secret, it can be created by going to
 
-You can obtain the PGP_SECRET by running
+> Your repo -> settings -> left sidebar -> Secrets -> new repository secret.
 
-> gpg --export-secret-keys | base64
+populate sonatype user and password with a user token:
 
-Please make sure that this key is not password protected in the export
-(GitHub Actions itself will encrypt it).
+- login to https://oss.sonatype.org,
+- click your username in the top right, then profiles,
+- in the tab that was opened, click on the top left dropdown, and select "User Token",
+- click "Access User Token", and you'll get the name and password parts of the token
 
-Enable Github pages in Settings.
+populate pgp_secret with a new per project key. This assumes you have
+`gpg` and a personal key already setup.
+
+Generate a new key with `gpg --gen-key`
+
+- Use `yourProject bot` as name
+- Use your email address as email
+- Leave the passphrase empty: we need to export the key with no
+  passphrase since it will be encrypted by github actions. Only use
+  this key for this project, don't use your personal key
+
+You can `gpg --list-secret-keys` to view the id of the key you have generated.
+
+Now export the key
+
+> gpg --export-secret-keys yourKeyId | base64 | pbcopy
+
+and paste it the PGP_SECRET Github Secret.
+
+Then sign the new project key with your personal key:
+
+> gpg --sign-key yourKeyId
+
+and publish it to a keyserver
+
+> gpg --keyserver http://keyserver.ubuntu.com:11371/ --send-key yourKeyId
+
 
 ## Links
 
