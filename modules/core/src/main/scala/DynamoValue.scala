@@ -26,44 +26,44 @@ import dynosaur.CollectionConverters.all._
 
 case class DynamoValue(value: AttributeValue) {
 
-  val s: Option[String] =
+  lazy val s: Option[String] =
     Option(value.s)
 
-  val n: Option[DynamoValue.Number] =
+  lazy val n: Option[DynamoValue.Number] =
     Option(value.n).map(DynamoValue.Number(_))
 
-  val bool: Option[Boolean] =
+  lazy val bool: Option[Boolean] =
     Option(value.bool).map(_.booleanValue)
 
-  val l: Option[List[DynamoValue]] =
+  lazy val l: Option[List[DynamoValue]] =
     value.hasL
       .guard[Option]
       .as(value.l.asScala.toList.map(DynamoValue(_)))
 
-  val m: Option[Map[String, DynamoValue]] =
+  lazy val m: Option[Map[String, DynamoValue]] =
     value.hasM
       .guard[Option]
       .as(value.m.asScala.toMap.map { case (k, v) => k -> DynamoValue(v) })
 
-  val nul: Option[Unit] =
+  lazy val nul: Option[Unit] =
     Option(value.nul).void
 
-  val b: Option[ByteVector] =
+  lazy val b: Option[ByteVector] =
     Option(value.b).map(b => ByteVector(b.asByteArray))
 
-  val bs: Option[NonEmptySet[ByteVector]] =
+  lazy val bs: Option[NonEmptySet[ByteVector]] =
     value.hasBs
       .guard[Option] >> NonEmptySet.fromSet(
       value.bs.asScala.toSet.map((b: SdkBytes) => ByteVector(b.asByteArray))
     )
 
-  val ns: Option[NonEmptySet[DynamoValue.Number]] =
+  lazy val ns: Option[NonEmptySet[DynamoValue.Number]] =
     value.hasNs
       .guard[Option] >> NonEmptySet.fromSet(
       value.ns.asScala.toSet.map(DynamoValue.Number(_))
     )
 
-  val ss: Option[NonEmptySet[String]] =
+  lazy val ss: Option[NonEmptySet[String]] =
     value.hasSs.guard[Option] >> NonEmptySet.fromSet(value.ss.asScala.toSet)
 
   def fold[A](
