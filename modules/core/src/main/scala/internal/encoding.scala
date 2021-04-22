@@ -126,7 +126,7 @@ object encoding {
           alt.caseSchema.write(elem)
         }
       }
-      .andThen(_.getOrElse(WriteError().asLeft))
+      .andThen(_.getOrElse(WriteError("").asLeft))
   }
 
   def encodeIsos[V](xmap: XMap[V], value: V): Res =

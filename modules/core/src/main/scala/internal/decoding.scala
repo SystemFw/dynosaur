@@ -41,10 +41,13 @@ object decoding {
       case Nul => decodeNull
       case Sequence(elem) => decodeSequence(elem, _)
       case Dictionary(elem) => decodeDictionary(elem, _)
-      case Record(rec) =>
+      case Record(rec) => { value =>
         // val here caches the traversal of the record
         val cachedDecoder = decodeRecord(rec)
-        _.m.toRight(ReadError()).flatMap(cachedDecoder)
+        value.m
+          .toRight(ReadError(s"value ${value.toString()} is not a Dictionary"))
+          .flatMap(cachedDecoder)
+      }
       case Sum(cases) => decodeSum(cases)
       case Isos(iso) => decodeIsos(iso, _)
       case Defer(schema) => schema().read
@@ -52,36 +55,50 @@ object decoding {
 
   type Res[A] = Either[ReadError, A]
 
-  def decodeBool: DynamoValue => Res[Boolean] =
-    _.bool.toRight(ReadError())
+  def decodeBool: DynamoValue => Res[Boolean] = { value =>
+    value.bool.toRight(ReadError(s"value ${value.toString()} is not a Boolean"))
+  }
 
-  def decodeNum: DynamoValue => Res[DynamoValue.Number] =
-    _.n.toRight(ReadError())
+  def decodeNum: DynamoValue => Res[DynamoValue.Number] = { value =>
+    value.n.toRight(ReadError(s"value ${value.toString()} is not a Number"))
+  }
 
-  def decodeString: DynamoValue => Res[String] =
-    _.s.toRight(ReadError())
+  def decodeString: DynamoValue => Res[String] = { value =>
+    value.s.toRight(ReadError(s"value ${value.toString()} is not a String"))
+  }
 
-  def decodeBytes: DynamoValue => Res[ByteVector] =
-    _.b.toRight(ReadError())
+  def decodeBytes: DynamoValue => Res[ByteVector] = { value =>
+    value.b.toRight(ReadError(s"value ${value.toString()} is not a ByteVector"))
+  }
 
-  def decodeBytesSet: DynamoValue => Res[NonEmptySet[ByteVector]] =
-    _.bs.toRight(ReadError())
+  def decodeBytesSet: DynamoValue => Res[NonEmptySet[ByteVector]] = { value =>
+    value.bs.toRight(
+      ReadError(s"value ${value.toString()} is not a ByteVector Set")
+    )
+  }
 
-  def decodeNumSet: DynamoValue => Res[NonEmptySet[DynamoValue.Number]] =
-    _.ns.toRight(ReadError())
+  def decodeNumSet: DynamoValue => Res[NonEmptySet[DynamoValue.Number]] = {
+    value =>
+      value.ns.toRight(
+        ReadError(s"value ${value.toString()} is not a Number Set")
+      )
+  }
 
-  def decodeStrSet: DynamoValue => Res[NonEmptySet[String]] =
-    _.ss.toRight(ReadError())
+  def decodeStrSet: DynamoValue => Res[NonEmptySet[String]] = { value =>
+    value.ss.toRight(
+      ReadError(s"value ${value.toString()} is not a String Set")
+    )
+  }
 
   def decodeNull: DynamoValue => Res[Unit] =
-    _.nul.toRight(ReadError())
+    _.nul.toRight(ReadError(""))
 
   def decodeSequence[V](
       schema: Schema[V],
       value: DynamoValue
   ): Res[List[V]] =
     value.l
-      .toRight(ReadError())
+      .toRight(ReadError(s"value ${value.toString()} is not a Sequence"))
       .flatMap(_.traverse(schema.read))
 
   def decodeDictionary[V](
@@ -89,7 +106,7 @@ object decoding {
       value: DynamoValue
   ): Res[Map[String, V]] =
     value.m
-      .toRight(ReadError())
+      .toRight(ReadError(s"value ${value.toString()} is not a Dictionary"))
       .flatMap(
         _.map { case (k, v) => k -> v }
           .traverse(schema.read)
@@ -109,7 +126,9 @@ object decoding {
             case Field.Required(name, elemSchema, _) =>
               Kleisli { (v: Map[String, DynamoValue]) =>
                 v.get(name)
-                  .toRight(ReadError())
+                  .toRight(
+                    ReadError(s"required field $name does not contain a value")
+                  )
                   .flatMap(v => elemSchema.read(v))
               }
             case Field.Optional(name, elemSchema, _) =>
@@ -132,7 +151,7 @@ object decoding {
       .foldMap { alt => (v: DynamoValue) =>
         alt.caseSchema.read(v).map(alt.prism.inject).toOption
       }
-      .andThen(_.toRight(ReadError()))
+      .andThen(_.toRight(ReadError("")))
   }
 
   def decodeIsos[V](xmap: XMap[V], v: DynamoValue): Res[V] =

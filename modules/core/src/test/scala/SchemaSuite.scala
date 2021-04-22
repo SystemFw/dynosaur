@@ -248,7 +248,7 @@ class SchemaSuite extends ScalaCheckSuite {
     check(schema, noTag, expectedNoTag)
     assertEquals(
       schema.read(incorrectNoTag),
-      Left(Schema.ReadError())
+      Left(Schema.ReadError("value \"NULL\": true is not a String"))
     )
   }
 
@@ -281,7 +281,7 @@ class SchemaSuite extends ScalaCheckSuite {
     check(schema, noTag, expectedNoTag)
     assertEquals(
       schema.read(incorrectNoTag),
-      Left(Schema.ReadError())
+      Left(Schema.ReadError("required field tag does not contain a value"))
     )
   }
 
@@ -561,7 +561,7 @@ class SchemaSuite extends ScalaCheckSuite {
     }
 
     val stateSchema: Schema[EventType] = Schema[String].imapErr { s =>
-      parser(s) toRight Schema.ReadError()
+      parser(s) toRight Schema.ReadError("")
     }(_.toString)
 
     val eventSchema: Schema[Event] = Schema.record { field =>
