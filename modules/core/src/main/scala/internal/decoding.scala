@@ -90,8 +90,12 @@ object decoding {
     )
   }
 
-  def decodeNull: DynamoValue => Res[Unit] =
-    _.nul.toRight(ReadError(""))
+  def decodeNull: DynamoValue => Res[Unit] = {
+    value =>
+      value.nul.toRight(
+        ReadError(s"value ${value.toString()} is not a Null")
+      )
+  }
 
   def decodeSequence[V](
       schema: Schema[V],
