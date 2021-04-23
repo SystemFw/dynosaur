@@ -154,7 +154,7 @@ object decoding {
       .foldMap { alt => (v: DynamoValue) =>
         alt.caseSchema.read(v).map(alt.prism.inject).toOption
       }
-      .andThen(_.toRight(ReadError("")))
+      .andThen(_.toRight(ReadError("value doesn't match any of the alternatives")))
   }
 
   def decodeIsos[V](xmap: XMap[V], v: DynamoValue): Res[V] =
