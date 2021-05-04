@@ -85,9 +85,7 @@ ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
   """.stripMargin.trim.linesIterator.mkString.some,
   steps = githubWorkflowGeneratedDownloadSteps.value.toList :+
     WorkflowStep.Use(
-      "peaceiris",
-      "actions-gh-pages",
-      "v3",
+      UseRef.Public("peaceiris", "actions-gh-pages", "v3"),
       name = Some(s"Deploy docs"),
       params = Map(
         "publish_dir" -> "./target/website",
