@@ -11,6 +11,7 @@ ThisBuild / scmInfo := Some(
     "git@github.com:SystemFw/dynosaur.git"
   )
 )
+ThisBuild / startYear := Some(2020)
 Global / excludeLintKeys += scmInfo
 
 val Scala213 = "2.13.4"
