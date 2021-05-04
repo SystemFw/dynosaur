@@ -166,7 +166,7 @@ object Switch {
 }
 
 def switchSchema = Schema[String].imapErr { s =>
-   Switch.parse(s).toRight(Schema.ReadError()) // TODO s"$s is not a valid Switch"
+   Switch.parse(s).toRight(Schema.ReadError(s"$s is not a valid Switch"))
  }(_.toString)
 ```
 

@@ -99,9 +99,11 @@ sealed trait Schema[A] { self =>
 object Schema {
   import structure._
 
-  trait DynosaurError extends Exception with Product with Serializable
-  case class ReadError() extends DynosaurError
-  case class WriteError() extends DynosaurError
+  trait DynosaurError extends Exception with Product with Serializable {
+    def message: String
+  }
+  case class ReadError(message: String) extends DynosaurError
+  case class WriteError(message: String) extends DynosaurError
 
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
@@ -182,7 +184,13 @@ object Schema {
     )(implicit valueSchema: Schema[V]): FreeApplicative[Field[R, *], Unit] =
       apply(name, _ => ()) {
         valueSchema.xmap { r =>
-          Either.cond((r == value), (), ReadError())
+          Either.cond(
+            (r == value),
+            (),
+            ReadError(
+              s"${r.toString()} does not match expected const value of ${value.toString()}"
+            )
+          )
         }(_ => value.asRight)
       }
 
@@ -258,7 +266,9 @@ object Schema {
   // TODO use parseFromString from Numeric, 2.13+
   private def num[A: Numeric](convert: String => A): Schema[A] =
     Num.imapErr { v =>
-      Either.catchNonFatal(convert(v.value)).leftMap(_ => ReadError())
+      Either
+        .catchNonFatal(convert(v.value))
+        .leftMap(_ => ReadError(s"Unable to parse ${v.toString()} as number"))
     }(n => DynamoValue.Number.of(n))
 
   private def numSet[A: Numeric](
@@ -269,7 +279,11 @@ object Schema {
     NumSet.imapErr { nes =>
       nes.value
         .traverse { v =>
-          Either.catchNonFatal(convert(v.value)).leftMap(_ => ReadError())
+          Either
+            .catchNonFatal(convert(v.value))
+            .leftMap(_ =>
+              ReadError(s"Unable to parse ${v.toString()} as number")
+            )
         }
         .map(NonEmptySet.unsafeFromSet)
     }(nes =>
