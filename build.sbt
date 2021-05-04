@@ -1,6 +1,6 @@
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
-ThisBuild / baseVersion := "0.1.0"
+ThisBuild / baseVersion := "0.2.0"
 ThisBuild / organization := "org.systemfw"
 ThisBuild / publishGithubUser := "SystemFw"
 ThisBuild / publishFullName := "Fabio Labella"
@@ -11,14 +11,14 @@ ThisBuild / scmInfo := Some(
     "git@github.com:SystemFw/dynosaur.git"
   )
 )
+ThisBuild / startYear := Some(2020)
 Global / excludeLintKeys += scmInfo
 
 val Scala213 = "2.13.4"
 ThisBuild / spiewakMainBranches := Seq("main")
-// TODO blocked on a paiges release for Scala 3
-// ThisBuild / crossScalaVersions := Seq(Scala213, "3.0.0-M2", "2.12.10")
-ThisBuild / crossScalaVersions := Seq(Scala213, "2.12.10")
-ThisBuild / versionIntroduced := Map("3.0.0-M2" -> "3.0.0")
+
+ThisBuild / crossScalaVersions := Seq(Scala213, "3.0.0-RC2", "2.12.10")
+ThisBuild / versionIntroduced := Map("3.0.0-RC1" -> "3.0.0")
 ThisBuild / scalaVersion := (ThisBuild / crossScalaVersions).value.head
 ThisBuild / initialCommands := """
   |import cats._, data._, syntax.all._
@@ -43,11 +43,11 @@ lazy val core = project
     name := "dynosaur-core",
     scalafmtOnCompile := true,
     libraryDependencies ++=
-      dep("org.typelevel", "cats-", "2.3.0")("core", "free")() ++
-        dep("org.typelevel", "", "2.3.0")("alleycats-core")() ++
-        dep("org.scodec", "scodec-bits", "1.1.22")("")() ++
-        dep("org.scalameta", "munit", "0.7.19")()("", "-scalacheck") ++
-        dep("org.typelevel", "paiges-", "0.3.2")("core", "cats")() ++
+      dep("org.typelevel", "cats-", "2.6.0")("core", "free")() ++
+        dep("org.typelevel", "", "2.6.0")("alleycats-core")() ++
+        dep("org.scodec", "scodec-bits", "1.1.26")("")() ++
+        dep("org.scalameta", "munit", "0.7.25")()("", "-scalacheck") ++
+        dep("org.typelevel", "paiges-", "0.4.1")("core", "cats")() ++
         Seq("software.amazon.awssdk" % "dynamodb" % "2.14.15")
   )
 
@@ -86,9 +86,7 @@ ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
   """.stripMargin.trim.linesIterator.mkString.some,
   steps = githubWorkflowGeneratedDownloadSteps.value.toList :+
     WorkflowStep.Use(
-      "peaceiris",
-      "actions-gh-pages",
-      "v3",
+      UseRef.Public("peaceiris", "actions-gh-pages", "v3"),
       name = Some(s"Deploy docs"),
       params = Map(
         "publish_dir" -> "./target/website",
