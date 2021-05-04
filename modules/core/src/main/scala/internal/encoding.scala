@@ -126,7 +126,13 @@ object encoding {
           alt.caseSchema.write(elem)
         }
       }
-      .andThen(_.getOrElse(WriteError("Alternative not specified for all possible subtypes").asLeft))
+      .andThen(
+        _.getOrElse(
+          WriteError(
+            "Alternative not specified for all possible subtypes"
+          ).asLeft
+        )
+      )
   }
 
   def encodeIsos[V](xmap: XMap[V], value: V): Res =
