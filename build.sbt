@@ -14,11 +14,11 @@ ThisBuild / scmInfo := Some(
 ThisBuild / startYear := Some(2020)
 Global / excludeLintKeys += scmInfo
 
-val Scala213 = "2.13.4"
+val Scala213 = "2.13.6"
 ThisBuild / spiewakMainBranches := Seq("main")
 
-ThisBuild / crossScalaVersions := Seq(Scala213, "3.0.0-RC2", "2.12.10")
-ThisBuild / versionIntroduced := Map("3.0.0-RC1" -> "3.0.0")
+ThisBuild / crossScalaVersions := Seq(Scala213, "3.0.0", "2.12.14")
+ThisBuild / versionIntroduced := Map("3.0.0" -> "3.0.0")
 ThisBuild / scalaVersion := (ThisBuild / crossScalaVersions).value.head
 ThisBuild / initialCommands := """
   |import cats._, data._, syntax.all._
@@ -43,11 +43,11 @@ lazy val core = project
     name := "dynosaur-core",
     scalafmtOnCompile := true,
     libraryDependencies ++=
-      dep("org.typelevel", "cats-", "2.6.0")("core", "free")() ++
-        dep("org.typelevel", "", "2.6.0")("alleycats-core")() ++
-        dep("org.scodec", "scodec-bits", "1.1.26")("")() ++
+      dep("org.typelevel", "cats-", "2.6.1")("core", "free")() ++
+        dep("org.typelevel", "", "2.6.1")("alleycats-core")() ++
+        dep("org.scodec", "scodec-bits", "1.1.27")("")() ++
         dep("org.scalameta", "munit", "0.7.25")()("", "-scalacheck") ++
-        dep("org.typelevel", "paiges-", "0.4.1")("core", "cats")() ++
+        dep("org.typelevel", "paiges-", "0.4.2")("core", "cats")() ++
         Seq("software.amazon.awssdk" % "dynamodb" % "2.14.15")
   )
 
