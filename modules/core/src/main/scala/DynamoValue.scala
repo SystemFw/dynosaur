@@ -167,7 +167,11 @@ object DynamoValue {
     */
   case class Number(value: String)
   object Number {
-    def of[A: Numeric](a: A): Number = Number(a.toString)
+    def of[A: Numeric](a: A): Number = {
+      // to avoid unused value warning
+      val _ = implicitly[Numeric[A]]
+      Number(a.toString)
+    }
   }
 
   val nul: DynamoValue =
