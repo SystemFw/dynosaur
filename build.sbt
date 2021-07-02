@@ -94,5 +94,7 @@ ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
         "publish_dir" -> "./target/website",
         "github_token" -> "${{ secrets.GITHUB_TOKEN }}"
       )
-    )
+    ),
+  scalas = List(Scala213),
+  javas = githubWorkflowJavaVersions.value.toList
 )
