@@ -104,7 +104,7 @@ to work directly with the low level representation, instead of custom data types
 ## Bidirectional mappings
 
 New schemas can be created from existing ones by declaring a
-bidirectional mapping between them.  
+bidirectional mapping between them.
 The most general way is using the `xmap` method on `Schema`:
 ```scala
 sealed trait Schema[A] {
@@ -289,7 +289,7 @@ bazSchema.write(Baz("hello"))
 ```
 </details>
 
-> **Notes:** 
+> **Notes:**
 > - `record` is designed to help type inference as much as possible, but
   you **have** to specify which type your schema is for, either with an
   ascription or an annotation. If you don't do that, your
@@ -312,7 +312,7 @@ different encodings for the same type, but at the same time typing
 if ever changes gets old quickly.
 The `field` builder is designed to take the schema of the field as its
 sole implicit argument, so that you can pass schemas implicitly or
-explicitly at ease.  
+explicitly at ease.
 
 > The recommended guideline is to pass schemas for primitives
 implicitly, and schemas for your own datatypes explicitly.
@@ -402,10 +402,10 @@ So far, decoding records has been entirely based on the _key_ of each
 field, letting the value be anything that can be converted to the
 desired type. However, sometimes we need to assert that a field
 contains a specific constant, and fail decoding if any other value is
-found.  
+found.
 Although this logic can be expressed entirely in terms of `field.apply` and
 `imapErr`, `field` offers a dedicated method for this scenario,
-`field.const`.  
+`field.const`.
 For example, asserting that our `Foo` has `version: 1.0` is as simple as:
 
 ```scala mdoc:silent
@@ -438,11 +438,33 @@ Note how the resulting record has a `version` field set to `1.0`, and
 how use of `const` guarantees that any other value will result in a
 `ReadError`. Equality is performed using `==`.
 
+### Constant values
+
+Similarly to constant fields, we can define schemas that always encode to a specific value,
+and always require a specific value. This can be done with `Schema.const`:
+
+```scala mdoc:silent
+final val s = "str"
+val constantStringSchema = Schema.const(s)
+```
+
+<details>
+<summary>Click to show the resulting DynamoValue</summary>
+
+```scala mdoc:to-string
+constantStringSchema.write("str")
+```
+</details>
+
+Note that `Schema.const` returns a `Schema[s.type]` (in Scala 2.13 and above, this can be written as `Schema["str"]`) -
+a schema for the singleton type of `s` (the literal singleton type `"str"`). Any values you pass when writing have to match that type,
+and successful decoding will yield values of that exact type as well.
+
 ### Case classes with more than 22 fields
 
 Scala's tuples and functions have a hard limit of 22 elements, so if
 your case class has more than 22 fields you won't be able to call
-`(f1, ..., f23).mapN`.  
+`(f1, ..., f23).mapN`.
 The workaround is to use `tupled` from `cats` and nest tuples, e.g
 if you have 24 fields:
 
@@ -691,7 +713,7 @@ val warn = Schema.record[Warning] { field =>
 ```
 
 Now the two records have different keys ("error" vs "warning"), and
-decoding is no longer ambiguous.  
+decoding is no longer ambiguous.
 The final question is how to encode `Unknown`, we need to `tag` a
 schema that produces an empty record on encoding, and always succeeds
 with `Unknown` on decoding, but as we saw in the [Additional
@@ -748,7 +770,7 @@ schemaWithKey.write(Unknown).flatMap(schemaWithKey.read)
 ### Discriminator field
 
 In the discriminator field approach, each record adds an additional
-field (for example called "type") to disambiguate.  
+field (for example called "type") to disambiguate.
 The only thing to note is the use of `field.const` to make sure
 decoding succeeds or fails based on the _specific value_ of the field,
 and not just the fact that there is a field called "type" whose value
