@@ -114,7 +114,7 @@ object Schema {
   /** Encodes as the underlying `value`.
     * While decoding, checks that the result is equal to `value`.
     */
-  def const[A: Schema](value: A): Schema[value.type] =
+  def const[A <: AnyRef: Schema](value: A): Schema[value.type] =
     Schema[A].imapErr[value.type] { a =>
       Either.cond(
         a == value,
