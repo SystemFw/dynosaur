@@ -219,6 +219,21 @@ object DynamoValue {
   def b(value: ByteVector): DynamoValue =
     make(_.b(SdkBytes.fromByteArray(value.toArray)))
 
+  /** Builds a DynamoValue from an AWS SDK-compatible attribute map, e.g. from a GetItem response.
+    */
+  def fromAttributeMap(
+      attributes: java.util.Map[String, AttributeValue]
+  ): DynamoValue = make(_.m(attributes))
+
+  /** Converts a DynamoValue to an AWS SDK-compatible attribute map, e.g. for a PutItem operation.
+    * Returns None if the value isn't backed by a map.
+    */
+  def toAttributeMap(
+      value: DynamoValue
+  ): Option[java.util.Map[String, AttributeValue]] = value.m.map(_.map {
+    case (k, v) => (k, v.value)
+  }.asJava)
+
   private def make(
       build: AttributeValue.Builder => AttributeValue.Builder
   ): DynamoValue =
