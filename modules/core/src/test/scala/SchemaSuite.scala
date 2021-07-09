@@ -175,7 +175,7 @@ class SchemaSuite extends ScalaCheckSuite {
     forAll { (v: String) =>
       val expected = V.s(v)
 
-      check(Schema.const(v), (), expected)
+      check[v.type](Schema.const(v), v, expected)
     }
   }
 
