@@ -142,6 +142,17 @@ object Schema {
       NonEmptySet.unsafeFromSet(nes.value.map(ByteVector.apply))
     }
 
+  def scalaEnum(e: Enumeration): Schema[e.Value] =
+    Schema[String].imapErr(str =>
+      e.values
+        .find(_.toString == str)
+        .toRight(
+          Schema.ReadError(
+            s"Unknown type of ${e.toString}: $str. Supported values: ${e.values.mkString(", ")}"
+          )
+        )
+    )(_.toString)
+
   // Seq is not enough on its own for implicit search to work
   implicit def vector[A](implicit s: Schema[A]): Schema[Vector[A]] = s.asVector
   implicit def list[A](implicit s: Schema[A]): Schema[List[A]] = s.asList
