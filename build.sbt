@@ -48,11 +48,7 @@ lazy val core = project
         dep("org.scodec", "scodec-bits", "1.1.27")("")() ++
         dep("org.scalameta", "munit", "0.7.25")()("", "-scalacheck") ++
         dep("org.typelevel", "paiges-", "0.4.2")("core", "cats")() ++
-        Seq("software.amazon.awssdk" % "dynamodb" % "2.14.15"),
-    Compile / sourceDirectories ++= {
-      if (scalaVersion.value.startsWith("2.12")) Nil
-      else List(baseDirectory.value / "src" / "main" / "scala-2.13+")
-    }
+        Seq("software.amazon.awssdk" % "dynamodb" % "2.14.15")
   )
 
 lazy val docs = project

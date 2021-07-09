@@ -96,7 +96,7 @@ sealed trait Schema[A] { self =>
   private val write_ : Eval[A => Either[WriteError, DynamoValue]] =
     Eval.later(internal.encoding.fromSchema(this))
 }
-object Schema extends SchemaCompanionCompat {
+object Schema {
   import structure._
 
   trait DynosaurError extends Exception with Product with Serializable {
