@@ -111,6 +111,18 @@ object Schema {
   implicit def boolean: Schema[Boolean] = Bool
   implicit def string: Schema[String] = Str
 
+  /** Encodes as the underlying `value`.
+    * While decoding, checks that the result is equal to `value`.
+    */
+  def const[A: Schema](value: A): Schema[value.type] =
+    Schema[A].imapErr[value.type] { a =>
+      Either.cond(
+        a == value,
+        right = value,
+        left = ReadError(s"Value wasn't exactly $value (got $a instead)")
+      )
+    }(_ => value)
+
   /*
    * Note:
    * No instance of Schema[Byte] bytes to avoid ambiguity between e.g

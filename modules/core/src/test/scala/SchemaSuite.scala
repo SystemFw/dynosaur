@@ -171,6 +171,14 @@ class SchemaSuite extends ScalaCheckSuite {
     }
   }
 
+  test("const") {
+    forAll { (v: String) =>
+      val expected = V.s(v)
+
+      check(Schema.const(v), (), expected)
+    }
+  }
+
   test("products") {
     val role = Role("admin", User(203, "tim"))
     val schema: Schema[Role] = Schema.record { field =>
