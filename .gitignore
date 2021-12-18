@@ -1,4 +1,5 @@
 target/
 .history
 .bsp
+.idea/
 .DS_Store

@@ -98,7 +98,7 @@ class DynamoValueSuite extends FunSuite {
     val v = V.m("Name" -> V.s("Joe"), "Age" -> V.n(35))
 
     val expected = """
-    |"M": { "Age": { "N": "35" }, "Name": { "S": "Joe" } }
+    |"M": { "Name": { "S": "Joe" }, "Age": { "N": "35" } }
     """.trim.stripMargin
 
     val s = v.print(100)
