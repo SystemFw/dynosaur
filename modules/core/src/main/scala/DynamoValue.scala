@@ -66,6 +66,12 @@ case class DynamoValue(value: AttributeValue) {
   lazy val ss: Option[NonEmptySet[String]] =
     value.hasSs.guard[Option] >> NonEmptySet.fromSet(value.ss.asScala.toSet)
 
+  /** Converts a DynamoValue to an AWS SDK-compatible attribute map, e.g. for a PutItem operation.
+    * Returns None if the value isn't backed by a map.
+    */
+  lazy val attributeMap: Option[java.util.Map[String, AttributeValue]] =
+    value.hasM.guard[Option].as(value.m)
+
   def fold[A](
       s: String => A,
       n: DynamoValue.Number => A,
@@ -218,6 +224,12 @@ object DynamoValue {
 
   def b(value: ByteVector): DynamoValue =
     make(_.b(SdkBytes.fromByteArray(value.toArray)))
+
+  /** Builds a DynamoValue from an AWS SDK-compatible attribute map, e.g. from a GetItem response.
+    */
+  def attributeMap(
+      attributes: java.util.Map[String, AttributeValue]
+  ): DynamoValue = make(_.m(attributes))
 
   private def make(
       build: AttributeValue.Builder => AttributeValue.Builder

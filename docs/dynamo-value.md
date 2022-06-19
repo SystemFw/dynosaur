@@ -23,9 +23,14 @@ and back to `AttributeValue` with `_.value`
 val av2 = dv.value
 ```
 
-Of course, the reason `DynamoValue` exists is to provide a nicer Scala
-experience, and you can construct one directly with methods in the
-companion object, which all take Scala types, instead of using the Java builder.
+> **Note:** You can also convert to and from a `java.util.Map[String,
+AttributeValue]]`, which is a common type for operations such as
+`PutItem`, via `_.attributeMap` and `DynamoValue.attributeMap`.
+
+Of course, the main reason `DynamoValue` exists is to provide a
+nicer Scala experience, and you can construct one directly with
+methods in the companion object, which all take Scala types, instead
+of using the Java builder.
 
 Here's an example:
 
