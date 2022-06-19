@@ -374,7 +374,7 @@ class SchemaSuite extends ScalaCheckSuite {
     )
   }
 
-  test("recursive products") {
+  test("recursive products with defer") {
     val departments = Department(
       "STEM",
       List(
@@ -417,6 +417,61 @@ class SchemaSuite extends ScalaCheckSuite {
         field("name", _.name),
         field("subdeps", _.subdeps)(Schema.defer(schema.asList))
       ).mapN(Department.apply)
+    }
+
+    check(schema, departments, expected)
+  }
+
+  test("recursive products with recursive") {
+    def recursive[A](f: Schema[A] => Schema[A]): Schema[A] = {
+      lazy val schema: Schema[A] = f(Schema.defer(schema))
+      schema
+    }
+
+    val departments = Department(
+      "STEM",
+      List(
+        Department("CS"),
+        Department(
+          "Maths",
+          List(
+            Department("Applied"),
+            Department("Theoretical")
+          )
+        )
+      )
+    )
+
+    val expected = V.m(
+      "name" -> V.s("STEM"),
+      "subdeps" -> V.l(
+        V.m(
+          "name" -> V.s("CS"),
+          "subdeps" -> V.l()
+        ),
+        V.m(
+          "name" -> V.s("Maths"),
+          "subdeps" -> V.l(
+            V.m(
+              "name" -> V.s("Applied"),
+              "subdeps" -> V.l()
+            ),
+            V.m(
+              "name" -> V.s("Theoretical"),
+              "subdeps" -> V.l()
+            )
+          )
+        )
+      )
+    )
+
+    val schema: Schema[Department] = recursive { rec =>
+      Schema.record { field =>
+        (
+          field("name", _.name),
+          field("subdeps", _.subdeps)(rec.asList)
+        ).mapN(Department.apply)
+      }
     }
 
     check(schema, departments, expected)
