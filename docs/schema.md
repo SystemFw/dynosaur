@@ -63,15 +63,11 @@ our schemas.
 
 ## Schema caching
 
-With the exception of recursive schemas, which are treated later, it's
-best to declare schemas as `val`, to allow `Dynosaur` to cache some
-transformations.
+It's best to declare schemas as `val`, to allow `Dynosaur` to cache
+some transformations.
 
 ```scala
 val mySchema: Schema[Thing] = ??? // good
-
-lazy val myRecursiveSchema: Schema[RecursiveThing] = ??? // good
-
 def mySchema: Schema[Thing] = ??? // best avoided if possible, no caching
 ```
 
@@ -845,7 +841,8 @@ Imagine you're dealing with a recursive type, such as:
 case class Department(name: String, subdeps: List[Department] = Nil)
 ```
 
-we will need to define its schema as a `lazy val`, and give it an explicit type:
+We will need to define its schema as a `lazy val`, and give it an
+explicit type:
 
 ```scala mdoc:compile-only
 lazy val wrongDepSchema: Schema[Department] = Schema.record { field =>
@@ -857,11 +854,12 @@ lazy val wrongDepSchema: Schema[Department] = Schema.record { field =>
 
 ```
 
-this code will compile fine, **but result in infinite recursion at runtime**.
+which will compile fine, **but still result in infinite recursion at
+runtime**.
 To make it work, we need to wrap the recursive occurrence of the
 schema in `Schema.defer`, like so:
 
-```scala mdoc:silent
+```scala mdoc:compile-only
 lazy val depSchema: Schema[Department] = Schema.record { field =>
   (
     field("name", _.name),
@@ -869,6 +867,21 @@ lazy val depSchema: Schema[Department] = Schema.record { field =>
   ).mapN(Department.apply)
 }
 
+```
+
+You can avoid these intricacies by using the `recursive` method
+instead, which has a similar structure (and type inference behaviour)
+to `Schema.record` and `Schema.oneOf`:
+
+```scala mdoc:silent
+val depSchema: Schema[Department] = Schema.recursive { rec =>
+  Schema.record { field =>
+    (
+     field("name", _.name),
+     field("subdeps", _.subdeps)(rec.asList)
+    ).mapN(Department.apply)
+  }
+}
 ```
 
 <details>
@@ -893,13 +906,8 @@ depSchema.write(departments)
 ```
 </details>
 
-> So to recap, to define a recursive schema:
->
-> - Declare it as a `lazy val` with an explicit type signature
-> - Pass the recursive schema *explicitly* to the `field`s that need it
-> - Wrap recursive arguments to `field` in `Schema.defer`
-
-The same principles apply to more complex recursive structures such as ADTs:
+`Schema.recursive` can also be used for more complex recursive
+structures such as ADTs:
 
 <details>
 <summary>Click to show ADT example</summary>
@@ -909,21 +917,23 @@ sealed trait Text
 case class Paragraph(text: String) extends Text
 case class Section(title: String, contents: List[Text]) extends Text
 
-lazy val textSchema: Schema[Text] = Schema.oneOf[Text] { alt =>
-  val paragraph = Schema.record[Paragraph] { field =>
-    field("text", _.text).map(Paragraph.apply)
-  }
-   .tag("paragraph")
+val textSchema: Schema[Text] = Schema.recursive { rec =>
+  Schema.oneOf { alt =>
+    val paragraph = Schema.record[Paragraph] { field =>
+      field("text", _.text).map(Paragraph.apply)
+    }
+     .tag("paragraph")
 
-  val section = Schema.record[Section] { field =>
-    (
-      field("title", _.title),
-      field("contents", _.contents)(Schema.defer(textSchema.asList))
-    ).mapN(Section.apply)
-  }
-   .tag("section")
+    val section = Schema.record[Section] { field =>
+      (
+        field("title", _.title),
+        field("contents", _.contents)(rec.asList)
+      ).mapN(Section.apply)
+    }
+     .tag("section")
 
-  alt(section) |+| alt(paragraph)
+    alt(section) |+| alt(paragraph)
+  }
 }
 
 ```
@@ -943,6 +953,8 @@ val text = Section(
 textSchema.write(text)
 ```
 </details>
+
+> In summary, use `Schema.recursive` to define a recursive schema.
 
 
 ## String Set, Number Set and Binary Set
