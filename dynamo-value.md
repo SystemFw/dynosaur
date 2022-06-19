@@ -14,7 +14,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import dynosaur.DynamoValue
 
 val av = AttributeValue.builder.s("hello").build
-// av: AttributeValue = AttributeValue(S=hello, SS=[], NS=[], BS=[], M={}, L=[])
+// av: AttributeValue = AttributeValue(S=hello)
 val dv = DynamoValue(av)
 // dv: DynamoValue = "S": "hello"
 ```
@@ -23,12 +23,17 @@ and back to `AttributeValue` with `_.value`
 
 ```scala
 val av2 = dv.value
-// av2: AttributeValue = AttributeValue(S=hello, SS=[], NS=[], BS=[], M={}, L=[])
+// av2: AttributeValue = AttributeValue(S=hello)
 ```
 
-Of course, the reason `DynamoValue` exists is to provide a nicer Scala
-experience, and you can construct one directly with methods in the
-companion object, which all take Scala types, instead of using the Java builder.
+> **Note:** You can also convert to and from a `java.util.Map[String,
+AttributeValue]]`, which is a common type for operations such as
+`PutItem`, via `_.attributeMap` and `DynamoValue.attributeMap`.
+
+Of course, the main reason `DynamoValue` exists is to provide a
+nicer Scala experience, and you can construct one directly with
+methods in the companion object, which all take Scala types, instead
+of using the Java builder.
 
 Here's an example:
 
@@ -57,20 +62,20 @@ val ex = V.m(
 ex.toString
 // res0: String = 
 // "M": {
-//   "no": { "N": "1245" },
 //   "id": { "S": "61c9f0d406a3" },
+//   "no": { "N": "1245" },
 //   "items": {
 //     "L": [
 //       {
 //         "M": {
-//           "price": { "N": "3" },
-//           "id": { "S": "93ed9348f407" }
+//           "id": { "S": "93ed9348f407" },
+//           "price": { "N": "3" }
 //         }
 //       },
 //       {
 //         "M": {
-//           "price": { "N": "50" },
-//           "id": { "S": "96d5e9ed1db8" }
+//           "id": { "S": "96d5e9ed1db8" },
+//           "price": { "N": "50" }
 //         }
 //       }
 //     ]

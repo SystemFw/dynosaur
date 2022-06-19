@@ -67,15 +67,11 @@ our schemas.
 
 ## Schema caching
 
-With the exception of recursive schemas, which are treated later, it's
-best to declare schemas as `val`, to allow `Dynosaur` to cache some
-transformations.
+It's best to declare schemas as `val`, to allow `Dynosaur` to cache
+some transformations.
 
 ```scala
 val mySchema: Schema[Thing] = ??? // good
-
-lazy val myRecursiveSchema: Schema[RecursiveThing] = ??? // good
-
 def mySchema: Schema[Thing] = ??? // best avoided if possible, no caching
 ```
 
@@ -185,7 +181,7 @@ val a = switchSchema.write(Switch.On)
 a.flatMap(switchSchema.read)
 // res6: Either[Schema.DynosaurError, Switch] = Right(On)
 switchSchema.read(DynamoValue.s("blub"))
-// res7: Either[Schema.ReadError, Switch] = Left(dynosaur.Schema$ReadError)
+// res7: Either[Schema.ReadError, Switch] = Left(ReadError(blub is not a valid Switch))
 ```
 </details>
 
@@ -480,9 +476,9 @@ val versionedFooSchema = Schema.record[Foo] { field =>
 val versioned = versionedFooSchema.write(Foo("value of Foo", 300))
 // versioned: Either[Schema.WriteError, DynamoValue] = Right(
 // "M": {
+//   "version": { "S": "1.0" },
 //   "a": { "S": "value of Foo" },
-//   "b": { "N": "300" },
-//   "version": { "S": "1.0" }
+//   "b": { "N": "300" }
 // }
 // )
 versioned.flatMap(versionedFooSchema.read)
@@ -502,7 +498,7 @@ val wrongVersion = DynamoValue.m(
 // 
 
 versionedFooSchema.read(wrongVersion)
-// res20: Either[Schema.ReadError, Foo] = Left(dynosaur.Schema$ReadError)
+// res20: Either[Schema.ReadError, Foo] = Left(ReadError(3.0 does not match expected const value of 1.0))
 ```
 </details>
 
@@ -576,8 +572,8 @@ val msgSchemaOpt = Schema.record[Msg] { field =>
 msgSchemaOpt.write(Msg("Topical message", "Interesting topic".some))
 // res21: Either[Schema.WriteError, DynamoValue] = Right(
 // "M": {
-//   "topic": { "S": "Interesting topic" },
-//   "body": { "S": "Topical message" }
+//   "body": { "S": "Topical message" },
+//   "topic": { "S": "Interesting topic" }
 // }
 // )
 msgSchemaOpt.write(Msg("Random message", None))
@@ -612,15 +608,15 @@ In this case, the call to `Schema.nullable` translates to `Schema[String].nullab
 msgSchemaNull.write(Msg("Topical message", "Interesting topic".some))
 // res23: Either[Schema.WriteError, DynamoValue] = Right(
 // "M": {
-//   "topic": { "S": "Interesting topic" },
-//   "body": { "S": "Topical message" }
+//   "body": { "S": "Topical message" },
+//   "topic": { "S": "Interesting topic" }
 // }
 // )
 msgSchemaNull.write(Msg("Random message", None))
 // res24: Either[Schema.WriteError, DynamoValue] = Right(
 // "M": {
-//   "topic": { "NULL": true },
-//   "body": { "S": "Random message" }
+//   "body": { "S": "Random message" },
+//   "topic": { "NULL": true }
 // }
 // )
 ```
@@ -911,8 +907,8 @@ val schemaWithField = Schema.oneOf[Problem] { alt =>
 schemaWithField.write(error)
 // res41: Either[Schema.WriteError, DynamoValue] = Right(
 // "M": {
-//   "msg": { "S": "this is an error" },
-//   "type": { "S": "error" }
+//   "type": { "S": "error" },
+//   "msg": { "S": "this is an error" }
 // }
 // )
 schemaWithField.write(error).flatMap(schemaWithField.read)
@@ -920,8 +916,8 @@ schemaWithField.write(error).flatMap(schemaWithField.read)
 schemaWithField.write(warning)
 // res43: Either[Schema.WriteError, DynamoValue] = Right(
 // "M": {
-//   "msg": { "S": "this is a warning" },
-//   "type": { "S": "warning" }
+//   "type": { "S": "warning" },
+//   "msg": { "S": "this is a warning" }
 // }
 // )
 schemaWithField.write(warning).flatMap(schemaWithField.read)
@@ -1030,7 +1026,8 @@ Imagine you're dealing with a recursive type, such as:
 case class Department(name: String, subdeps: List[Department] = Nil)
 ```
 
-we will need to define its schema as a `lazy val`, and give it an explicit type:
+We will need to define its schema as a `lazy val`, and give it an
+explicit type:
 
 ```scala
 lazy val wrongDepSchema: Schema[Department] = Schema.record { field =>
@@ -1041,7 +1038,8 @@ lazy val wrongDepSchema: Schema[Department] = Schema.record { field =>
 }
 ```
 
-this code will compile fine, **but result in infinite recursion at runtime**.
+which will compile fine, **but still result in infinite recursion at
+runtime**.
 To make it work, we need to wrap the recursive occurrence of the
 schema in `Schema.defer`, like so:
 
@@ -1052,7 +1050,21 @@ lazy val depSchema: Schema[Department] = Schema.record { field =>
     field("subdeps", _.subdeps)(Schema.defer(depSchema.asList))
   ).mapN(Department.apply)
 }
+```
 
+You can avoid these intricacies by using the `recursive` method
+instead, which has a similar structure (and type inference behaviour)
+to `Schema.record` and `Schema.oneOf`:
+
+```scala
+val depSchema: Schema[Department] = Schema.recursive { rec =>
+  Schema.record { field =>
+    (
+     field("name", _.name),
+     field("subdeps", _.subdeps)(rec.asList)
+    ).mapN(Department.apply)
+  }
+}
 ```
 
 <details>
@@ -1075,60 +1087,55 @@ val departments = Department(
 // departments: Department = Department(STEM,List(Department(CS,List()), Department(Maths,List(Department(Applied,List()), Department(Theoretical,List())))))
 
 depSchema.write(departments)
-// res52: Either[Schema.WriteError, DynamoValue] = Right(
+// res53: Either[Schema.WriteError, DynamoValue] = Right(
 // "M": {
+//   "name": { "S": "STEM" },
 //   "subdeps": {
 //     "L": [
 //       {
 //         "M": {
-//           "subdeps": { "L": [  ] },
-//           "name": { "S": "CS" }
+//           "name": { "S": "CS" },
+//           "subdeps": { "L": [  ] }
 //         }
 //       },
 //       {
 //         "M": {
+//           "name": { "S": "Maths" },
 //           "subdeps": {
 //             "L": [
 //               {
 //                 "M": {
-//                   "subdeps": {
-//                     "L": [  ]
-//                   },
 //                   "name": {
 //                     "S": "Applied"
+//                   },
+//                   "subdeps": {
+//                     "L": [  ]
 //                   }
 //                 }
 //               },
 //               {
 //                 "M": {
-//                   "subdeps": {
-//                     "L": [  ]
-//                   },
 //                   "name": {
 //                     "S": "Theoretical"
+//                   },
+//                   "subdeps": {
+//                     "L": [  ]
 //                   }
 //                 }
 //               }
 //             ]
-//           },
-//           "name": { "S": "Maths" }
+//           }
 //         }
 //       }
 //     ]
-//   },
-//   "name": { "S": "STEM" }
+//   }
 // }
 // )
 ```
 </details>
 
-> So to recap, to define a recursive schema:
->
-> - Declare it as a `lazy val` with an explicit type signature
-> - Pass the recursive schema *explicitly* to the `field`s that need it
-> - Wrap recursive arguments to `field` in `Schema.defer`
-
-The same principles apply to more complex recursive structures such as ADTs:
+`Schema.recursive` can also be used for more complex recursive
+structures such as ADTs:
 
 <details>
 <summary>Click to show ADT example</summary>
@@ -1138,21 +1145,23 @@ sealed trait Text
 case class Paragraph(text: String) extends Text
 case class Section(title: String, contents: List[Text]) extends Text
 
-lazy val textSchema: Schema[Text] = Schema.oneOf[Text] { alt =>
-  val paragraph = Schema.record[Paragraph] { field =>
-    field("text", _.text).map(Paragraph.apply)
-  }
-   .tag("paragraph")
+val textSchema: Schema[Text] = Schema.recursive { rec =>
+  Schema.oneOf { alt =>
+    val paragraph = Schema.record[Paragraph] { field =>
+      field("text", _.text).map(Paragraph.apply)
+    }
+     .tag("paragraph")
 
-  val section = Schema.record[Section] { field =>
-    (
-      field("title", _.title),
-      field("contents", _.contents)(Schema.defer(textSchema.asList))
-    ).mapN(Section.apply)
-  }
-   .tag("section")
+    val section = Schema.record[Section] { field =>
+      (
+        field("title", _.title),
+        field("contents", _.contents)(rec.asList)
+      ).mapN(Section.apply)
+    }
+     .tag("section")
 
-  alt(section) |+| alt(paragraph)
+    alt(section) |+| alt(paragraph)
+  }
 }
 
 ```
@@ -1171,10 +1180,11 @@ val text = Section(
 // text: Section = Section(A,List(Paragraph(lorem ipsum), Section(A.b,List(Paragraph(dolor sit amet)))))
 
 textSchema.write(text)
-// res53: Either[Schema.WriteError, DynamoValue] = Right(
+// res54: Either[Schema.WriteError, DynamoValue] = Right(
 // "M": {
 //   "section": {
 //     "M": {
+//       "title": { "S": "A" },
 //       "contents": {
 //         "L": [
 //           {
@@ -1192,6 +1202,9 @@ textSchema.write(text)
 //             "M": {
 //               "section": {
 //                 "M": {
+//                   "title": {
+//                     "S": "A.b"
+//                   },
 //                   "contents": {
 //                     "L": [
 //                       {
@@ -1206,23 +1219,21 @@ textSchema.write(text)
 //                         }
 //                       }
 //                     ]
-//                   },
-//                   "title": {
-//                     "S": "A.b"
 //                   }
 //                 }
 //               }
 //             }
 //           }
 //         ]
-//       },
-//       "title": { "S": "A" }
+//       }
 //     }
 //   }
 // }
 // )
 ```
 </details>
+
+> In summary, use `Schema.recursive` to define a recursive schema.
 
 
 ## String Set, Number Set and Binary Set
@@ -1267,14 +1278,14 @@ val commandSchema = Schema.record[Command] { field =>
 
 ```scala
 commandSchema.write(Command("open", Set("o", "O")))
-// res54: Either[Schema.WriteError, DynamoValue] = Right(
+// res55: Either[Schema.WriteError, DynamoValue] = Right(
 // "M": {
-//   "aliases": { "SS": [ "o", "O" ] },
-//   "name": { "S": "open" }
+//   "name": { "S": "open" },
+//   "aliases": { "SS": [ "o", "O" ] }
 // }
 // )
 commandSchema.write(Command("close", Set.empty))
-// res55: Either[Schema.WriteError, DynamoValue] = Right("M": { "name": { "S": "close" } })
+// res56: Either[Schema.WriteError, DynamoValue] = Right("M": { "name": { "S": "close" } })
 ```
 </details>
 
