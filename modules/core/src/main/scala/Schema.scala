@@ -102,8 +102,12 @@ object Schema {
   trait DynosaurError extends Exception with Product with Serializable {
     def message: String
   }
-  case class ReadError(message: String) extends DynosaurError
-  case class WriteError(message: String) extends DynosaurError
+  case class ReadError(message: String) extends DynosaurError {
+    override def toString(): String = s"ReadError($message)"
+  }
+  case class WriteError(message: String) extends DynosaurError {
+    override def toString(): String = s"WriteError($message)"
+  }
 
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
