@@ -24,6 +24,8 @@ import cats.data.Chain
 import scodec.bits.ByteVector
 import scala.collection.immutable
 
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+
 @annotation.implicitNotFound(
   """
 Cannot find an implicit value for Schema[${A}].
@@ -150,6 +152,8 @@ object Schema {
   implicit def dict[A](implicit s: Schema[A]): Schema[Map[String, A]] = s.asMap
 
   implicit val nul: Schema[Unit] = Nul
+  implicit val attributeValue: Schema[AttributeValue] =
+    id.imap(_.value)(DynamoValue.apply)
 
   def defer[A](schema: => Schema[A]): Schema[A] = Defer(() => schema)
 

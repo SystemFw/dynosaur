@@ -19,10 +19,13 @@ package dynosaur
 import cats.syntax.all._
 import scodec.bits.ByteVector
 
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+
 import dynosaur.{DynamoValue => V}
 
 import munit.ScalaCheckSuite
 import org.scalacheck.Prop._
+import dynosaur.Arbitraries._
 
 class SchemaSuite extends ScalaCheckSuite {
 
@@ -89,6 +92,20 @@ class SchemaSuite extends ScalaCheckSuite {
 
     assertEquals(output, expected)
     assertEquals(roundTrip, data)
+  }
+
+  test("id") {
+    forAll { (dv: V) =>
+      val expected = dv
+      check(Schema[V], dv, expected)
+    }
+  }
+
+  test("AttributeValue") {
+    forAll { (av: AttributeValue) =>
+      val expected = DynamoValue(av)
+      check(Schema[AttributeValue], av, expected)
+    }
   }
 
   test("ints") {
