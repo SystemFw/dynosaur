@@ -423,11 +423,6 @@ class SchemaSuite extends ScalaCheckSuite {
   }
 
   test("recursive products with recursive") {
-    def recursive[A](f: Schema[A] => Schema[A]): Schema[A] = {
-      lazy val schema: Schema[A] = f(Schema.defer(schema))
-      schema
-    }
-
     val departments = Department(
       "STEM",
       List(
@@ -465,7 +460,7 @@ class SchemaSuite extends ScalaCheckSuite {
       )
     )
 
-    val schema: Schema[Department] = recursive { rec =>
+    val schema: Schema[Department] = Schema.recursive { rec =>
       Schema.record { field =>
         (
           field("name", _.name),

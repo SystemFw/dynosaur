@@ -160,6 +160,10 @@ object Schema {
     id.imap(_.value)(DynamoValue.apply)
 
   def defer[A](schema: => Schema[A]): Schema[A] = Defer(() => schema)
+  def recursive[A](f: Schema[A] => Schema[A]): Schema[A] = {
+    lazy val schema: Schema[A] = f(defer(schema))
+    schema
+  }
 
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 
