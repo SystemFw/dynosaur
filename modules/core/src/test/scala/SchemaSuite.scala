@@ -836,7 +836,7 @@ class SchemaSuite extends ScalaCheckSuite {
     check(schema, successfulUp, expectedSuccessful)
   }
 
-  test("recursive ADTs") {
+  test("recursive ADTs with defer") {
     val text = Section(
       "A",
       List(
@@ -890,6 +890,67 @@ class SchemaSuite extends ScalaCheckSuite {
         .tag("section")
 
       alt(section) |+| alt(paragraph)
+    }
+
+    check(schema, text, expected)
+  }
+
+  test("recursive ADTs with recursive") {
+    val text = Section(
+      "A",
+      List(
+        Paragraph("lorem ipsum"),
+        Section(
+          "A.b",
+          List(Paragraph("dolor sit amet"))
+        )
+      )
+    )
+
+    val expected = V.m(
+      "section" -> V.m(
+        "title" -> V.s("A"),
+        "contents" -> V.l(
+          V.m(
+            "paragraph" -> V.m(
+              "text" -> V.s("lorem ipsum")
+            )
+          ),
+          V.m(
+            "section" -> V.m(
+              "title" -> V.s("A.b"),
+              "contents" -> V.l(
+                V.m(
+                  "paragraph" -> V.m(
+                    "text" -> V.s("dolor sit amet")
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+
+    val schema: Schema[Text] = Schema.recursive { rec =>
+      Schema.oneOf { alt =>
+        val paragraph = Schema
+          .record[Paragraph] { field =>
+            field("text", _.text).map(Paragraph.apply)
+          }
+          .tag("paragraph")
+
+        val section = Schema
+          .record[Section] { field =>
+            (
+              field("title", _.title),
+              field("contents", _.contents)(rec.asList)
+            ).mapN(Section.apply)
+          }
+          .tag("section")
+
+        alt(section) |+| alt(paragraph)
+      }
     }
 
     check(schema, text, expected)
