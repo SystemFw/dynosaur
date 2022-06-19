@@ -1,4 +1,6 @@
 target/
-.history
-.bsp
+.history/
+.bsp/
 .DS_Store
+
+
