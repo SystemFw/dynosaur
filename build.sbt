@@ -1,6 +1,6 @@
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
-ThisBuild / baseVersion := "0.2.0"
+ThisBuild / baseVersion := "0.3.0"
 ThisBuild / organization := "org.systemfw"
 ThisBuild / publishGithubUser := "SystemFw"
 ThisBuild / publishFullName := "Fabio Labella"
