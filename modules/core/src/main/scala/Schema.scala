@@ -169,10 +169,11 @@ object Schema {
 
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 
-  def fields[R](p: FreeApplicative[Field[R, *], R]): Record[R] = Record(p)
+  def fields[R](p: FreeApplicative[Field[R, *], R]): Schema[R] = Record(p)
+
   def record[R](
       b: FieldBuilder[R] => FreeApplicative[Field[R, *], R]
-  ): Record[R] =
+  ): Schema[R] =
     fields(b(field))
 
   def alternatives[A](cases: Chain[Alt[A]]): Schema[A] =
@@ -246,6 +247,12 @@ object Schema {
         extends Schema[R]
 
     object Record {
+
+      def fields[R](p: FreeApplicative[Field[R, *], R]): Record[R] = Record(p)
+      def record[R](
+          b: FieldBuilder[R] => FreeApplicative[Field[R, *], R]
+      ): Record[R] =
+        fields(b(field))
 
       // todo: law tests (?)
       implicit val invariantSemigroupal: InvariantSemigroupal[Record] =

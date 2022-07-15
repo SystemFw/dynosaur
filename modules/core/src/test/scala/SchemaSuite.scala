@@ -1010,19 +1010,21 @@ class SchemaSuite extends ScalaCheckSuite {
   }
 
   test("record combined via imapN") {
-    val userSchema: Schema.structure.Record[User] = Schema.record { field =>
-      (
-        field("id", _.id),
-        field("name", _.name)
-      ).mapN(User.apply)
-    }
+    val userSchema: Schema.structure.Record[User] =
+      Schema.structure.Record.record { field =>
+        (
+          field("id", _.id),
+          field("name", _.name)
+        ).mapN(User.apply)
+      }
 
-    val logSchema: Schema.structure.Record[Log] = Schema.record { field =>
-      (
-        field("msg", _.msg),
-        field.opt("tag", _.tag)
-      ).mapN(Log.apply)
-    }
+    val logSchema: Schema.structure.Record[Log] =
+      Schema.structure.Record.record { field =>
+        (
+          field("msg", _.msg),
+          field.opt("tag", _.tag)
+        ).mapN(Log.apply)
+      }
 
     val userLogSchema: Schema[UserLog] =
       (userSchema, logSchema).imapN(UserLog.apply)(ul => (ul.user, ul.log))
