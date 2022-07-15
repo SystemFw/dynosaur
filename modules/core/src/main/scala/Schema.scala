@@ -101,6 +101,8 @@ sealed trait Schema[A] { self =>
     Eval.later(internal.encoding.fromSchema(this))
 }
 object Schema {
+  type Record[A] = structure.Record[A]
+
   import structure._
 
   trait DynosaurError extends Exception with Product with Serializable {
@@ -176,8 +178,17 @@ object Schema {
   ): Schema[R] =
     fields(b(field))
 
+  /** Like `record`, but keeps the precise subtype of the schema. Useful with
+    * the InvariantSemigroupal instance of Record.
+    */
+  def recordNarrow[R](
+      b: FieldBuilder[R] => FreeApplicative[Field[R, *], R]
+  ): Record[R] =
+    Record(b(field))
+
   def alternatives[A](cases: Chain[Alt[A]]): Schema[A] =
     Sum(cases)
+
   def oneOf[A](b: AltBuilder[A] => Chain[Alt[A]]): Schema[A] =
     alternatives(b(alt))
 
@@ -247,12 +258,6 @@ object Schema {
         extends Schema[R]
 
     object Record {
-
-      def fields[R](p: FreeApplicative[Field[R, *], R]): Record[R] = Record(p)
-      def record[R](
-          b: FieldBuilder[R] => FreeApplicative[Field[R, *], R]
-      ): Record[R] =
-        fields(b(field))
 
       // todo: law tests (?)
       implicit val invariantSemigroupal: InvariantSemigroupal[Record] =
