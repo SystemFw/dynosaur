@@ -25,6 +25,8 @@ import scodec.bits.ByteVector
 import scala.collection.immutable
 
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+import cats.InvariantSemigroupal
+import cats.~>
 
 @annotation.implicitNotFound(
   """
@@ -167,10 +169,10 @@ object Schema {
 
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 
-  def fields[R](p: FreeApplicative[Field[R, *], R]): Schema[R] = Record(p)
+  def fields[R](p: FreeApplicative[Field[R, *], R]): Record[R] = Record(p)
   def record[R](
       b: FieldBuilder[R] => FreeApplicative[Field[R, *], R]
-  ): Schema[R] =
+  ): Record[R] =
     fields(b(field))
 
   def alternatives[A](cases: Chain[Alt[A]]): Schema[A] =
@@ -242,6 +244,26 @@ object Schema {
     case class Sequence[A](value: Schema[A]) extends Schema[List[A]]
     case class Record[R](value: FreeApplicative[Field[R, *], R])
         extends Schema[R]
+
+    object Record {
+
+      // todo: law tests (?)
+      implicit val invariantSemigroupal: InvariantSemigroupal[Record] =
+        new InvariantSemigroupal[Record] {
+          def product[A, B](fa: Record[A], fb: Record[B]): Record[(A, B)] =
+            Record {
+              (
+                fa.value.compile(Field.contramapK[A, (A, B)](_._1)),
+                fb.value.compile(Field.contramapK[B, (A, B)](_._2))
+              ).tupled
+            }
+
+          def imap[A, B](fa: Record[A])(f: A => B)(g: B => A): Record[B] =
+            Record(fa.value.compile(Field.contramapK(g)).map(f))
+        }
+
+    }
+
     case class Sum[A](value: Chain[Alt[A]]) extends Schema[A]
     case class Isos[A](value: XMap[A]) extends Schema[A]
     case class Defer[A](value: () => Schema[A]) extends Schema[A]
@@ -259,6 +281,23 @@ object Schema {
           elemSchema: Schema[E],
           get: R => Option[E]
       ) extends Field[R, Option[E]]
+
+      def contramap[R, E, S](field: Field[R, E])(f: S => R): Field[S, E] =
+        field match {
+          case field: Field.Required[a, b] =>
+            field.copy(get = field.get.compose(f))
+
+          case field: Field.Optional[a, b] =>
+            field.copy(get = field.get.compose(f))
+        }
+
+      def contramapK[A, S](
+          f: S => A
+      ): Field[A, *] ~> Field[S, *] =
+        new (Field[A, *] ~> Field[S, *]) {
+          override def apply[B](field: Field[A, B]): Field[S, B] =
+            contramap(field)(f)
+        }
     }
 
     trait Alt[A] {

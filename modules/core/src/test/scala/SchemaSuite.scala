@@ -35,6 +35,8 @@ class SchemaSuite extends ScalaCheckSuite {
   case class Role(capability: String, user: User)
   /* case class with Options */
   case class Log(msg: String, tag: Option[String])
+  /* nested case class with two case class members */
+  case class UserLog(user: User, log: Log)
   /* newtype */
   case class TraceToken(value: String)
   /* enum */
@@ -1005,5 +1007,38 @@ class SchemaSuite extends ScalaCheckSuite {
         eventTypeSchema3,
         traceTokenSchema
       )
+  }
+
+  test("record combined via imapN") {
+    val userSchema: Schema.structure.Record[User] = Schema.record { field =>
+      (
+        field("id", _.id),
+        field("name", _.name)
+      ).mapN(User.apply)
+    }
+
+    val logSchema: Schema.structure.Record[Log] = Schema.record { field =>
+      (
+        field("msg", _.msg),
+        field.opt("tag", _.tag)
+      ).mapN(Log.apply)
+    }
+
+    val userLogSchema: Schema[UserLog] =
+      (userSchema, logSchema).imapN(UserLog.apply)(ul => (ul.user, ul.log))
+
+    val input = UserLog(User(1, "foo"), Log("bar", Some("baz")))
+
+    val encoded = userLogSchema
+      .write(input)
+
+    val encodedKeys = encoded
+      .map(_.m.map(_.keySet))
+
+    assertEquals(encodedKeys, Right(Some(Set("id", "name", "msg", "tag"))))
+
+    val decoded = encoded.flatMap(userLogSchema.read(_))
+
+    assertEquals(decoded, Right(input))
   }
 }

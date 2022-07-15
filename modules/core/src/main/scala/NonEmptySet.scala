@@ -18,8 +18,8 @@ package dynosaur
 
 import cats.syntax.all._
 
-/** A Set that cannot be empty, to support DynamoDb number, string and
-  * binary sets.
+/** A Set that cannot be empty, to support DynamoDb number, string and binary
+  * sets.
   */
 sealed abstract case class NonEmptySet[A](value: Set[A])
 object NonEmptySet {
@@ -33,8 +33,7 @@ object NonEmptySet {
   def fromCatsNonEmpty[A](set: cats.data.NonEmptySet[A]): NonEmptySet[A] =
     create(set.toSortedSet.toSet)
 
-  /** Note:
-    * It's up to you to ensure the non empty invariant holds
+  /** Note: It's up to you to ensure the non empty invariant holds
     */
   def unsafeFromSet[A](set: Set[A]): NonEmptySet[A] =
     if (set.nonEmpty) create(set)
