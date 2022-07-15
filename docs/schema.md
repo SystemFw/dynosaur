@@ -100,7 +100,7 @@ to work directly with the low level representation, instead of custom data types
 ## Bidirectional mappings
 
 New schemas can be created from existing ones by declaring a
-bidirectional mapping between them.  
+bidirectional mapping between them.
 The most general way is using the `xmap` method on `Schema`:
 ```scala
 sealed trait Schema[A] {
@@ -285,7 +285,7 @@ bazSchema.write(Baz("hello"))
 ```
 </details>
 
-> **Notes:** 
+> **Notes:**
 > - `record` is designed to help type inference as much as possible, but
   you **have** to specify which type your schema is for, either with an
   ascription or an annotation. If you don't do that, your
@@ -308,7 +308,7 @@ different encodings for the same type, but at the same time typing
 if ever changes gets old quickly.
 The `field` builder is designed to take the schema of the field as its
 sole implicit argument, so that you can pass schemas implicitly or
-explicitly at ease.  
+explicitly at ease.
 
 > The recommended guideline is to pass schemas for primitives
 implicitly, and schemas for your own datatypes explicitly.
@@ -398,10 +398,10 @@ So far, decoding records has been entirely based on the _key_ of each
 field, letting the value be anything that can be converted to the
 desired type. However, sometimes we need to assert that a field
 contains a specific constant, and fail decoding if any other value is
-found.  
+found.
 Although this logic can be expressed entirely in terms of `field.apply` and
 `imapErr`, `field` offers a dedicated method for this scenario,
-`field.const`.  
+`field.const`.
 For example, asserting that our `Foo` has `version: 1.0` is as simple as:
 
 ```scala mdoc:silent
@@ -438,7 +438,7 @@ how use of `const` guarantees that any other value will result in a
 
 Scala's tuples and functions have a hard limit of 22 elements, so if
 your case class has more than 22 fields you won't be able to call
-`(f1, ..., f23).mapN`.  
+`(f1, ..., f23).mapN`.
 The workaround is to use `tupled` from `cats` and nest tuples, e.g
 if you have 24 fields:
 
@@ -687,7 +687,7 @@ val warn = Schema.record[Warning] { field =>
 ```
 
 Now the two records have different keys ("error" vs "warning"), and
-decoding is no longer ambiguous.  
+decoding is no longer ambiguous.
 The final question is how to encode `Unknown`, we need to `tag` a
 schema that produces an empty record on encoding, and always succeeds
 with `Unknown` on decoding, but as we saw in the [Additional
@@ -744,7 +744,7 @@ schemaWithKey.write(Unknown).flatMap(schemaWithKey.read)
 ### Discriminator field
 
 In the discriminator field approach, each record adds an additional
-field (for example called "type") to disambiguate.  
+field (for example called "type") to disambiguate.
 The only thing to note is the use of `field.const` to make sure
 decoding succeeds or fails based on the _specific value_ of the field,
 and not just the fact that there is a field called "type" whose value
@@ -956,6 +956,53 @@ textSchema.write(text)
 
 > In summary, use `Schema.recursive` to define a recursive schema.
 
+## Narrow record schema
+
+In some situations, it's useful to make it explicit that a `Schema` will serialise values to records.
+
+For example, you might want to write a utility that wraps a given `Schema` by adding metadata.
+This can be done with the `Schema.recordNarrow`:
+
+```scala mdoc:to-string
+val fooSchemaNarrow: Schema.Record[Foo] = Schema.recordNarrow { field =>
+  (
+    field("a", _.a),
+    field("b", _.b)
+  ).mapN(Foo.apply)
+}
+
+def addVersion[A](recordSchema: Schema.Record[A]): Schema.Record[A] = Schema.recordNarrow { field =>
+  field.const("version", "1.0") *>
+    recordSchema.value
+  }
+
+val fooSchemaWithVersion: Schema[Foo] = addVersion(fooSchemaNarrow)
+
+fooSchemaWithVersion.write(Foo("hello", 100))
+```
+
+## Invariant record composition
+
+A special case of modifying record schemas is merging multiple record schemas into one.
+
+Using the [`InvariantMonoidal`](https://typelevel.org/cats/typeclasses/invariantmonoidal.html) instance of Schema,
+you can define schemas for multi-level products that end up having a flat structure.
+
+```scala mdoc:to-string
+case class FooWithBaz(foo: Foo, baz: Baz)
+
+val bazSchemaNarrow: Schema.Record[Baz] = Schema.recordNarrow { field =>
+  field("word", _.word).map(Baz.apply)
+}
+
+val fooWithBazFlatSchema: Schema[FooWithBaz] =
+  (
+    fooSchemaNarrow, //defined above
+    bazSchemaNarrow
+  ).imapN(FooWithBaz.apply)(fwb => (fwb.foo, fwb.baz)) //in Scala 3, use FooWithBaz.unapply for convenience
+
+fooWithBazFlatSchema.write(FooWithBaz(Foo("hello", 100), Baz("world")))
+```
 
 ## String Set, Number Set and Binary Set
 

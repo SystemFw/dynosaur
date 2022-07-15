@@ -27,6 +27,7 @@ import scala.collection.immutable
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import cats.InvariantSemigroupal
 import cats.~>
+import cats.InvariantMonoidal
 
 @annotation.implicitNotFound(
   """
@@ -260,8 +261,10 @@ object Schema {
     object Record {
 
       // todo: law tests (?)
-      implicit val invariantSemigroupal: InvariantSemigroupal[Record] =
-        new InvariantSemigroupal[Record] {
+      implicit val recordSchemaInvariantMonoidalInstance: InvariantMonoidal[Record] =
+        new InvariantMonoidal[Record] {
+          val unit: Record[Unit] = Record(FreeApplicative.pure(()))
+
           def product[A, B](fa: Record[A], fb: Record[B]): Record[(A, B)] =
             Record {
               (
