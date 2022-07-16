@@ -25,7 +25,6 @@ import scodec.bits.ByteVector
 import scala.collection.immutable
 
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
-import cats.InvariantSemigroupal
 import cats.~>
 import cats.InvariantMonoidal
 
@@ -260,7 +259,6 @@ object Schema {
 
     object Record {
 
-      // todo: law tests (?)
       implicit val recordSchemaInvariantMonoidalInstance: InvariantMonoidal[Record] =
         new InvariantMonoidal[Record] {
           val unit: Record[Unit] = Record(FreeApplicative.pure(()))
