@@ -246,7 +246,7 @@ object Schema {
     case class Isos[A](value: XMap[A]) extends Schema[A]
     case class Defer[A](value: () => Schema[A]) extends Schema[A]
 
-    trait Field[R, E]
+    sealed trait Field[R, E]
     object Field {
       case class Required[R, E](
           name: String,
