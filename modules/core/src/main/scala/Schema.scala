@@ -259,16 +259,20 @@ object Schema {
 
     object Record {
 
-      implicit val recordSchemaInvariantMonoidalInstance: InvariantMonoidal[Record] =
+      implicit val recordSchemaInvariantMonoidalInstance
+          : InvariantMonoidal[Record] =
         new InvariantMonoidal[Record] {
           val unit: Record[Unit] = Record(FreeApplicative.pure(()))
 
           def product[A, B](fa: Record[A], fb: Record[B]): Record[(A, B)] =
             Record {
-              (
-                fa.value.compile(Field.contramapK[A, (A, B)](_._1)),
-                fb.value.compile(Field.contramapK[B, (A, B)](_._2))
-              ).tupled
+              val faFieldsUpcasted: FreeApplicative[Field[(A, B), *], A] =
+                fa.value.compile(Field.contramapK(_._1))
+
+              val fbFieldsUpcasted: FreeApplicative[Field[(A, B), *], B] =
+                fb.value.compile(Field.contramapK(_._2))
+
+              faFieldsUpcasted.product(fbFieldsUpcasted)
             }
 
           def imap[A, B](fa: Record[A])(f: A => B)(g: B => A): Record[B] =
