@@ -24,8 +24,6 @@ import cats.data.Chain
 import scodec.bits.ByteVector
 import scala.collection.immutable
 
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
-
 @annotation.implicitNotFound(
   """
 Cannot find an implicit value for Schema[${A}].

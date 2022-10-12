@@ -19,8 +19,6 @@ package dynosaur
 import cats.syntax.all._
 import scodec.bits.ByteVector
 
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
-
 import dynosaur.{DynamoValue => V}
 
 import munit.ScalaCheckSuite
@@ -87,21 +85,29 @@ class SchemaSuite extends ScalaCheckSuite {
   case class Section(title: String, contents: List[Text]) extends Text
 
   def check[A](schema: Schema[A], data: A, expected: V) = {
-    def output = schema.write(data).toOption.get
-    def roundTrip = schema.read(output).toOption.get
 
-    assertEquals(output, expected)
-    assertEquals(roundTrip, data)
+    val output = schema
+      .write(data)
+      .toOption
+
+    assertEquals(output, expected.some, clue(data))
+
+    val roundTrip = output.flatMap { output =>
+      schema.read(output).toOption
+    }
+
+    assertEquals(roundTrip, data.some)
   }
 
   test("id") {
-    forAll { (dv: V) =>
+    forAllNoShrink { (dv: V) =>
       val expected = dv
       check(Schema[V], dv, expected)
     }
   }
 
-  test("AttributeValue") {
+  // TODO Cannot test equality in AttributeValue
+  test("AttributeValue".ignore) {
     forAll { (av: AttributeValue) =>
       val expected = DynamoValue(av)
       check(Schema[AttributeValue], av, expected)
