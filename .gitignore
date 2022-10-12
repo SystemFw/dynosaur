@@ -3,5 +3,8 @@ target/
 .history/
 .bsp/
 .DS_Store
-
+.vscode/
+.bloop/
+.metals/
+metals.sbt
 
