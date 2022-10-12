@@ -77,7 +77,7 @@ lazy val docs = project
   .dependsOn(core.js, core.jvm)
   .enablePlugins(MdocPlugin, NoPublishPlugin)
 
-ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("1.11.0-11"))
+ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("11"))
 
 ThisBuild / githubWorkflowBuildPostamble ++= List(
   WorkflowStep.Sbt(
