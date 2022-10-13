@@ -19,7 +19,9 @@ package dynosaur
 import org.scalacheck.Gen
 import org.scalacheck.Arbitrary
 import org.scalacheck.Arbitrary.arbitrary
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+import software.amazon.awssdk.services.dynamodb.model.{
+  AttributeValue => AwsSdkAttributeValue
+}
 import software.amazon.awssdk.core.SdkBytes
 
 import CollectionConverters.all._
@@ -47,43 +49,43 @@ object Arbitraries {
   }
 
   def genLeafAttributeValue: Gen[AttributeValue] = Gen.oneOf(
-    Gen.const(AttributeValue.builder.nul(true).build),
+    Gen.const(AwsSdkAttributeValue.builder.nul(true).build),
     Gen
       .choose[Int](Int.MinValue, Int.MaxValue)
-      .map(n => AttributeValue.builder.n(n.toString).build),
+      .map(n => AwsSdkAttributeValue.builder.n(n.toString).build),
     Gen
       .choose[Long](Long.MinValue, Long.MaxValue)
-      .map(n => AttributeValue.builder.n(n.toString).build),
+      .map(n => AwsSdkAttributeValue.builder.n(n.toString).build),
     Gen
       .choose[Float](Float.MinValue, Float.MaxValue)
-      .map(n => AttributeValue.builder.n(n.toString).build),
+      .map(n => AwsSdkAttributeValue.builder.n(n.toString).build),
     Gen
       .choose[Double](Double.MinValue, Double.MaxValue)
-      .map(n => AttributeValue.builder.n(n.toString).build),
+      .map(n => AwsSdkAttributeValue.builder.n(n.toString).build),
     arbitrary[Set[Int]]
       .map(_.map(_.toString))
-      .map(ns => AttributeValue.builder.ns(ns.toList: _*).build),
-    arbitrary[String].map(s => AttributeValue.builder.s(s).build),
+      .map(ns => AwsSdkAttributeValue.builder.ns(ns.toList: _*).build),
+    arbitrary[String].map(s => AwsSdkAttributeValue.builder.s(s).build),
     arbitrary[Set[String]].map(ss =>
-      AttributeValue.builder.ss(ss.toList: _*).build
+      AwsSdkAttributeValue.builder.ss(ss.toList: _*).build
     ),
-    arbitrary[Boolean].map(s => AttributeValue.builder.bool(s).build),
+    arbitrary[Boolean].map(s => AwsSdkAttributeValue.builder.bool(s).build),
     arbitrary[Array[Byte]]
       .map(SdkBytes.fromByteArray)
-      .map(b => AttributeValue.builder.b(b).build),
+      .map(b => AwsSdkAttributeValue.builder.b(b).build),
     arbitrary[Array[Array[Byte]]]
       .map(bss => bss.map(SdkBytes.fromByteArray))
-      .map(bs => AttributeValue.builder.bs(bs: _*).build)
+      .map(bs => AwsSdkAttributeValue.builder.bs(bs: _*).build)
   )
 
   def genNestedAttributeValue(deep: Int): Gen[AttributeValue] = Gen.oneOf(
     Gen
       .listOf(Gen.lzy(genAttributeValue(deep - 1)))
-      .map(l => AttributeValue.builder.l(l: _*).build),
+      .map(l => AwsSdkAttributeValue.builder.l(l: _*).build),
     Gen
       .mapOf(
         Gen.zip(arbitrary[String], Gen.lzy(genAttributeValue(deep - 1)))
       )
-      .map(m => AttributeValue.builder.m(m.asJava).build)
+      .map(m => AwsSdkAttributeValue.builder.m(m.asJava).build)
   )
 }
