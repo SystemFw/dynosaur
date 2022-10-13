@@ -66,9 +66,9 @@ object Arbitraries {
     arbitrary[Set[String]].map(ss => AttributeValue.SS(ss.toJSArray)),
     arbitrary[Boolean].map(s => AttributeValue.BOOL(s)),
     arbitrary[Array[Short]]
-      .map(b => AttributeValue.B(Uint8Array.of(b: _*))),
+      .map(b => AttributeValue.B(Uint8Array.from(b.toJSArray))),
     arbitrary[Array[Array[Short]]]
-      .map(bs => bs.map(b => Uint8Array.of(b: _*)))
+      .map(bs => bs.map(b => Uint8Array.from(b.toJSArray)))
       .map(bs => AttributeValue.BS(bs.toJSArray))
   )
 

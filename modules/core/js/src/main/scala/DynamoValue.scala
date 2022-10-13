@@ -53,7 +53,7 @@ case class DynamoValue(value: AttributeValue) {
 
   lazy val bs: Option[NonEmptySet[ByteVector]] =
     value.BS.toOption
-      .map { xs: js.Array[Uint8Array] =>
+      .map { (xs: js.Array[Uint8Array]) =>
         xs.toVector.map { x =>
           ByteVector(x.toList.map(_.toByte))
         }
