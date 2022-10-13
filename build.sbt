@@ -60,9 +60,17 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
 lazy val coreJS = core.js
 lazy val coreJVM = core.jvm
 
+lazy val jsdocs = project
+  .dependsOn(core.js)
+  .settings(
+    libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.3.0"
+  )
+  .enablePlugins(ScalaJSPlugin)
+
 lazy val docs = project
   .in(file("mdoc"))
   .settings(
+    mdocJS := Some(jsdocs),
     mdocIn := file("docs"),
     mdocOut := file("target/website"),
     mdocVariables := Map(
@@ -74,7 +82,7 @@ lazy val docs = project
     githubWorkflowArtifactUpload := false,
     fatalWarningsInCI := false
   )
-  .dependsOn(core.js, core.jvm)
+  .dependsOn(core.jvm)
   .enablePlugins(MdocPlugin, NoPublishPlugin)
 
 ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("11"))
