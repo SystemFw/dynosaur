@@ -24,8 +24,6 @@ import cats._, syntax.all._
 import org.typelevel.paiges.Doc
 import scodec.bits.ByteVector
 
-import dynosaur.CollectionConverters.all._
-
 case class DynamoValue(value: AttributeValue) {
 
   lazy val s: Option[String] =

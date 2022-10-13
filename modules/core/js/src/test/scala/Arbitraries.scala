@@ -23,8 +23,6 @@ import org.scalacheck.Gen
 import org.scalacheck.Arbitrary
 import org.scalacheck.Arbitrary.arbitrary
 
-import CollectionConverters.all._
-
 object Arbitraries {
 
   implicit def arbitraryForGen[A](implicit
