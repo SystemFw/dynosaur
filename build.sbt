@@ -63,6 +63,7 @@ lazy val coreJVM = core.jvm
 lazy val jsdocs = project
   .dependsOn(core.js)
   .settings(
+    githubWorkflowArtifactUpload := false,
     libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.3.0"
   )
   .enablePlugins(ScalaJSPlugin)
