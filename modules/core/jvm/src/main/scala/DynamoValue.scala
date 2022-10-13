@@ -139,7 +139,7 @@ case class DynamoValue(value: AttributeValue) {
     def maps(m: Map[String, DynamoValue]) =
       "M".colon {
         csv {
-          m.map { case (k, v) => k.colon(v.toDoc.brackets) }
+          m.toList.sortBy(_._1).map { case (k, v) => k.colon(v.toDoc.brackets) }
         }.brackets
       }
 
