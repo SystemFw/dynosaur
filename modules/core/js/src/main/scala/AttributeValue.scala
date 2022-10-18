@@ -18,11 +18,9 @@ package dynosaur
 
 import scala.scalajs.js
 import scala.scalajs.js.typedarray.Uint8Array
-import scala.scalajs.js.annotation._
 
 @js.native
-@JSImport("@aws-sdk/client-dynamodb", "AttributeValue")
-class AttributeValue extends js.Object {
+trait AttributeValue extends js.Object {
   def S: js.UndefOr[String] = js.native
   def N: js.UndefOr[String] = js.native
   def B: js.UndefOr[Uint8Array] = js.native

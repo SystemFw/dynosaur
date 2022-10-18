@@ -47,9 +47,6 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
       "org.scalameta" %%% "munit-scalacheck" % "0.7.25" % Test
     )
   )
-  .jsSettings(
-    Compile / npmDependencies += "@aws-sdk/client-dynamodb" -> "3.186.0"
-  )
   .jvmSettings(
     libraryDependencies ++= Seq(
       "software.amazon.awssdk" % "dynamodb" % "2.14.15"
