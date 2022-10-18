@@ -43,8 +43,8 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
       "org.typelevel" %%% "paiges-core" % "0.4.2",
       "org.typelevel" %%% "paiges-cats" % "0.4.2",
       "org.scodec" %%% "scodec-bits" % "1.1.27",
-      "org.scalameta" %%% "munit" % "0.7.25" % Test,
-      "org.scalameta" %%% "munit-scalacheck" % "0.7.25" % Test
+      "org.scalameta" %%% "munit" % "0.7.29" % Test,
+      "org.scalameta" %%% "munit-scalacheck" % "0.7.29" % Test
     )
   )
   .jvmSettings(
@@ -52,7 +52,6 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
       "software.amazon.awssdk" % "dynamodb" % "2.14.15"
     )
   )
-  .jsConfigure { project => project.enablePlugins(ScalaJSBundlerPlugin) }
 
 lazy val coreJS = core.js
 lazy val coreJVM = core.jvm
