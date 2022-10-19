@@ -48,7 +48,7 @@ case class DynamoValue(value: AttributeValue) {
 
   lazy val b: Option[ByteVector] =
     value.B.toOption.map { value =>
-      ByteVector(value.toList.map(_.toByte))
+      ByteVector.view(value)
     }
 
   lazy val bs: Option[NonEmptySet[ByteVector]] =
