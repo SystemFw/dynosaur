@@ -248,7 +248,7 @@ object DynamoValue {
   )
 
   def b(value: ByteVector): DynamoValue = DynamoValue(
-    AttributeValue.B(new Uint8Array(value.toArray.map(_.toShort).toJSArray))
+    AttributeValue.B(value.toUint8Array)
   )
 
   // /** Builds a DynamoValue from an AWS SDK-compatible attribute map, e.g. from a
