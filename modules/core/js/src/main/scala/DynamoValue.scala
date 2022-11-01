@@ -251,11 +251,10 @@ object DynamoValue {
     AttributeValue.B(value.toUint8Array)
   )
 
-  // /** Builds a DynamoValue from an AWS SDK-compatible attribute map, e.g. from a
-  //   * GetItem response.
-  //   */
-  // def attributeMap(
-  //     attributes: java.util.Map[String, AttributeValue]
-  // ): DynamoValue = make(_.m(attributes))
-
+  /** Builds a DynamoValue from an AWS SDK-compatible attribute disctionary,
+    * e.g. from a GetItem response.
+    */
+  def attributeMap(
+      attributes: js.Dictionary[AttributeValue]
+  ): DynamoValue = DynamoValue(AttributeValue.M(attributes))
 }
