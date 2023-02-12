@@ -181,7 +181,7 @@ val a = switchSchema.write(Switch.On)
 a.flatMap(switchSchema.read)
 // res6: Either[Schema.DynosaurError, Switch] = Right(On)
 switchSchema.read(DynamoValue.s("blub"))
-// res7: Either[Schema.ReadError, Switch] = Left(ReadError(blub is not a valid Switch))
+// res7: Either[Schema.ReadError, Switch] = Left(dynosaur.Schema$ReadError: blub is not a valid Switch)
 ```
 </details>
 
@@ -284,13 +284,13 @@ val bar = Bar(10, Foo("value of Foo", 40))
 nestedSchema.write(bar)
 // res12: Either[Schema.WriteError, DynamoValue] = Right(
 // "M": {
-//   "num": { "N": "10" },
 //   "foo": {
 //     "M": {
 //       "a": { "S": "value of Foo" },
 //       "b": { "N": "40" }
 //     }
-//   }
+//   },
+//   "num": { "N": "10" }
 // }
 // )
 ```
@@ -476,9 +476,9 @@ val versionedFooSchema = Schema.record[Foo] { field =>
 val versioned = versionedFooSchema.write(Foo("value of Foo", 300))
 // versioned: Either[Schema.WriteError, DynamoValue] = Right(
 // "M": {
-//   "version": { "S": "1.0" },
 //   "a": { "S": "value of Foo" },
-//   "b": { "N": "300" }
+//   "b": { "N": "300" },
+//   "version": { "S": "1.0" }
 // }
 // )
 versioned.flatMap(versionedFooSchema.read)
@@ -498,7 +498,7 @@ val wrongVersion = DynamoValue.m(
 // 
 
 versionedFooSchema.read(wrongVersion)
-// res20: Either[Schema.ReadError, Foo] = Left(ReadError(3.0 does not match expected const value of 1.0))
+// res20: Either[Schema.ReadError, Foo] = Left(dynosaur.Schema$ReadError: 3.0 does not match expected const value of 1.0)
 ```
 </details>
 
@@ -907,8 +907,8 @@ val schemaWithField = Schema.oneOf[Problem] { alt =>
 schemaWithField.write(error)
 // res41: Either[Schema.WriteError, DynamoValue] = Right(
 // "M": {
-//   "type": { "S": "error" },
-//   "msg": { "S": "this is an error" }
+//   "msg": { "S": "this is an error" },
+//   "type": { "S": "error" }
 // }
 // )
 schemaWithField.write(error).flatMap(schemaWithField.read)
@@ -916,8 +916,8 @@ schemaWithField.write(error).flatMap(schemaWithField.read)
 schemaWithField.write(warning)
 // res43: Either[Schema.WriteError, DynamoValue] = Right(
 // "M": {
-//   "type": { "S": "warning" },
-//   "msg": { "S": "this is a warning" }
+//   "msg": { "S": "this is a warning" },
+//   "type": { "S": "warning" }
 // }
 // )
 schemaWithField.write(warning).flatMap(schemaWithField.read)
@@ -1184,7 +1184,6 @@ textSchema.write(text)
 // "M": {
 //   "section": {
 //     "M": {
-//       "title": { "S": "A" },
 //       "contents": {
 //         "L": [
 //           {
@@ -1202,9 +1201,6 @@ textSchema.write(text)
 //             "M": {
 //               "section": {
 //                 "M": {
-//                   "title": {
-//                     "S": "A.b"
-//                   },
 //                   "contents": {
 //                     "L": [
 //                       {
@@ -1219,13 +1215,17 @@ textSchema.write(text)
 //                         }
 //                       }
 //                     ]
+//                   },
+//                   "title": {
+//                     "S": "A.b"
 //                   }
 //                 }
 //               }
 //             }
 //           }
 //         ]
-//       }
+//       },
+//       "title": { "S": "A" }
 //     }
 //   }
 // }
@@ -1280,8 +1280,8 @@ val commandSchema = Schema.record[Command] { field =>
 commandSchema.write(Command("open", Set("o", "O")))
 // res55: Either[Schema.WriteError, DynamoValue] = Right(
 // "M": {
-//   "name": { "S": "open" },
-//   "aliases": { "SS": [ "o", "O" ] }
+//   "aliases": { "SS": [ "o", "O" ] },
+//   "name": { "S": "open" }
 // }
 // )
 commandSchema.write(Command("close", Set.empty))
