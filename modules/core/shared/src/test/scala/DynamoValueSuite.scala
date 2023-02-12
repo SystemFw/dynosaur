@@ -98,7 +98,7 @@ class DynamoValueSuite extends FunSuite {
     val v = V.m("Name" -> V.s("Joe"), "Age" -> V.n(35))
 
     val expected = """
-    |"M": { "Name": { "S": "Joe" }, "Age": { "N": "35" } }
+    |"M": { "Age": { "N": "35" }, "Name": { "S": "Joe" } }
     """.trim.stripMargin
 
     val s = v.print(100)
@@ -167,8 +167,8 @@ class DynamoValueSuite extends FunSuite {
 
     val expected = """
     |"M": {
-    |  "isThatYou": { "BOOL": true },
     |  "age": { "N": "1" },
+    |  "day": { "S": "Tuesday" },
     |  "files": {
     |    "L": [
     |      {
@@ -183,12 +183,12 @@ class DynamoValueSuite extends FunSuite {
     |      }
     |    ]
     |  },
-    |  "options": { "NULL": true },
-    |  "id": { "N": "10" },
     |  "food": {
     |    "SS": [ "Rice", "Noodles" ]
     |  },
-    |  "day": { "S": "Tuesday" }
+    |  "id": { "N": "10" },
+    |  "isThatYou": { "BOOL": true },
+    |  "options": { "NULL": true }
     |}
     """.trim.stripMargin
 

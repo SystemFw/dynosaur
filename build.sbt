@@ -17,43 +17,57 @@ Global / excludeLintKeys += scmInfo
 val Scala213 = "2.13.6"
 ThisBuild / spiewakMainBranches := Seq("main")
 
-ThisBuild / crossScalaVersions := Seq(Scala213, "3.0.0", "2.12.14")
+ThisBuild / crossScalaVersions := Seq(Scala213, "3.2.0", "2.12.14")
 ThisBuild / versionIntroduced := Map("3.0.0" -> "0.3.0")
 ThisBuild / scalaVersion := (ThisBuild / crossScalaVersions).value.head
 ThisBuild / initialCommands := """
   |import cats._, data._, syntax.all._
   |import dynosaur._
 """.stripMargin
-ThisBuild / testFrameworks += new TestFramework("munit.Framework")
-
-def dep(org: String, prefix: String, version: String)(modules: String*)(
-    testModules: String*
-) =
-  modules.map(m => org %% (prefix ++ m) % version) ++
-    testModules.map(m => org %% (prefix ++ m) % version % Test)
 
 lazy val root = project
   .in(file("."))
   .enablePlugins(NoPublishPlugin, SonatypeCiReleasePlugin)
-  .aggregate(core)
+  .aggregate(core.js, core.jvm)
 
-lazy val core = project
+lazy val core = crossProject(JSPlatform, JVMPlatform)
+  .crossType(CrossType.Full)
   .in(file("modules/core"))
   .settings(
     name := "dynosaur-core",
     scalafmtOnCompile := true,
-    libraryDependencies ++=
-      dep("org.typelevel", "cats-", "2.6.1")("core", "free")() ++
-        dep("org.typelevel", "", "2.6.1")("alleycats-core")() ++
-        dep("org.scodec", "scodec-bits", "1.1.27")("")() ++
-        dep("org.scalameta", "munit", "0.7.25")()("", "-scalacheck") ++
-        dep("org.typelevel", "paiges-", "0.4.2")("core", "cats")() ++
-        Seq("software.amazon.awssdk" % "dynamodb" % "2.17.100")
+    libraryDependencies ++= List(
+      "org.typelevel" %%% "cats-core" % "2.6.1",
+      "org.typelevel" %%% "cats-free" % "2.6.1",
+      "org.typelevel" %%% "alleycats-core" % "2.6.1",
+      "org.typelevel" %%% "paiges-core" % "0.4.2",
+      "org.typelevel" %%% "paiges-cats" % "0.4.2",
+      "org.scodec" %%% "scodec-bits" % "1.1.34",
+      "org.scalameta" %%% "munit" % "0.7.29" % Test,
+      "org.scalameta" %%% "munit-scalacheck" % "0.7.29" % Test
+    )
   )
+  .jvmSettings(
+    libraryDependencies ++= Seq(
+      "software.amazon.awssdk" % "dynamodb" % "2.14.15"
+    )
+  )
+
+lazy val coreJS = core.js
+lazy val coreJVM = core.jvm
+
+lazy val jsdocs = project
+  .dependsOn(core.js)
+  .settings(
+    githubWorkflowArtifactUpload := false,
+    libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.3.0"
+  )
+  .enablePlugins(ScalaJSPlugin)
 
 lazy val docs = project
   .in(file("mdoc"))
   .settings(
+    mdocJS := Some(jsdocs),
     mdocIn := file("docs"),
     mdocOut := file("target/website"),
     mdocVariables := Map(
@@ -65,10 +79,10 @@ lazy val docs = project
     githubWorkflowArtifactUpload := false,
     fatalWarningsInCI := false
   )
-  .dependsOn(core)
+  .dependsOn(core.jvm)
   .enablePlugins(MdocPlugin, NoPublishPlugin)
 
-ThisBuild / githubWorkflowJavaVersions := Seq("adopt@1.11.0-11")
+ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("11"))
 
 ThisBuild / githubWorkflowBuildPostamble ++= List(
   WorkflowStep.Sbt(

@@ -19,9 +19,10 @@ package dynosaur
 import cats._, syntax.all._
 import org.typelevel.paiges.Doc
 import scodec.bits.ByteVector
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import software.amazon.awssdk.core.SdkBytes
-
+import software.amazon.awssdk.services.dynamodb.model.{
+  AttributeValue => AwsSdkAttributeValue
+}
 import dynosaur.CollectionConverters.all._
 
 case class DynamoValue(value: AttributeValue) {
@@ -139,7 +140,7 @@ case class DynamoValue(value: AttributeValue) {
     def maps(m: Map[String, DynamoValue]) =
       "M".colon {
         csv {
-          m.map { case (k, v) => k.colon(v.toDoc.brackets) }
+          m.toList.sortBy(_._1).map { case (k, v) => k.colon(v.toDoc.brackets) }
         }.brackets
       }
 
@@ -233,7 +234,7 @@ object DynamoValue {
   ): DynamoValue = make(_.m(attributes))
 
   private def make(
-      build: AttributeValue.Builder => AttributeValue.Builder
+      build: AwsSdkAttributeValue.Builder => AwsSdkAttributeValue.Builder
   ): DynamoValue =
-    DynamoValue(build(AttributeValue.builder).build)
+    DynamoValue(build(AwsSdkAttributeValue.builder).build)
 }

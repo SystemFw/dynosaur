@@ -1,3 +1,5 @@
-addSbtPlugin("com.codecommit" % "sbt-spiewak-sonatype" % "0.21.0")
+addSbtPlugin("com.codecommit" % "sbt-spiewak-sonatype" % "0.23.0")
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.6")
-addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.2.24")
+addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.3.6")
+addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.11.0")
+addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "1.2.0")

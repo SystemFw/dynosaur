@@ -16,13 +16,12 @@
 
 package dynosaur
 
+import scala.scalajs.js.JSConverters._
+import scala.scalajs.js.typedarray.Uint8Array
+
 import org.scalacheck.Gen
 import org.scalacheck.Arbitrary
 import org.scalacheck.Arbitrary.arbitrary
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
-import software.amazon.awssdk.core.SdkBytes
-
-import CollectionConverters.all._
 
 object Arbitraries {
 
@@ -47,43 +46,40 @@ object Arbitraries {
   }
 
   def genLeafAttributeValue: Gen[AttributeValue] = Gen.oneOf(
-    Gen.const(AttributeValue.builder.nul(true).build),
+    Gen.const(AttributeValue.NULL),
     Gen
       .choose[Int](Int.MinValue, Int.MaxValue)
-      .map(n => AttributeValue.builder.n(n.toString).build),
+      .map(n => AttributeValue.N(n.toString)),
     Gen
       .choose[Long](Long.MinValue, Long.MaxValue)
-      .map(n => AttributeValue.builder.n(n.toString).build),
+      .map(n => AttributeValue.N(n.toString)),
     Gen
       .choose[Float](Float.MinValue, Float.MaxValue)
-      .map(n => AttributeValue.builder.n(n.toString).build),
+      .map(n => AttributeValue.N(n.toString)),
     Gen
       .choose[Double](Double.MinValue, Double.MaxValue)
-      .map(n => AttributeValue.builder.n(n.toString).build),
+      .map(n => AttributeValue.N(n.toString)),
     arbitrary[Set[Int]]
       .map(_.map(_.toString))
-      .map(ns => AttributeValue.builder.ns(ns.toList: _*).build),
-    arbitrary[String].map(s => AttributeValue.builder.s(s).build),
-    arbitrary[Set[String]].map(ss =>
-      AttributeValue.builder.ss(ss.toList: _*).build
-    ),
-    arbitrary[Boolean].map(s => AttributeValue.builder.bool(s).build),
-    arbitrary[Array[Byte]]
-      .map(SdkBytes.fromByteArray)
-      .map(b => AttributeValue.builder.b(b).build),
-    arbitrary[Array[Array[Byte]]]
-      .map(bss => bss.map(SdkBytes.fromByteArray))
-      .map(bs => AttributeValue.builder.bs(bs: _*).build)
+      .map(ns => AttributeValue.NS(ns.toJSArray)),
+    arbitrary[String].map(s => AttributeValue.S(s)),
+    arbitrary[Set[String]].map(ss => AttributeValue.SS(ss.toJSArray)),
+    arbitrary[Boolean].map(s => AttributeValue.BOOL(s)),
+    arbitrary[Array[Short]]
+      .map(b => AttributeValue.B(Uint8Array.from(b.toJSArray))),
+    arbitrary[Array[Array[Short]]]
+      .map(bs => bs.map(b => Uint8Array.from(b.toJSArray)))
+      .map(bs => AttributeValue.BS(bs.toJSArray))
   )
 
   def genNestedAttributeValue(deep: Int): Gen[AttributeValue] = Gen.oneOf(
     Gen
       .listOf(Gen.lzy(genAttributeValue(deep - 1)))
-      .map(l => AttributeValue.builder.l(l: _*).build),
+      .map(l => AttributeValue.L(l.toJSArray)),
     Gen
       .mapOf(
         Gen.zip(arbitrary[String], Gen.lzy(genAttributeValue(deep - 1)))
       )
-      .map(m => AttributeValue.builder.m(m.asJava).build)
+      .map(m => AttributeValue.M(m.toJSDictionary))
   )
 }
