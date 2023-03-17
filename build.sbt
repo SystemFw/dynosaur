@@ -1,3 +1,5 @@
+val munitV = "0.7.29"
+
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
 ThisBuild / baseVersion := "0.3.0"
@@ -17,7 +19,7 @@ Global / excludeLintKeys += scmInfo
 val Scala213 = "2.13.6"
 ThisBuild / spiewakMainBranches := Seq("main")
 
-ThisBuild / crossScalaVersions := Seq(Scala213, "3.2.0", "2.12.14")
+ThisBuild / crossScalaVersions := Seq(Scala213, "3.2.2", "2.12.14")
 ThisBuild / versionIntroduced := Map("3.0.0" -> "0.3.0")
 ThisBuild / scalaVersion := (ThisBuild / crossScalaVersions).value.head
 ThisBuild / initialCommands := """
@@ -28,7 +30,7 @@ ThisBuild / initialCommands := """
 lazy val root = project
   .in(file("."))
   .enablePlugins(NoPublishPlugin, SonatypeCiReleasePlugin)
-  .aggregate(core.js, core.jvm)
+  .aggregate(core.js, core.jvm, path.js, path.jvm)
 
 lazy val core = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Full)
@@ -43,8 +45,8 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
       "org.typelevel" %%% "paiges-core" % "0.4.2",
       "org.typelevel" %%% "paiges-cats" % "0.4.2",
       "org.scodec" %%% "scodec-bits" % "1.1.34",
-      "org.scalameta" %%% "munit" % "0.7.29" % Test,
-      "org.scalameta" %%% "munit-scalacheck" % "0.7.29" % Test
+      "org.scalameta" %%% "munit" % munitV % Test,
+      "org.scalameta" %%% "munit-scalacheck" % munitV % Test
     )
   )
   .jvmSettings(
@@ -56,8 +58,25 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
 lazy val coreJS = core.js
 lazy val coreJVM = core.jvm
 
+lazy val path = crossProject(JSPlatform, JVMPlatform)
+  .crossType(CrossType.Pure)
+  .dependsOn(core)
+  .in(file("modules/path"))
+  .settings(
+    name := "dynosaur-path",
+    scalafmtOnCompile := true,
+    libraryDependencies ++= List(
+      "org.typelevel" %%% "cats-parse" % "0.3.9",
+      "org.scalameta" %%% "munit" % munitV % Test,
+      "org.scalameta" %%% "munit-scalacheck" % munitV % Test
+    )
+  )
+
+lazy val pathJS = path.js
+lazy val pathJVM = path.jvm
+
 lazy val jsdocs = project
-  .dependsOn(core.js)
+  .dependsOn(core.js, path.js)
   .settings(
     githubWorkflowArtifactUpload := false,
     libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.3.0"
@@ -79,7 +98,7 @@ lazy val docs = project
     githubWorkflowArtifactUpload := false,
     fatalWarningsInCI := false
   )
-  .dependsOn(core.jvm)
+  .dependsOn(core.jvm, path.jvm)
   .enablePlugins(MdocPlugin, NoPublishPlugin)
 
 ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("11"))
