@@ -17,7 +17,7 @@
 package dynosaur
 package internal
 
-import cats.{~>, Monoid, MonoidK}
+import cats.{~>, Monoid}
 import cats.syntax.all._
 import alleycats.std.map._
 import cats.free.FreeApplicative
@@ -147,16 +147,29 @@ object decoding {
 
   def decodeSum[A](cases: Chain[Alt[A]]): DynamoValue => Res[A] = {
 
-    implicit def orElse[T]: Monoid[Option[T]] =
-      MonoidK[Option].algebra
+    implicit def orElsev[T]: Monoid[Either[List[Schema.ReadError], T]] =
+      Monoid.instance(
+        Left(List.empty),
+        {
+          case (Left(l), Left(r)) => Left(l ++ r)
+          case (Left(_), r @ Right(_)) => r
+          case (l @ Right(_), Left(_)) => l
+          case (l @ Right(_), Right(_)) => l
+        }
+      )
 
     cases
       .foldMap { alt => (v: DynamoValue) =>
-        alt.caseSchema.read(v).map(alt.prism.inject).toOption
+        alt.caseSchema.read(v).map(alt.prism.inject).leftMap(e => List(e))
       }
-      .andThen(
-        _.toRight(ReadError("value doesn't match any of the alternatives"))
-      )
+      .andThen { res =>
+        res.leftMap { errors =>
+          val errorsDetails = errors.map(_.message).mkString("[", ",", "]")
+          ReadError(
+            s"value doesn't match any of the alternatives: $errorsDetails"
+          )
+        }
+      }
   }
 
   def decodeIsos[V](xmap: XMap[V], v: DynamoValue): Res[V] =
