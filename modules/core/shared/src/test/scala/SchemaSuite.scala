@@ -99,6 +99,39 @@ class SchemaSuite extends ScalaCheckSuite {
     assertEquals(roundTrip, data.some)
   }
 
+  val statusSchema: Schema[Status] = Schema.oneOf { alt =>
+    val error = Schema
+      .record[Error] { field =>
+        field.const("type", "error") *> (
+          field("msg", _.msg),
+          field("cause", _.cause)
+        ).mapN(Error.apply)
+      }
+
+    val warning = Schema
+      .record[Warning] { field =>
+        field.const("type", "warning") *> (
+          field("msg", _.msg),
+          field("cause", _.cause)
+        ).mapN(Warning.apply)
+      }
+
+    val unknown =
+      Schema.record[Unknown.type](
+        _.const("type", "unknown").as(Unknown)
+      )
+
+    val successful = Schema
+      .record[Successful] { field =>
+        field.const("type", "successful") *> (
+          field("link", _.link),
+          field("expires", _.expires)
+        ).mapN(Successful.apply)
+      }
+
+    alt(error) |+| alt(warning) |+| alt(unknown) |+| alt(successful)
+  }
+
   test("id") {
     forAllNoShrink { (dv: V) =>
       val expected = dv
@@ -756,43 +789,11 @@ class SchemaSuite extends ScalaCheckSuite {
 
   test("ADTs, via a discriminator field") {
     val schema: Schema[Upload] = {
-      val error = Schema
-        .record[Error] { field =>
-          field.const("type", "error") *> (
-            field("msg", _.msg),
-            field("cause", _.cause)
-          ).mapN(Error.apply)
-        }
-
-      val warning = Schema
-        .record[Warning] { field =>
-          field.const("type", "warning") *> (
-            field("msg", _.msg),
-            field("cause", _.cause)
-          ).mapN(Warning.apply)
-        }
-
-      val unknown =
-        Schema.record[Unknown.type](
-          _.const("type", "unknown").as(Unknown)
-        )
-
-      val successful = Schema
-        .record[Successful] { field =>
-          field.const("type", "successful") *> (
-            field("link", _.link),
-            field("expires", _.expires)
-          ).mapN(Successful.apply)
-        }
 
       Schema.record[Upload] { field =>
         (
           field("id", _.id),
-          field("status", _.status) {
-            Schema.oneOf { alt =>
-              alt(error) |+| alt(warning) |+| alt(unknown) |+| alt(successful)
-            }
-          }
+          field("status", _.status)(statusSchema)
         ).mapN(Upload.apply)
       }
     }
@@ -960,6 +961,18 @@ class SchemaSuite extends ScalaCheckSuite {
     }
 
     check(schema, text, expected)
+  }
+
+  test("ADTs, aggregated errors") {
+    val errorMessage = statusSchema.read(DynamoValue.n(5)).leftMap(_.message)
+    assert(
+      errorMessage.swap.exists(msg =>
+        // Don't want to test the full message, I just care that there is the list of failures
+        msg.contains("alternatives: [") && msg
+          .contains("]")
+      ),
+      errorMessage
+    )
   }
 
   val compileTimeInferenceSpec = {
