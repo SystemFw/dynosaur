@@ -49,7 +49,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
   )
   .jvmSettings(
     libraryDependencies ++= Seq(
-      "software.amazon.awssdk" % "dynamodb" % "2.14.15"
+      "software.amazon.awssdk" % "dynamodb" % "2.21.5"
     )
   )
 
