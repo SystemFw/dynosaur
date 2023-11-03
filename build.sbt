@@ -15,9 +15,10 @@ ThisBuild / startYear := Some(2020)
 Global / excludeLintKeys += scmInfo
 
 val Scala213 = "2.13.10"
+val scala3 = "3.3.1"
 ThisBuild / spiewakMainBranches := Seq("main")
 
-ThisBuild / crossScalaVersions := Seq(Scala213, "3.2.2", "2.12.14")
+ThisBuild / crossScalaVersions := Seq(Scala213, scala3, "2.12.14")
 ThisBuild / versionIntroduced := Map("3.0.0" -> "0.3.0")
 ThisBuild / scalaVersion := (ThisBuild / crossScalaVersions).value.head
 ThisBuild / initialCommands := """
@@ -57,16 +58,9 @@ lazy val coreJS = core.js
 lazy val coreJVM = core.jvm
 
 lazy val benchmark = project
+  .in(file("modules/benchmark"))
   .dependsOn(core.jvm)
   .enablePlugins(JmhPlugin)
-  .settings(
-    Jmh / sourceDirectory := (Test / sourceDirectory).value,
-    Jmh / classDirectory := (Test / classDirectory).value,
-    Jmh / dependencyClasspath := (Test / dependencyClasspath).value,
-    // rewire tasks, so that 'bench/Jmh/run' automatically invokes 'bench/Jmh/compile' (otherwise a clean 'bench/Jmh/run' would fail)
-    Jmh / compile := (Jmh / compile).dependsOn(Test / compile).value,
-    Jmh / run := (Jmh / run).dependsOn(Jmh / compile).evaluated
-  )
 
 lazy val jsdocs = project
   .dependsOn(core.js)

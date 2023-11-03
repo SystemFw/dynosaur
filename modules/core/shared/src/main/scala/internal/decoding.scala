@@ -147,20 +147,19 @@ object decoding {
 
   def decodeSum[A](cases: Chain[Alt[A]]): DynamoValue => Res[A] = {
 
-    implicit def orElsev[T]: Monoid[Either[List[Schema.ReadError], T]] =
-      Monoid.instance(
-        Left(List.empty),
-        {
-          case (Left(l), Left(r)) => Left(l ++ r)
-          case (Left(_), r @ Right(_)) => r
-          case (l @ Right(_), Left(_)) => l
-          case (l @ Right(_), Right(_)) => l
-        }
-      )
+    type Decode = DynamoValue => Either[List[ReadError], A]
+
+    val baseDecode: Decode = (v: DynamoValue) =>
+      Either.left[List[ReadError], A](List.empty[ReadError])
 
     cases
-      .foldMap { alt => (v: DynamoValue) =>
-        alt.caseSchema.read(v).map(alt.prism.inject).leftMap(e => List(e))
+      .foldLeft[Decode](baseDecode) { (acc, alt) =>
+        acc.flatMap {
+          case Left(value) =>
+            (v) =>
+              alt.caseSchema.read(v).map(alt.prism.inject).leftMap(e => List(e))
+          case ok @ Right(value) => _ => ok
+        }
       }
       .andThen { res =>
         res.leftMap { errors =>
