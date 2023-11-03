@@ -28,7 +28,7 @@ ThisBuild / initialCommands := """
 lazy val root = project
   .in(file("."))
   .enablePlugins(NoPublishPlugin, SonatypeCiReleasePlugin)
-  .aggregate(core.js, core.jvm)
+  .aggregate(core.js, core.jvm, benchmark)
 
 lazy val core = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Full)
@@ -37,24 +37,36 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
     name := "dynosaur-core",
     scalafmtOnCompile := true,
     libraryDependencies ++= List(
-      "org.typelevel" %%% "cats-core" % "2.6.1",
-      "org.typelevel" %%% "cats-free" % "2.6.1",
-      "org.typelevel" %%% "alleycats-core" % "2.6.1",
-      "org.typelevel" %%% "paiges-core" % "0.4.2",
-      "org.typelevel" %%% "paiges-cats" % "0.4.2",
-      "org.scodec" %%% "scodec-bits" % "1.1.34",
+      "org.typelevel" %%% "cats-core" % "2.10.0",
+      "org.typelevel" %%% "cats-free" % "2.10.0",
+      "org.typelevel" %%% "alleycats-core" % "2.10.0",
+      "org.typelevel" %%% "paiges-core" % "0.4.3",
+      "org.typelevel" %%% "paiges-cats" % "0.4.3",
+      "org.scodec" %%% "scodec-bits" % "1.1.38",
       "org.scalameta" %%% "munit" % "0.7.29" % Test,
       "org.scalameta" %%% "munit-scalacheck" % "0.7.29" % Test
     )
   )
   .jvmSettings(
     libraryDependencies ++= Seq(
-      "software.amazon.awssdk" % "dynamodb" % "2.21.5"
+      "software.amazon.awssdk" % "dynamodb" % "2.21.14"
     )
   )
 
 lazy val coreJS = core.js
 lazy val coreJVM = core.jvm
+
+lazy val benchmark = project
+  .dependsOn(core.jvm)
+  .enablePlugins(JmhPlugin)
+  .settings(
+     Jmh / sourceDirectory := (Test / sourceDirectory).value,
+     Jmh / classDirectory := (Test / classDirectory).value,
+     Jmh / dependencyClasspath := (Test / dependencyClasspath).value,
+     // rewire tasks, so that 'bench/Jmh/run' automatically invokes 'bench/Jmh/compile' (otherwise a clean 'bench/Jmh/run' would fail)
+     Jmh / compile := (Jmh / compile).dependsOn(Test / compile).value,
+     Jmh / run := (Jmh / run).dependsOn(Jmh / compile).evaluated
+  )
 
 lazy val jsdocs = project
   .dependsOn(core.js)
