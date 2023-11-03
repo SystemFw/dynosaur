@@ -101,12 +101,6 @@ sealed trait Schema[A] { self =>
     list(this).imap(_.toSeq: immutable.Seq[A])(_.toList)
 
   def asMap: Schema[Map[String, A]] = Dictionary(this)
-
-  // private val read_ : Eval[DynamoValue => Either[ReadError, A]] =
-  //   Eval.later(internal.decoding.fromSchema(this))
-
-  // private val write_ : Eval[A => Either[WriteError, DynamoValue]] =
-  //   Eval.later(internal.encoding.fromSchema(this))
 }
 object Schema {
   import structure._
