@@ -102,6 +102,7 @@ sealed trait Schema[A] { self =>
 
   def asMap: Schema[Map[String, A]] = Dictionary(this)
 }
+
 object Schema {
   import structure._
 
@@ -119,9 +120,9 @@ object Schema {
 
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
-  implicit def id: Schema[DynamoValue] = Identity
-  implicit def boolean: Schema[Boolean] = Bool
-  implicit def string: Schema[String] = Str
+  implicit val id: Schema[DynamoValue] = Identity
+  implicit val boolean: Schema[Boolean] = Bool
+  implicit val string: Schema[String] = Str
 
   /*
    * Note:

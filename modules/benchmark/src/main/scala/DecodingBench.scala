@@ -72,6 +72,12 @@ object DecodingBench {
     "parasaurolophus" -> parasaurolophusDv
   )
 
+  val allosauruses = DynamoValue.l(
+    (0 until 10)
+      .map(_ => allosaurusDv)
+      .toList
+  )
+
   val dynosaursWithTag = DynamoValue.l(
     tyrannosaurusRexWithTagDv,
     allosaurusWithTagDv,
@@ -180,6 +186,16 @@ object DecodingBench {
         )
         .reduceLeft(_ |+| _)
   }
+
+  val schermaForAllosauruses: Schema[Seq[Allosaurus]] =
+    Schema.seq(schermaForAllosaurus)
+
+  val string = DynamoValue.s("dynosaur")
+  val strings = DynamoValue.l((0 until 10).map { idx =>
+    DynamoValue.s(s"test-$idx")
+  }.toList)
+
+  val schemaForStrings: Schema[Seq[String]] = Schema.seq(Schema.string)
 }
 
 class DecodingBench {
@@ -188,15 +204,13 @@ class DecodingBench {
 
   @Benchmark
   @BenchmarkMode(Array(Mode.Throughput))
-  def decodeAnM = schermaForAllosaurus.read(allosaurusDv)
+  def decodeAnS =
+    Schema.string.read(string)
 
   @Benchmark
   @BenchmarkMode(Array(Mode.Throughput))
-  def decodeAnMWithDef = defSchermaForAllosaurus.read(allosaurusDv)
-
-  @Benchmark
-  @BenchmarkMode(Array(Mode.Throughput))
-  def decodeAnMWithImplicit = Schema[Allosaurus].read(allosaurusDv)
+  def decodeAnM =
+    schermaForAllosaurus.read(allosaurusDv)
 
   @Benchmark
   @BenchmarkMode(Array(Mode.Throughput))
@@ -210,6 +224,6 @@ class DecodingBench {
 
   @Benchmark
   @BenchmarkMode(Array(Mode.Throughput))
-  def decodeList = Schema.seq(schemaForDynosaurWithTag).read(dynosaursWithTag)
+  def decodeList = schemaForStrings.read(strings)
 
 }

@@ -26,6 +26,8 @@ import scodec.bits.ByteVector
 
 import Schema.ReadError
 import Schema.structure._
+import scala.annotation.tailrec
+import scala.collection.mutable.Builder
 
 object decoding {
   def fromSchema[A](s: Schema[A]): DynamoValue => Either[ReadError, A] =
@@ -99,10 +101,32 @@ object decoding {
   def decodeSequence[V](
       schema: Schema[V],
       value: DynamoValue
-  ): Res[List[V]] =
-    value.l
-      .toRight(ReadError(s"value ${value.toString()} is not a Sequence"))
-      .flatMap(_.traverse(schema.read))
+  ): Res[List[V]] = {
+    value.l match {
+      case None =>
+        Left(ReadError(s"value ${value.toString()} is not a Sequence"))
+      case Some(xs) =>
+        val lb = List.newBuilder[V]
+
+        @tailrec
+        def loop(
+            xs: List[DynamoValue],
+            result: Builder[V, List[V]]
+        ): Either[ReadError, Builder[V, List[V]]] = xs match {
+          case head :: next =>
+            schema.read(head) match {
+              case Right(value) =>
+                loop(next, result.addOne(value))
+              case Left(error) =>
+                Left(error)
+            }
+          case Nil =>
+            Right(result)
+        }
+
+        loop(xs, lb).map(_.result())
+    }
+  }
 
   def decodeDictionary[V](
       schema: Schema[V],
