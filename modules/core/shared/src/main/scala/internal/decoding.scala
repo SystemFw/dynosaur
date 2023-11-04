@@ -17,7 +17,7 @@
 package dynosaur
 package internal
 
-import cats.{~>, Monoid}
+import cats.~>
 import cats.syntax.all._
 import alleycats.std.map._
 import cats.free.FreeApplicative
@@ -173,7 +173,7 @@ object decoding {
 
     type Decode = DynamoValue => Either[List[ReadError], A]
 
-    val baseDecode: Decode = (v: DynamoValue) =>
+    val baseDecode: Decode = (_: DynamoValue) =>
       Either.left[List[ReadError], A](List.empty[ReadError])
 
     cases
@@ -181,8 +181,11 @@ object decoding {
         acc.flatMap {
           case Left(value) =>
             (v) =>
-              alt.caseSchema.read(v).map(alt.prism.inject).leftMap(e => List(e))
-          case ok @ Right(value) => _ => ok
+              alt.caseSchema
+                .read(v)
+                .map(alt.prism.inject)
+                .leftMap(e => e :: value)
+          case ok: Right[List[ReadError], A] => _ => ok
         }
       }
       .andThen { res =>
