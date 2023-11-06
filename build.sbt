@@ -1,3 +1,5 @@
+import com.typesafe.tools.mima.core.ReversedMissingMethodProblem
+import com.typesafe.tools.mima.core.ProblemFilters
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
 ThisBuild / baseVersion := "0.3.0"
@@ -25,7 +27,6 @@ ThisBuild / initialCommands := """
   |import cats._, data._, syntax.all._
   |import dynosaur._
 """.stripMargin
-ThisBuild / mimaFailOnProblem := false
 
 lazy val root = project
   .in(file("."))
@@ -47,6 +48,12 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
       "org.scodec" %%% "scodec-bits" % "1.1.38",
       "org.scalameta" %%% "munit" % "0.7.29" % Test,
       "org.scalameta" %%% "munit-scalacheck" % "0.7.29" % Test
+    ),
+    mimaBinaryIssueFilters ++= List(
+      ProblemFilters.exclude[ReversedMissingMethodProblem]("dynosaur.Schema.dynosaur$Schema$$read_"),
+      ProblemFilters.exclude[ReversedMissingMethodProblem]("dynosaur.Schema.dynosaur$Schema$$read__="),
+      ProblemFilters.exclude[ReversedMissingMethodProblem]("dynosaur.Schema.dynosaur$Schema$$write_"),
+      ProblemFilters.exclude[ReversedMissingMethodProblem]("dynosaur.Schema.dynosaur$Schema$$write__=")
     )
   )
   .jvmSettings(
