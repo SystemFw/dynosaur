@@ -116,7 +116,7 @@ object decoding {
           case head :: next =>
             schema.read(head) match {
               case Right(value) =>
-                loop(next, result.addOne(value))
+                loop(next, result += value)
               case Left(error) =>
                 Left(error)
             }

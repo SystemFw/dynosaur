@@ -22,7 +22,7 @@ import dynosaur.Arbitraries._
 class ErrorSuite extends munit.ScalaCheckSuite {
 
   test("ReadError toString must contain the message") {
-    Prop.forAllNoShrink { message: String =>
+    Prop.forAllNoShrink { (message: String) =>
       val result = Schema.ReadError(message).toString
       assert(
         result.contains(message),
@@ -32,7 +32,7 @@ class ErrorSuite extends munit.ScalaCheckSuite {
   }
 
   test("WriteError toString must contain the message") {
-    Prop.forAllNoShrink { message: String =>
+    Prop.forAllNoShrink { (message: String) =>
       val result = Schema.WriteError(message).toString
       assert(
         result.contains(message),

@@ -187,7 +187,7 @@ object DecodingBench {
         .reduceLeft(_ |+| _)
   }
 
-  val schermaForAllosauruses: Schema[Seq[Allosaurus]] =
+  val schermaForAllosauruses =
     Schema.seq(schermaForAllosaurus)
 
   val string = DynamoValue.s("dynosaur")
@@ -195,7 +195,7 @@ object DecodingBench {
     DynamoValue.s(s"test-$idx")
   }.toList)
 
-  val schemaForStrings: Schema[Seq[String]] = Schema.seq(Schema.string)
+  val schemaForStrings = Schema.seq(Schema.string)
 }
 
 class DecodingBench {
