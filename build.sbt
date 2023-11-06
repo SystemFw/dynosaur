@@ -50,10 +50,18 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
       "org.scalameta" %%% "munit-scalacheck" % "0.7.29" % Test
     ),
     mimaBinaryIssueFilters ++= List(
-      ProblemFilters.exclude[ReversedMissingMethodProblem]("dynosaur.Schema.dynosaur$Schema$$read_"),
-      ProblemFilters.exclude[ReversedMissingMethodProblem]("dynosaur.Schema.dynosaur$Schema$$read__="),
-      ProblemFilters.exclude[ReversedMissingMethodProblem]("dynosaur.Schema.dynosaur$Schema$$write_"),
-      ProblemFilters.exclude[ReversedMissingMethodProblem]("dynosaur.Schema.dynosaur$Schema$$write__=")
+      ProblemFilters.exclude[ReversedMissingMethodProblem](
+        "dynosaur.Schema.dynosaur$Schema$$read_"
+      ),
+      ProblemFilters.exclude[ReversedMissingMethodProblem](
+        "dynosaur.Schema.dynosaur$Schema$$read__="
+      ),
+      ProblemFilters.exclude[ReversedMissingMethodProblem](
+        "dynosaur.Schema.dynosaur$Schema$$write_"
+      ),
+      ProblemFilters.exclude[ReversedMissingMethodProblem](
+        "dynosaur.Schema.dynosaur$Schema$$write__="
+      )
     )
   )
   .jvmSettings(
