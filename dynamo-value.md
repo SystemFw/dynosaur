@@ -14,7 +14,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import dynosaur.DynamoValue
 
 val av = AttributeValue.builder.s("hello").build
-// av: AttributeValue = AttributeValue(S=hello, SS=[], NS=[], BS=[], M={}, L=[])
+// av: AttributeValue = AttributeValue(S=hello)
 val dv = DynamoValue(av)
 // dv: DynamoValue = "S": "hello"
 ```
@@ -23,7 +23,7 @@ and back to `AttributeValue` with `_.value`
 
 ```scala
 val av2 = dv.value
-// av2: AttributeValue = AttributeValue(S=hello, SS=[], NS=[], BS=[], M={}, L=[])
+// av2: AttributeValue = AttributeValue(S=hello)
 ```
 
 > **Note:** You can also convert to and from a `java.util.Map[String,
