@@ -17,7 +17,6 @@
 package dynosaur
 
 import cats.syntax.all._
-import cats.Eval
 import cats.free.FreeApplicative
 import cats.data.Chain
 
@@ -35,11 +34,23 @@ sealed trait Schema[A] { self =>
   import Schema._
   import structure._
 
-  def read(v: DynamoValue): Either[ReadError, A] =
-    read_.value(v)
+  private var read_ : DynamoValue => Either[ReadError, A] = null
 
-  def write(a: A): Either[WriteError, DynamoValue] =
-    write_.value(a)
+  private var write_ : A => Either[WriteError, DynamoValue] = null
+
+  def read(v: DynamoValue): Either[ReadError, A] = {
+    if (read_ == null)
+      read_ = internal.decoding.fromSchema(this)
+
+    read_(v)
+  }
+
+  def write(a: A): Either[WriteError, DynamoValue] = {
+    if (write_ == null)
+      write_ = internal.encoding.fromSchema(this)
+
+    write_(a)
+  }
 
   def tag(name: String): Schema[A] = record { field =>
     field(name, x => x)(this)
@@ -89,28 +100,28 @@ sealed trait Schema[A] { self =>
     list(this).imap(_.toSeq: immutable.Seq[A])(_.toList)
 
   def asMap: Schema[Map[String, A]] = Dictionary(this)
-
-  private val read_ : Eval[DynamoValue => Either[ReadError, A]] =
-    Eval.later(internal.decoding.fromSchema(this))
-
-  private val write_ : Eval[A => Either[WriteError, DynamoValue]] =
-    Eval.later(internal.encoding.fromSchema(this))
 }
+
 object Schema {
   import structure._
 
   trait DynosaurError extends Exception with Product with Serializable {
     def message: String
     override def getMessage = message
+
+    @Override
+    override def fillInStackTrace: Exception = {
+      this
+    }
   }
   case class ReadError(message: String) extends DynosaurError
   case class WriteError(message: String) extends DynosaurError
 
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
-  implicit def id: Schema[DynamoValue] = Identity
-  implicit def boolean: Schema[Boolean] = Bool
-  implicit def string: Schema[String] = Str
+  implicit val id: Schema[DynamoValue] = Identity
+  implicit val boolean: Schema[Boolean] = Bool
+  implicit val string: Schema[String] = Str
 
   /*
    * Note:

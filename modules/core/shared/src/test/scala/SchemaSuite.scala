@@ -24,6 +24,7 @@ import dynosaur.{DynamoValue => V}
 import munit.ScalaCheckSuite
 import org.scalacheck.Prop._
 import dynosaur.Arbitraries._
+import scala.annotation.tailrec
 
 class SchemaSuite extends ScalaCheckSuite {
 
@@ -99,6 +100,15 @@ class SchemaSuite extends ScalaCheckSuite {
     assertEquals(roundTrip, data.some)
   }
 
+  def checkNotFail[A](schema: Schema[A], data: A) = {
+
+    val output = schema
+      .write(data)
+      .flatMap(schema.read)
+
+    assert(output.isRight)
+  }
+
   val statusSchema: Schema[Status] = Schema.oneOf { alt =>
     val error = Schema
       .record[Error] { field =>
@@ -130,6 +140,26 @@ class SchemaSuite extends ScalaCheckSuite {
       }
 
     alt(error) |+| alt(warning) |+| alt(unknown) |+| alt(successful)
+  }
+
+  def complextText(deep: Int, width: Int): Text = {
+
+    @tailrec
+    def loop(idx: Int, text: Text): Text = {
+      if (idx <= 0) {
+        text
+      } else {
+        loop(
+          idx - 1,
+          Section(
+            s"S-${idx}",
+            List.fill(width)(text)
+          )
+        )
+      }
+    }
+
+    loop(deep, Paragraph("dolor sit amet"))
   }
 
   test("id") {
@@ -961,6 +991,34 @@ class SchemaSuite extends ScalaCheckSuite {
     }
 
     check(schema, text, expected)
+  }
+
+  test("very deep recursive ADTs with recursive") {
+
+    val text = complextText(100, 1)
+
+    val schema: Schema[Text] = Schema.recursive { rec =>
+      Schema.oneOf { alt =>
+        val paragraph = Schema
+          .record[Paragraph] { field =>
+            field("text", _.text).map(Paragraph.apply)
+          }
+          .tag("paragraph")
+
+        val section = Schema
+          .record[Section] { field =>
+            (
+              field("title", _.title),
+              field("contents", _.contents)(rec.asList)
+            ).mapN(Section.apply)
+          }
+          .tag("section")
+
+        alt(section) |+| alt(paragraph)
+      }
+    }
+
+    checkNotFail(schema, text)
   }
 
   test("ADTs, aggregated errors") {

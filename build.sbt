@@ -1,3 +1,5 @@
+import com.typesafe.tools.mima.core.ReversedMissingMethodProblem
+import com.typesafe.tools.mima.core.ProblemFilters
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
 ThisBuild / baseVersion := "0.3.0"
@@ -15,9 +17,10 @@ ThisBuild / startYear := Some(2020)
 Global / excludeLintKeys += scmInfo
 
 val Scala213 = "2.13.10"
+val scala3 = "3.3.1"
 ThisBuild / spiewakMainBranches := Seq("main")
 
-ThisBuild / crossScalaVersions := Seq(Scala213, "3.2.2", "2.12.14")
+ThisBuild / crossScalaVersions := Seq(Scala213, scala3, "2.12.14")
 ThisBuild / versionIntroduced := Map("3.0.0" -> "0.3.0")
 ThisBuild / scalaVersion := (ThisBuild / crossScalaVersions).value.head
 ThisBuild / initialCommands := """
@@ -28,7 +31,7 @@ ThisBuild / initialCommands := """
 lazy val root = project
   .in(file("."))
   .enablePlugins(NoPublishPlugin, SonatypeCiReleasePlugin)
-  .aggregate(core.js, core.jvm)
+  .aggregate(core.js, core.jvm, benchmark)
 
 lazy val core = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Full)
@@ -37,24 +40,44 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
     name := "dynosaur-core",
     scalafmtOnCompile := true,
     libraryDependencies ++= List(
-      "org.typelevel" %%% "cats-core" % "2.6.1",
-      "org.typelevel" %%% "cats-free" % "2.6.1",
-      "org.typelevel" %%% "alleycats-core" % "2.6.1",
-      "org.typelevel" %%% "paiges-core" % "0.4.2",
-      "org.typelevel" %%% "paiges-cats" % "0.4.2",
-      "org.scodec" %%% "scodec-bits" % "1.1.34",
+      "org.typelevel" %%% "cats-core" % "2.10.0",
+      "org.typelevel" %%% "cats-free" % "2.10.0",
+      "org.typelevel" %%% "alleycats-core" % "2.10.0",
+      "org.typelevel" %%% "paiges-core" % "0.4.3",
+      "org.typelevel" %%% "paiges-cats" % "0.4.3",
+      "org.scodec" %%% "scodec-bits" % "1.1.38",
       "org.scalameta" %%% "munit" % "0.7.29" % Test,
       "org.scalameta" %%% "munit-scalacheck" % "0.7.29" % Test
+    ),
+    mimaBinaryIssueFilters ++= List(
+      ProblemFilters.exclude[ReversedMissingMethodProblem](
+        "dynosaur.Schema.dynosaur$Schema$$read_"
+      ),
+      ProblemFilters.exclude[ReversedMissingMethodProblem](
+        "dynosaur.Schema.dynosaur$Schema$$read__="
+      ),
+      ProblemFilters.exclude[ReversedMissingMethodProblem](
+        "dynosaur.Schema.dynosaur$Schema$$write_"
+      ),
+      ProblemFilters.exclude[ReversedMissingMethodProblem](
+        "dynosaur.Schema.dynosaur$Schema$$write__="
+      )
     )
   )
   .jvmSettings(
     libraryDependencies ++= Seq(
-      "software.amazon.awssdk" % "dynamodb" % "2.21.5"
+      "software.amazon.awssdk" % "dynamodb" % "2.21.14"
     )
   )
 
 lazy val coreJS = core.js
 lazy val coreJVM = core.jvm
+
+lazy val benchmark = project
+  .in(file("modules/benchmark"))
+  .dependsOn(core.jvm)
+  .enablePlugins(JmhPlugin)
+  .disablePlugins(MimaPlugin)
 
 lazy val jsdocs = project
   .dependsOn(core.js)

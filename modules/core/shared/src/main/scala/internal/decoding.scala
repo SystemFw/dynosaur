@@ -17,7 +17,7 @@
 package dynosaur
 package internal
 
-import cats.{~>, Monoid}
+import cats.~>
 import cats.syntax.all._
 import alleycats.std.map._
 import cats.free.FreeApplicative
@@ -26,6 +26,8 @@ import scodec.bits.ByteVector
 
 import Schema.ReadError
 import Schema.structure._
+import scala.annotation.tailrec
+import scala.collection.mutable.Builder
 
 object decoding {
   def fromSchema[A](s: Schema[A]): DynamoValue => Either[ReadError, A] =
@@ -99,10 +101,32 @@ object decoding {
   def decodeSequence[V](
       schema: Schema[V],
       value: DynamoValue
-  ): Res[List[V]] =
-    value.l
-      .toRight(ReadError(s"value ${value.toString()} is not a Sequence"))
-      .flatMap(_.traverse(schema.read))
+  ): Res[List[V]] = {
+    value.l match {
+      case None =>
+        Left(ReadError(s"value ${value.toString()} is not a Sequence"))
+      case Some(xs) =>
+        val lb = List.newBuilder[V]
+
+        @tailrec
+        def loop(
+            xs: List[DynamoValue],
+            result: Builder[V, List[V]]
+        ): Either[ReadError, Builder[V, List[V]]] = xs match {
+          case head :: next =>
+            schema.read(head) match {
+              case Right(value) =>
+                loop(next, result += value)
+              case Left(error) =>
+                Left(error)
+            }
+          case Nil =>
+            Right(result)
+        }
+
+        loop(xs, lb).map(_.result())
+    }
+  }
 
   def decodeDictionary[V](
       schema: Schema[V],
@@ -147,20 +171,22 @@ object decoding {
 
   def decodeSum[A](cases: Chain[Alt[A]]): DynamoValue => Res[A] = {
 
-    implicit def orElsev[T]: Monoid[Either[List[Schema.ReadError], T]] =
-      Monoid.instance(
-        Left(List.empty),
-        {
-          case (Left(l), Left(r)) => Left(l ++ r)
-          case (Left(_), r @ Right(_)) => r
-          case (l @ Right(_), Left(_)) => l
-          case (l @ Right(_), Right(_)) => l
-        }
-      )
+    type Decode = DynamoValue => Either[List[ReadError], A]
+
+    val baseDecode: Decode = (_: DynamoValue) =>
+      Either.left[List[ReadError], A](List.empty[ReadError])
 
     cases
-      .foldMap { alt => (v: DynamoValue) =>
-        alt.caseSchema.read(v).map(alt.prism.inject).leftMap(e => List(e))
+      .foldLeft[Decode](baseDecode) { (acc, alt) =>
+        acc.flatMap {
+          case Left(value) =>
+            (v) =>
+              alt.caseSchema
+                .read(v)
+                .map(alt.prism.inject)
+                .leftMap(e => e :: value)
+          case ok: Right[List[ReadError], A] => _ => ok
+        }
       }
       .andThen { res =>
         res.leftMap { errors =>
