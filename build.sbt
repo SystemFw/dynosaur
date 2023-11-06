@@ -19,7 +19,6 @@ val scala3 = "3.3.1"
 ThisBuild / spiewakMainBranches := Seq("main")
 
 ThisBuild / crossScalaVersions := Seq(Scala213, scala3, "2.12.14")
-ThisBuild / versionIntroduced := Map("3.0.0" -> "0.3.0")
 ThisBuild / scalaVersion := (ThisBuild / crossScalaVersions).value.head
 ThisBuild / initialCommands := """
   |import cats._, data._, syntax.all._
@@ -36,6 +35,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
   .in(file("modules/core"))
   .settings(
     name := "dynosaur-core",
+    versionIntroduced := Map("3.0.0" -> "0.3.0"),
     scalafmtOnCompile := true,
     libraryDependencies ++= List(
       "org.typelevel" %%% "cats-core" % "2.10.0",
