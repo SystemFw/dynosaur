@@ -17,7 +17,6 @@
 package dynosaur
 
 import cats.syntax.all._
-import cats.Eval
 import cats.free.FreeApplicative
 import cats.data.Chain
 
