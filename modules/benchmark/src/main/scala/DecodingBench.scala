@@ -21,12 +21,8 @@ import cats.syntax.all._
 import org.openjdk.jmh.annotations.{
   Benchmark,
   BenchmarkMode,
-  Mode,
-  OutputTimeUnit
+  Mode
 }
-import java.util.concurrent.TimeUnit
-import org.openjdk.jmh.annotations.State
-import org.openjdk.jmh.annotations.Scope
 import cats.data.NonEmptyList
 
 sealed trait Dynosaur
