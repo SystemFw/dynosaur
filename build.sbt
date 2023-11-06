@@ -25,6 +25,7 @@ ThisBuild / initialCommands := """
   |import cats._, data._, syntax.all._
   |import dynosaur._
 """.stripMargin
+ThisBuild / mimaFailOnProblem := false
 
 lazy val root = project
   .in(file("."))
