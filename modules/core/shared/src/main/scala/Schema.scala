@@ -16,6 +16,7 @@
 
 package dynosaur
 
+import cats._
 import cats.syntax.all._
 import cats.free.FreeApplicative
 import cats.data.Chain
@@ -35,20 +36,17 @@ sealed trait Schema[A] { self =>
   import structure._
 
   private var read_ : DynamoValue => Either[ReadError, A] = null
-
   private var write_ : A => Either[WriteError, DynamoValue] = null
 
   def read(v: DynamoValue): Either[ReadError, A] = {
     if (read_ == null)
       read_ = internal.decoding.fromSchema(this)
-
     read_(v)
   }
 
   def write(a: A): Either[WriteError, DynamoValue] = {
     if (write_ == null)
       write_ = internal.encoding.fromSchema(this)
-
     write_(a)
   }
 
@@ -173,11 +171,59 @@ object Schema {
 
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 
-  def fields[R](p: FreeApplicative[Field[R, *], R]): Schema[R] = Record(p)
+  case class OptimizedRecord[R, A](
+      fields: List[Field[R, _]],
+      build: List[Any] => A
+  )
+
+  def fields[R](p: FreeApplicative[Field[R, *], R]): Schema[R] = {
+    val optimized = optimizeRecord(p)
+    Record(optimized.fields, optimized.build)
+  }
+
   def record[R](
       b: FieldBuilder[R] => FreeApplicative[Field[R, *], R]
   ): Schema[R] =
     fields(b(field))
+
+  private def optimizeRecord[R, A](
+      fa: FreeApplicative[Field[R, *], A]
+  ): OptimizedRecord[R, A] = {
+    implicit val optimizedRecordApplicative =
+      new cats.Applicative[λ[α => OptimizedRecord[R, α]]] {
+        def pure[X](x: X): OptimizedRecord[R, X] =
+          OptimizedRecord(Nil, _ => x)
+
+        def ap[X, Y](
+            ff: OptimizedRecord[R, X => Y]
+        )(fa: OptimizedRecord[R, X]): OptimizedRecord[R, Y] =
+          OptimizedRecord(
+            ff.fields ++ fa.fields,
+            values => {
+              val (f, x) = values.splitAt(ff.fields.length) match {
+                case (ffValues, faValues) =>
+                  (ff.build(ffValues), fa.build(faValues))
+              }
+              f(x)
+            }
+          )
+      }
+
+    fa.foldMap(new (Field[R, *] ~> λ[α => OptimizedRecord[R, α]]) {
+      def apply[X](field: Field[R, X]): OptimizedRecord[R, X] = field match {
+        case f @ Field.Required(name, schema, get) =>
+          OptimizedRecord(
+            List(f),
+            values => values.head.asInstanceOf[X]
+          )
+        case f @ Field.Optional(name, schema, get) =>
+          OptimizedRecord(
+            List(f.asInstanceOf[Field[R, _]]),
+            values => values.head.asInstanceOf[X]
+          )
+      }
+    })
+  }
 
   def alternatives[A](cases: Chain[Alt[A]]): Schema[A] =
     Sum(cases)
@@ -246,13 +292,31 @@ object Schema {
     case object StrSet extends Schema[NonEmptySet[String]]
     case class Dictionary[A](value: Schema[A]) extends Schema[Map[String, A]]
     case class Sequence[A](value: Schema[A]) extends Schema[List[A]]
-    case class Record[R](value: FreeApplicative[Field[R, *], R])
-        extends Schema[R]
+
+    case class Record[R](
+        fields: List[Field[R, ?]],
+        build: List[Any] => R,
+        fieldNames: Array[String]
+    ) extends Schema[R]
+
+    object Record {
+      def apply[R](
+          fields: List[Field[R, ?]],
+          build: List[Any] => R
+      ): Record[R] = {
+        val fieldNames = fields.map(_.name).toArray
+        new Record(fields, build, fieldNames)
+      }
+    }
+
     case class Sum[A](value: Chain[Alt[A]]) extends Schema[A]
     case class Isos[A](value: XMap[A]) extends Schema[A]
     case class Defer[A](value: () => Schema[A]) extends Schema[A]
 
-    sealed trait Field[R, E]
+    sealed trait Field[R, E] {
+      def name: String
+    }
+
     object Field {
       case class Required[R, E](
           name: String,
@@ -281,7 +345,6 @@ object Schema {
     }
   }
 
-  // TODO use parseFromString from Numeric, 2.13+
   private def num[A: Numeric](convert: String => A): Schema[A] =
     Num.imapErr { v =>
       Either

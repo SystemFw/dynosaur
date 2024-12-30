@@ -42,7 +42,7 @@ object encoding {
       case Nul => encodeNull
       case Sequence(elem) => encodeSequence(elem, _)
       case Dictionary(elem) => encodeDictionary(elem, _)
-      case Record(rec) => encodeRecord(rec)
+      case r: Record[A] => encodeRecord(r)
       case Sum(cases) => encodeSum(cases)
       case Isos(iso) => encodeIsos(iso, _)
       case Defer(schema) => schema().write
@@ -76,46 +76,6 @@ object encoding {
       .traverse(schema.write)
       .map(DynamoValue.m)
 
-  def encodeRecord[R](
-      recordSchema: FreeApplicative[Field[R, *], R]
-  ): R => Res = {
-
-    implicit def overrideKeys[T]: Monoid[Map[String, T]] =
-      MonoidK[Map[String, *]].algebra
-
-    type Target[A] = R => Either[WriteError, Map[String, DynamoValue]]
-
-    recordSchema
-      .analyze {
-        new (Field[R, *] ~> Target) {
-
-          def write[E](
-              name: String,
-              schema: Schema[E],
-              elem: E
-          ): Either[WriteError, Map[String, DynamoValue]] =
-            schema.write(elem).map { av => Map(name -> av) }
-
-          def apply[B](field: Field[R, B]) =
-            field match {
-              case Field.Required(name, elemSchema, get) =>
-                (record: R) => {
-                  val elem = get(record)
-                  write(name, elemSchema, elem)
-                }
-              case Field.Optional(name, elemSchema, get) =>
-                (record: R) => {
-                  val elem = get(record)
-                  elem
-                    .foldMap(write(name, elemSchema, _))
-                }
-            }
-        }
-      }
-      .andThen(_.map(DynamoValue.m))
-
-  }
-
   def encodeSum[C](cases: Chain[Alt[C]]): C => Res = {
     implicit def orElse[T]: Monoid[Option[T]] =
       MonoidK[Option].algebra
@@ -137,4 +97,50 @@ object encoding {
 
   def encodeIsos[V](xmap: XMap[V], value: V): Res =
     xmap.w(value).flatMap(v => xmap.schema.write(v))
+
+  def encodeRecord[R](
+      record: Record[R]
+  ): R => Either[WriteError, DynamoValue] = {
+    val fieldCount = record.fields.length
+
+    { value =>
+      {
+        var i = 0
+        var error: WriteError = null
+
+        val map =
+          new java.util.IdentityHashMap[String, AttributeValue](fieldCount)
+
+        while (i < record.fields.length && error == null) {
+          record.fields(i) match {
+            case Field.Required(name, schema, get) =>
+              schema.write(get(value)) match {
+                case Left(err) => error = err
+                case Right(v) => map.put(name, v.value)
+              }
+            case Field.Optional(name, schema, get) =>
+              val fieldValue = get(value)
+              if (fieldValue != None) {
+                schema.write(fieldValue.get) match {
+                  case Left(err) => error = err
+                  case Right(v) => map.put(name, v.value)
+                }
+              }
+          }
+
+          i += 1
+        }
+
+        if (error != null)
+          Left(error)
+        else
+          Right(
+            DynamoValue(
+              software.amazon.awssdk.services.dynamodb.model.AttributeValue
+                .fromM(map)
+            )
+          )
+      }
+    }
+  }
 }

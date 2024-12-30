@@ -43,13 +43,7 @@ object decoding {
       case Nul => decodeNull
       case Sequence(elem) => decodeSequence(elem, _)
       case Dictionary(elem) => decodeDictionary(elem, _)
-      case Record(rec) => { value =>
-        // val here caches the traversal of the record
-        val cachedDecoder = decodeRecord(rec)
-        value.m
-          .toRight(ReadError(s"value ${value.toString()} is not a Dictionary"))
-          .flatMap(cachedDecoder)
-      }
+      case r: Record[A] => decodeRecord(r)
       case Sum(cases) => decodeSum(cases)
       case Isos(iso) => decodeIsos(iso, _)
       case Defer(schema) => schema().read
@@ -139,36 +133,6 @@ object decoding {
           .traverse(schema.read)
       )
 
-  def decodeRecord[R](
-      recordSchema: FreeApplicative[Field[R, *], R]
-  ): Map[String, DynamoValue] => Res[R] = {
-
-    type Target[A] =
-      Kleisli[Either[ReadError, *], Map[String, DynamoValue], A]
-
-    recordSchema.foldMap {
-      new (Field[R, *] ~> Target) {
-        def apply[A](field: Field[R, A]) =
-          field match {
-            case Field.Required(name, elemSchema, _) =>
-              Kleisli { (v: Map[String, DynamoValue]) =>
-                v.get(name)
-                  .toRight(
-                    ReadError(s"required field $name does not contain a value")
-                  )
-                  .flatMap(v => elemSchema.read(v))
-              }
-            case Field.Optional(name, elemSchema, _) =>
-              Kleisli { (v: Map[String, DynamoValue]) =>
-                v
-                  .get(name)
-                  .traverse(v => elemSchema.read(v))
-              }
-          }
-      }
-    }.run
-  }
-
   def decodeSum[A](cases: Chain[Alt[A]]): DynamoValue => Res[A] = {
 
     type Decode = DynamoValue => Either[List[ReadError], A]
@@ -202,5 +166,47 @@ object decoding {
     xmap.schema
       .read(v)
       .flatMap(xmap.r)
+
+  def decodeRecord[R](record: Record[R]): DynamoValue => Either[ReadError, R] =
+    value =>
+      value.m
+        .toRight(ReadError(s"value ${value.toString()} is not a Dictionary"))
+        .flatMap { map =>
+          val decodedValues = new Array[Any](record.fields.length)
+          var i = 0
+          var error: ReadError = null
+
+          while (i < record.fields.length && error == null) {
+            record.fields(i) match {
+              case Field.Optional(name, schema, get) =>
+                map.get(name) match {
+                  case None => decodedValues(i) = None
+                  case Some(value) =>
+                    schema.read(value) match {
+                      case Left(err) => error = err
+                      case Right(v) => decodedValues(i) = Some(v)
+                    }
+                }
+
+              case Field.Required(name, schema, get) =>
+                map.get(name) match {
+                  case None =>
+                    error = ReadError(
+                      s"required field $name does not contain a value"
+                    )
+                  case Some(value) =>
+                    schema.read(value) match {
+                      case Left(err) => error = err
+                      case Right(v) => decodedValues(i) = v
+                    }
+                }
+
+            }
+            i += 1
+          }
+
+          if (error != null) Left(error)
+          else Right(record.build(decodedValues.toList))
+        }
 
 }
