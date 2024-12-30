@@ -21,4 +21,3 @@ case class Parasaurolophus(name: String, age: Int, songs: Int) extends Dynosaur
 case class TyrannosaurusRex(name: String, age: Int, victims: Int)
     extends Dynosaur
 case class Allosaurus(name: String, age: Int, attacks: Int) extends Dynosaur
-

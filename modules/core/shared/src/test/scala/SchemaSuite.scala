@@ -631,7 +631,7 @@ class SchemaSuite extends ScalaCheckSuite {
     check(schema, departments, expected)
   }
 
-  test("recursive products with very wide record".only) {
+  test("recursive products with very wide record") {
     val departments = deepDepartment(1, 100)
     val expected = deepDepartmentDynamoValue(1, 100);
 

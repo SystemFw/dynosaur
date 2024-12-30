@@ -22,7 +22,7 @@ val scala33 = "3.3.4"
 val scala36 = "3.6.2"
 ThisBuild / spiewakMainBranches := Seq("main")
 
-ThisBuild / crossScalaVersions := Seq(scala36, scala33, Scala213)
+ThisBuild / crossScalaVersions := Seq(Scala213, scala36, scala33)
 ThisBuild / versionIntroduced := Map("3.0.0" -> "0.3.0")
 ThisBuild / scalaVersion := (ThisBuild / crossScalaVersions).value.head
 ThisBuild / initialCommands := """
@@ -34,6 +34,13 @@ lazy val root = project
   .in(file("."))
   .enablePlugins(NoPublishPlugin, SonatypeCiReleasePlugin)
   .aggregate(core.js, core.jvm, benchmark)
+  .settings(
+    libraryDependencies --= List(
+      compilerPlugin(
+        "org.typelevel" % "kind-projector" % "0.13.2" cross CrossVersion.full
+      )
+    )
+  )
 
 lazy val core = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Full)
@@ -112,6 +119,13 @@ lazy val jsdocs = project
     libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.3.0"
   )
   .enablePlugins(ScalaJSPlugin)
+  .settings(
+    libraryDependencies --= List(
+      compilerPlugin(
+        "org.typelevel" % "kind-projector" % "0.13.2" cross CrossVersion.full
+      )
+    )
+  )
 
 lazy val docs = project
   .in(file("mdoc"))
@@ -130,6 +144,13 @@ lazy val docs = project
   )
   .dependsOn(core.jvm)
   .enablePlugins(MdocPlugin, NoPublishPlugin)
+  .settings(
+    libraryDependencies --= List(
+      compilerPlugin(
+        "org.typelevel" % "kind-projector" % "0.13.2" cross CrossVersion.full
+      )
+    )
+  )
 
 ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("11"))
 

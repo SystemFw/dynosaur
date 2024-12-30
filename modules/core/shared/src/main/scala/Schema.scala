@@ -218,7 +218,7 @@ object Schema {
           )
         case f @ Field.Optional(name, schema, get) =>
           OptimizedRecord(
-            List(f),
+            List(f.asInstanceOf[Field[R, _]]),
             values => values.head.asInstanceOf[X]
           )
       }

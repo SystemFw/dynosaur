@@ -102,7 +102,6 @@ object encoding {
       record: Record[R]
   ): R => Either[WriteError, DynamoValue] = {
     val fieldCount = record.fields.length
-    val fieldNames = record.fieldNames
 
     { value =>
       {

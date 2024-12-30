@@ -100,34 +100,35 @@ object encoding {
 
   def encodeRecord[R](
       record: Record[R]
-  ): R => Either[WriteError, DynamoValue] = {
-    val fieldCount = record.fields.length
-    val fieldNames = record.fieldNames
+  ): R => Either[WriteError, DynamoValue] = { value =>
+    var i = 0
+    var error: WriteError = null
 
-    val writers =
-      record.fields.map(field => (field.get, field.schema.write(_))).toArray
+    val dict = scalajs.js.Dictionary[AttributeValue]()
 
-    { value =>
-      {
-        val dict = scalajs.js.Dictionary[AttributeValue]()
-        var i = 0
-        var error: WriteError = null
-
-        while (i < record.fields.length && error == null) {
-          val field = record.fields(i)
-          val fieldValue = field.get(value)
-          field.schema.write(fieldValue.asInstanceOf[field.A]) match {
+    while (i < record.fields.length && error == null) {
+      record.fields(i) match {
+        case Field.Required(name, schema, get) =>
+          schema.write(get(value)) match {
             case Left(err) => error = err
-            case Right(v) => dict.addOne(fieldNames(i), v.value)
+            case Right(v) => dict.addOne(name, v.value)
           }
-          i += 1
-        }
-
-        if (error != null) Left(error)
-        else {
-          DynamoValue(AttributeValue.M(dict)).asRight[WriteError]
-        }
+        case Field.Optional(name, schema, get) =>
+          val fieldValue = get(value)
+          if (fieldValue != None) {
+            schema.write(fieldValue.get) match {
+              case Left(err) => error = err
+              case Right(v) => dict.addOne(name, v.value)
+            }
+          }
       }
+
+      i += 1
     }
+
+    if (error != null)
+      Left(error)
+    else
+      DynamoValue(AttributeValue.M(dict)).asRight[WriteError]
   }
 }
