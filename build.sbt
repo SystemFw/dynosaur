@@ -16,11 +16,13 @@ ThisBuild / scmInfo := Some(
 ThisBuild / startYear := Some(2020)
 Global / excludeLintKeys += scmInfo
 
-val Scala213 = "2.13.10"
-val scala3 = "3.3.1"
+val Scala212 = "2.12.19"
+val Scala213 = "2.13.14"
+val scala33 = "3.3.4"
+val scala36 = "3.6.2"
 ThisBuild / spiewakMainBranches := Seq("main")
 
-ThisBuild / crossScalaVersions := Seq(Scala213, scala3, "2.12.14")
+ThisBuild / crossScalaVersions := Seq(scala36, scala33, Scala213)
 ThisBuild / versionIntroduced := Map("3.0.0" -> "0.3.0")
 ThisBuild / scalaVersion := (ThisBuild / crossScalaVersions).value.head
 ThisBuild / initialCommands := """
@@ -49,6 +51,23 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
       "org.scalameta" %%% "munit" % "0.7.29" % Test,
       "org.scalameta" %%% "munit-scalacheck" % "0.7.29" % Test
     ),
+    // TODO sbt-spiewak-sonatype adds kind-projector 0.13.2 but it does not exist anymore
+    libraryDependencies --= List(
+      compilerPlugin(
+        "org.typelevel" % "kind-projector" % "0.13.2" cross CrossVersion.full
+      )
+    ),
+    libraryDependencies ++= {
+      if (!scalaBinaryVersion.value.startsWith("3")) {
+        List(
+          compilerPlugin(
+            "org.typelevel" % "kind-projector" % "0.13.3" cross CrossVersion.full
+          )
+        )
+      } else {
+        Nil
+      }
+    },
     mimaBinaryIssueFilters ++= List(
       ProblemFilters.exclude[ReversedMissingMethodProblem](
         "dynosaur.Schema.dynosaur$Schema$$read_"
@@ -78,6 +97,13 @@ lazy val benchmark = project
   .dependsOn(core.jvm)
   .enablePlugins(JmhPlugin)
   .disablePlugins(MimaPlugin)
+  .settings(
+    libraryDependencies --= List(
+      compilerPlugin(
+        "org.typelevel" % "kind-projector" % "0.13.2" cross CrossVersion.full
+      )
+    )
+  )
 
 lazy val jsdocs = project
   .dependsOn(core.js)

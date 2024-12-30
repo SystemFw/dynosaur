@@ -42,7 +42,7 @@ object encoding {
       case Nul => encodeNull
       case Sequence(elem) => encodeSequence(elem, _)
       case Dictionary(elem) => encodeDictionary(elem, _)
-      case Record(rec) => encodeRecord(rec)
+      case r: Record[A] => Schema.encodeRecord(r)
       case Sum(cases) => encodeSum(cases)
       case Isos(iso) => encodeIsos(iso, _)
       case Defer(schema) => schema().write
@@ -75,46 +75,6 @@ object encoding {
       .map { case (k, v) => k -> v }
       .traverse(schema.write)
       .map(DynamoValue.m)
-
-  def encodeRecord[R](
-      recordSchema: FreeApplicative[Field[R, *], R]
-  ): R => Res = {
-
-    implicit def overrideKeys[T]: Monoid[Map[String, T]] =
-      MonoidK[Map[String, *]].algebra
-
-    type Target[A] = R => Either[WriteError, Map[String, DynamoValue]]
-
-    recordSchema
-      .analyze {
-        new (Field[R, *] ~> Target) {
-
-          def write[E](
-              name: String,
-              schema: Schema[E],
-              elem: E
-          ): Either[WriteError, Map[String, DynamoValue]] =
-            schema.write(elem).map { av => Map(name -> av) }
-
-          def apply[B](field: Field[R, B]) =
-            field match {
-              case Field.Required(name, elemSchema, get) =>
-                (record: R) => {
-                  val elem = get(record)
-                  write(name, elemSchema, elem)
-                }
-              case Field.Optional(name, elemSchema, get) =>
-                (record: R) => {
-                  val elem = get(record)
-                  elem
-                    .foldMap(write(name, elemSchema, _))
-                }
-            }
-        }
-      }
-      .andThen(_.map(DynamoValue.m))
-
-  }
 
   def encodeSum[C](cases: Chain[Alt[C]]): C => Res = {
     implicit def orElse[T]: Monoid[Option[T]] =

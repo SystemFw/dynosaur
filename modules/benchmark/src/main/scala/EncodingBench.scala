@@ -24,30 +24,16 @@ import cats.data.NonEmptyList
 import schemas.*
 import data.*
 
-class DecodingBench {
+class EncodingBench {
 
   @Benchmark
   @BenchmarkMode(Array(Mode.Throughput))
-  def decodeAnS =
-    Schema.string.read(stringDv)
+  def encodeAnS =
+    Schema.string.write(string)
 
   @Benchmark
   @BenchmarkMode(Array(Mode.Throughput))
-  def decodeAnM =
-    schermaForAllosaurus.read(allosaurusDv)
-
-  @Benchmark
-  @BenchmarkMode(Array(Mode.Throughput))
-  def decodeOneOfWithTag =
-    schemaForDynosaurWithTag.read(tyrannosaurusRexWithTagDv)
-
-  @Benchmark
-  @BenchmarkMode(Array(Mode.Throughput))
-  def decodeOneOfWithDiscriminator =
-    schemaForDynosaurWithDiscriminator.read(dynosaurWithDiscriminatorDv)
-
-  @Benchmark
-  @BenchmarkMode(Array(Mode.Throughput))
-  def decodeList = schemaForStrings.read(stringsDv)
+  def encodeAnM =
+    schermaForAllosaurus.write(allosaurus)
 
 }

@@ -43,13 +43,7 @@ object decoding {
       case Nul => decodeNull
       case Sequence(elem) => decodeSequence(elem, _)
       case Dictionary(elem) => decodeDictionary(elem, _)
-      case Record(rec) => { value =>
-        // val here caches the traversal of the record
-        val cachedDecoder = decodeRecord(rec)
-        value.m
-          .toRight(ReadError(s"value ${value.toString()} is not a Dictionary"))
-          .flatMap(cachedDecoder)
-      }
+      case r: Record[A] => Schema.decodeRecord(r)
       case Sum(cases) => decodeSum(cases)
       case Isos(iso) => decodeIsos(iso, _)
       case Defer(schema) => schema().read
@@ -138,36 +132,6 @@ object decoding {
         _.map { case (k, v) => k -> v }
           .traverse(schema.read)
       )
-
-  def decodeRecord[R](
-      recordSchema: FreeApplicative[Field[R, *], R]
-  ): Map[String, DynamoValue] => Res[R] = {
-
-    type Target[A] =
-      Kleisli[Either[ReadError, *], Map[String, DynamoValue], A]
-
-    recordSchema.foldMap {
-      new (Field[R, *] ~> Target) {
-        def apply[A](field: Field[R, A]) =
-          field match {
-            case Field.Required(name, elemSchema, _) =>
-              Kleisli { (v: Map[String, DynamoValue]) =>
-                v.get(name)
-                  .toRight(
-                    ReadError(s"required field $name does not contain a value")
-                  )
-                  .flatMap(v => elemSchema.read(v))
-              }
-            case Field.Optional(name, elemSchema, _) =>
-              Kleisli { (v: Map[String, DynamoValue]) =>
-                v
-                  .get(name)
-                  .traverse(v => elemSchema.read(v))
-              }
-          }
-      }
-    }.run
-  }
 
   def decodeSum[A](cases: Chain[Alt[A]]): DynamoValue => Res[A] = {
 

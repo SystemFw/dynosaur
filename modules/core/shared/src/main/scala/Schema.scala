@@ -19,6 +19,7 @@ package dynosaur
 import cats.syntax.all._
 import cats.free.FreeApplicative
 import cats.data.Chain
+import cats.*
 
 import scodec.bits.ByteVector
 import scala.collection.immutable
@@ -35,20 +36,17 @@ sealed trait Schema[A] { self =>
   import structure._
 
   private var read_ : DynamoValue => Either[ReadError, A] = null
-
   private var write_ : A => Either[WriteError, DynamoValue] = null
 
   def read(v: DynamoValue): Either[ReadError, A] = {
     if (read_ == null)
       read_ = internal.decoding.fromSchema(this)
-
     read_(v)
   }
 
   def write(a: A): Either[WriteError, DynamoValue] = {
     if (write_ == null)
       write_ = internal.encoding.fromSchema(this)
-
     write_(a)
   }
 
@@ -173,11 +171,83 @@ object Schema {
 
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 
-  def fields[R](p: FreeApplicative[Field[R, *], R]): Schema[R] = Record(p)
+  sealed trait RecordField[R] {
+    type A
+    def name: String
+    def schema: Schema[A]
+    def get: R => A
+  }
+
+  object RecordField {
+    def apply[R, A0](
+        name0: String,
+        schema0: Schema[A0],
+        get0: R => A0
+    ): RecordField[R] =
+      new RecordField[R] {
+        type A = A0
+        def name = name0
+        def schema = schema0
+        def get = get0
+      }
+  }
+
+  case class OptimizedRecord[R, A](
+      fields: List[RecordField[R]],
+      build: List[Any] => A
+  )
+
+  def fields[R](p: FreeApplicative[Field[R, *], R]): Schema[R] = {
+    val optimized = optimizeRecord(p)
+    Record(optimized.fields, optimized.build)
+  }
+
   def record[R](
       b: FieldBuilder[R] => FreeApplicative[Field[R, *], R]
   ): Schema[R] =
     fields(b(field))
+
+  private def optimizeRecord[R, A](
+      fa: FreeApplicative[Field[R, *], A]
+  ): OptimizedRecord[R, A] = {
+    implicit val optimizedRecordApplicative =
+      new cats.Applicative[λ[α => OptimizedRecord[R, α]]] {
+        def pure[X](x: X): OptimizedRecord[R, X] =
+          OptimizedRecord(Nil, _ => x)
+
+        def ap[X, Y](
+            ff: OptimizedRecord[R, X => Y]
+        )(
+            fa: OptimizedRecord[R, X]
+        ): OptimizedRecord[R, Y] = {
+          OptimizedRecord(
+            ff.fields ++ fa.fields,
+            values => {
+              val (f, x) = values.splitAt(ff.fields.length) match {
+                case (ffValues, faValues) =>
+                  (ff.build(ffValues), fa.build(faValues))
+              }
+              f(x)
+            }
+          )
+        }
+      }
+
+    fa.foldMap(new (Field[R, *] ~> λ[α => OptimizedRecord[R, α]]) {
+      def apply[X](field: Field[R, X]): OptimizedRecord[R, X] = field match {
+        case Field.Required(name, schema, get) =>
+          OptimizedRecord(
+            List(RecordField(name, schema, get)),
+            values => values.head.asInstanceOf[X]
+          )
+        case Field.Optional(name, schema, get) =>
+          OptimizedRecord(
+            List(RecordField(name, schema.nullable, get)),
+            values => values.head.asInstanceOf[X]
+          )
+      }
+    })
+  }
 
   def alternatives[A](cases: Chain[Alt[A]]): Schema[A] =
     Sum(cases)
@@ -246,7 +316,7 @@ object Schema {
     case object StrSet extends Schema[NonEmptySet[String]]
     case class Dictionary[A](value: Schema[A]) extends Schema[Map[String, A]]
     case class Sequence[A](value: Schema[A]) extends Schema[List[A]]
-    case class Record[R](value: FreeApplicative[Field[R, *], R])
+    case class Record[R](fields: List[RecordField[R]], build: List[Any] => R)
         extends Schema[R]
     case class Sum[A](value: Chain[Alt[A]]) extends Schema[A]
     case class Isos[A](value: XMap[A]) extends Schema[A]
@@ -281,7 +351,6 @@ object Schema {
     }
   }
 
-  // TODO use parseFromString from Numeric, 2.13+
   private def num[A: Numeric](convert: String => A): Schema[A] =
     Num.imapErr { v =>
       Either
@@ -309,5 +378,57 @@ object Schema {
         nes.value.map(n => DynamoValue.Number.of(n))
       )
     )
+  }
+
+  def decodeRecord[R](record: Record[R]): DynamoValue => Either[ReadError, R] =
+    value =>
+      value.m
+        .toRight(ReadError(s"value ${value.toString()} is not a Dictionary"))
+        .flatMap { map =>
+          val decodedValues = new Array[Any](record.fields.length)
+          var i = 0
+          var error: ReadError = null
+
+          while (i < record.fields.length && error == null) {
+            val field = record.fields(i)
+            map.get(field.name) match {
+              case None =>
+                error = ReadError(
+                  s"required field ${field.name} does not contain a value"
+                )
+              case Some(value) =>
+                field.schema.read(value) match {
+                  case Left(err) => error = err
+                  case Right(v) => decodedValues(i) = v
+                }
+            }
+            i += 1
+          }
+
+          if (error != null) Left(error)
+          else Right(record.build(decodedValues.toList))
+        }
+
+  def encodeRecord[R](
+      record: Record[R]
+  ): R => Either[WriteError, DynamoValue] = { value =>
+    {
+      val encoded = new Array[(String, DynamoValue)](record.fields.length)
+      var i = 0
+      var error: WriteError = null
+
+      while (i < record.fields.length && error == null) {
+        val field = record.fields(i)
+        val fieldValue = field.get(value)
+        field.schema.write(fieldValue.asInstanceOf[field.A]) match {
+          case Left(err) => error = err
+          case Right(v) => encoded(i) = (field.name, v)
+        }
+        i += 1
+      }
+
+      if (error != null) Left(error)
+      else Right(DynamoValue.m(encoded.toMap))
+    }
   }
 }
