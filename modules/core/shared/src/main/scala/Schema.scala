@@ -16,10 +16,10 @@
 
 package dynosaur
 
+import cats._
 import cats.syntax.all._
 import cats.free.FreeApplicative
 import cats.data.Chain
-import cats.*
 
 import scodec.bits.ByteVector
 import scala.collection.immutable
@@ -316,8 +316,22 @@ object Schema {
     case object StrSet extends Schema[NonEmptySet[String]]
     case class Dictionary[A](value: Schema[A]) extends Schema[Map[String, A]]
     case class Sequence[A](value: Schema[A]) extends Schema[List[A]]
-    case class Record[R](fields: List[RecordField[R]], build: List[Any] => R)
-        extends Schema[R]
+    case class Record[R](
+        fields: List[RecordField[R]],
+        build: List[Any] => R,
+        fieldNames: Array[String]
+    ) extends Schema[R]
+
+    object Record {
+      def apply[R](
+          fields: List[RecordField[R]],
+          build: List[Any] => R
+      ): Record[R] = {
+        val fieldNames = fields.map(_.name).toArray
+        new Record(fields, build, fieldNames)
+      }
+    }
+
     case class Sum[A](value: Chain[Alt[A]]) extends Schema[A]
     case class Isos[A](value: XMap[A]) extends Schema[A]
     case class Defer[A](value: () => Schema[A]) extends Schema[A]
@@ -378,57 +392,5 @@ object Schema {
         nes.value.map(n => DynamoValue.Number.of(n))
       )
     )
-  }
-
-  def decodeRecord[R](record: Record[R]): DynamoValue => Either[ReadError, R] =
-    value =>
-      value.m
-        .toRight(ReadError(s"value ${value.toString()} is not a Dictionary"))
-        .flatMap { map =>
-          val decodedValues = new Array[Any](record.fields.length)
-          var i = 0
-          var error: ReadError = null
-
-          while (i < record.fields.length && error == null) {
-            val field = record.fields(i)
-            map.get(field.name) match {
-              case None =>
-                error = ReadError(
-                  s"required field ${field.name} does not contain a value"
-                )
-              case Some(value) =>
-                field.schema.read(value) match {
-                  case Left(err) => error = err
-                  case Right(v) => decodedValues(i) = v
-                }
-            }
-            i += 1
-          }
-
-          if (error != null) Left(error)
-          else Right(record.build(decodedValues.toList))
-        }
-
-  def encodeRecord[R](
-      record: Record[R]
-  ): R => Either[WriteError, DynamoValue] = { value =>
-    {
-      val encoded = new Array[(String, DynamoValue)](record.fields.length)
-      var i = 0
-      var error: WriteError = null
-
-      while (i < record.fields.length && error == null) {
-        val field = record.fields(i)
-        val fieldValue = field.get(value)
-        field.schema.write(fieldValue.asInstanceOf[field.A]) match {
-          case Left(err) => error = err
-          case Right(v) => encoded(i) = (field.name, v)
-        }
-        i += 1
-      }
-
-      if (error != null) Left(error)
-      else Right(DynamoValue.m(encoded.toMap))
-    }
   }
 }

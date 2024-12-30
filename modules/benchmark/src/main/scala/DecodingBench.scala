@@ -16,13 +16,13 @@
 
 package dynosaur
 
-import cats.syntax.all.*
+import cats.syntax.all._
 
 import org.openjdk.jmh.annotations.{Benchmark, BenchmarkMode, Mode}
 import cats.data.NonEmptyList
 
-import schemas.*
-import data.*
+import schemas._
+import data._
 
 class DecodingBench {
 

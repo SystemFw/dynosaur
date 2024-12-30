@@ -85,7 +85,9 @@ class SchemaSuite extends ScalaCheckSuite {
   case class Paragraph(text: String) extends Text
   case class Section(title: String, contents: List[Text]) extends Text
 
-  def check[A](schema: Schema[A], data: A, expected: V) = {
+  def check[A](schema: Schema[A], data: A, expected: V)(implicit
+      loc: munit.Location
+  ) = {
 
     val output = schema
       .write(data)
@@ -160,6 +162,33 @@ class SchemaSuite extends ScalaCheckSuite {
     }
 
     loop(deep, Paragraph("dolor sit amet"))
+  }
+
+  def deepDepartment(depth: Int, width: Int = 1): Department = {
+    if (depth <= 0) {
+      Department(s"Leaf", Nil)
+    } else {
+      Department(
+        s"Level-$depth",
+        List.fill(width)(deepDepartment(depth - 1, width))
+      )
+    }
+  }
+
+  def deepDepartmentDynamoValue(depth: Int, width: Int = 1): DynamoValue = {
+    if (depth <= 0) {
+      DynamoValue.m(
+        "name" -> DynamoValue.s("Leaf"),
+        "subdeps" -> DynamoValue.l(List.empty)
+      )
+    } else {
+      DynamoValue.m(
+        "name" -> DynamoValue.s(s"Level-$depth"),
+        "subdeps" -> DynamoValue.l(
+          List.fill(width)(deepDepartmentDynamoValue(depth - 1, width))
+        )
+      )
+    }
   }
 
   test("id") {
@@ -305,9 +334,25 @@ class SchemaSuite extends ScalaCheckSuite {
     check(versionedSchema, user, expected)
   }
 
-  test("products with optional fields") {
+  test("products with optional fields should handle presence") {
+    val schema = Schema.record[Log] { field =>
+      (
+        field("msg", _.msg),
+        field.opt("tag", _.tag)
+      ).mapN(Log.apply)
+    }
+
     val complete = Log("complete log", "tag".some)
-    val noTag = Log("incomplete log", None)
+
+    val expected = V.m(
+      "msg" -> V.s(complete.msg),
+      "tag" -> V.s(complete.tag.get)
+    )
+
+    check(schema, complete, expected)
+  }
+
+  test("products with optional fields should handle absence") {
 
     val schema = Schema.record[Log] { field =>
       (
@@ -316,31 +361,36 @@ class SchemaSuite extends ScalaCheckSuite {
       ).mapN(Log.apply)
     }
 
-    val expectedComplete = V.m(
-      "msg" -> V.s(complete.msg),
-      "tag" -> V.s(complete.tag.get)
-    )
+    val noTag = Log("incomplete log", None)
 
-    val expectedNoTag = V.m(
+    val expected = V.m(
       "msg" -> V.s(noTag.msg)
     )
 
+    check(schema, noTag, expected)
+  }
+
+  test("products with optional fields should handle incorrect") {
+
+    val schema = Schema.record[Log] { field =>
+      (
+        field("msg", _.msg),
+        field.opt("tag", _.tag)
+      ).mapN(Log.apply)
+    }
+
     val incorrectNoTag = V.m(
-      "msg" -> V.s(noTag.msg),
+      "msg" -> V.s("incomplete log"),
       "tag" -> V.nul
     )
 
-    check(schema, complete, expectedComplete)
-    check(schema, noTag, expectedNoTag)
     assertEquals(
       schema.read(incorrectNoTag),
       Left(Schema.ReadError("value \"NULL\": true is not a String"))
     )
   }
 
-  test("products with nullable values") {
-    val complete = Log("complete log", "tag".some)
-    val noTag = Log("incomplete log", None)
+  test("products with nullable values should handle presence") {
 
     val schema = Schema.record[Log] { field =>
       (
@@ -349,22 +399,47 @@ class SchemaSuite extends ScalaCheckSuite {
       ).mapN(Log.apply)
     }
 
-    val expectedComplete = V.m(
+    val complete = Log("complete log", "tag".some)
+
+    val expected = V.m(
       "msg" -> V.s(complete.msg),
       "tag" -> V.s(complete.tag.get)
     )
 
-    val expectedNoTag = V.m(
+    check(schema, complete, expected)
+  }
+
+  test("products with nullable values should handle absence") {
+
+    val schema = Schema.record[Log] { field =>
+      (
+        field("msg", _.msg),
+        field("tag", _.tag)(Schema.nullable)
+      ).mapN(Log.apply)
+    }
+
+    val noTag = Log("incomplete log", None)
+
+    val expected = V.m(
       "msg" -> V.s(noTag.msg),
       "tag" -> V.nul
     )
 
+    check(schema, noTag, expected)
+  }
+
+  test("products with nullable values should handle incorrect") {
+    val schema = Schema.record[Log] { field =>
+      (
+        field("msg", _.msg),
+        field("tag", _.tag)(Schema.nullable)
+      ).mapN(Log.apply)
+    }
+
     val incorrectNoTag = V.m(
-      "msg" -> V.s(noTag.msg)
+      "msg" -> V.s("incomplete log")
     )
 
-    check(schema, complete, expectedComplete)
-    check(schema, noTag, expectedNoTag)
     assertEquals(
       schema.read(incorrectNoTag),
       Left(Schema.ReadError("required field tag does not contain a value"))
@@ -528,6 +603,22 @@ class SchemaSuite extends ScalaCheckSuite {
         )
       )
     )
+
+    val schema: Schema[Department] = Schema.recursive { rec =>
+      Schema.record { field =>
+        (
+          field("name", _.name),
+          field("subdeps", _.subdeps)(rec.asList)
+        ).mapN(Department.apply)
+      }
+    }
+
+    check(schema, departments, expected)
+  }
+
+  test("recursive products with higly recursive") {
+    val departments = deepDepartment(1, 3)
+    val expected = deepDepartmentDynamoValue(1, 3);
 
     val schema: Schema[Department] = Schema.recursive { rec =>
       Schema.record { field =>

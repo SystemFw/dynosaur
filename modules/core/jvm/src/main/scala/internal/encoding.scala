@@ -42,7 +42,7 @@ object encoding {
       case Nul => encodeNull
       case Sequence(elem) => encodeSequence(elem, _)
       case Dictionary(elem) => encodeDictionary(elem, _)
-      case r: Record[A] => Schema.encodeRecord(r)
+      case r: Record[A] => encodeRecord(r)
       case Sum(cases) => encodeSum(cases)
       case Isos(iso) => encodeIsos(iso, _)
       case Defer(schema) => schema().write
@@ -97,4 +97,40 @@ object encoding {
 
   def encodeIsos[V](xmap: XMap[V], value: V): Res =
     xmap.w(value).flatMap(v => xmap.schema.write(v))
+
+  def encodeRecord[R](
+      record: Record[R]
+  ): R => Either[WriteError, DynamoValue] = {
+    val fieldCount = record.fields.length
+    val fieldNames = record.fieldNames
+
+    { value =>
+      {
+        var i = 0
+        var error: WriteError = null
+
+        val map =
+          new java.util.IdentityHashMap[String, AttributeValue](fieldCount)
+        while (i < record.fields.length && error == null) {
+          val field = record.fields(i)
+          val fieldValue = field.get(value)
+          field.schema.write(fieldValue.asInstanceOf[field.A]) match {
+            case Left(err) => error = err
+            case Right(v) => map.put(fieldNames(i), v.value)
+          }
+          i += 1
+        }
+
+        if (error != null)
+          Left(error)
+        else
+          Right(
+            DynamoValue(
+              software.amazon.awssdk.services.dynamodb.model.AttributeValue
+                .fromM(map)
+            )
+          )
+      }
+    }
+  }
 }

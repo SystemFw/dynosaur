@@ -43,7 +43,7 @@ object decoding {
       case Nul => decodeNull
       case Sequence(elem) => decodeSequence(elem, _)
       case Dictionary(elem) => decodeDictionary(elem, _)
-      case r: Record[A] => Schema.decodeRecord(r)
+      case r: Record[A] => decodeRecord(r)
       case Sum(cases) => decodeSum(cases)
       case Isos(iso) => decodeIsos(iso, _)
       case Defer(schema) => schema().read
@@ -166,5 +166,34 @@ object decoding {
     xmap.schema
       .read(v)
       .flatMap(xmap.r)
+
+  def decodeRecord[R](record: Record[R]): DynamoValue => Either[ReadError, R] =
+    value =>
+      value.m
+        .toRight(ReadError(s"value ${value.toString()} is not a Dictionary"))
+        .flatMap { map =>
+          val decodedValues = new Array[Any](record.fields.length)
+          var i = 0
+          var error: ReadError = null
+
+          while (i < record.fields.length && error == null) {
+            val field = record.fields(i)
+            map.get(field.name) match {
+              case None =>
+                error = ReadError(
+                  s"required field ${field.name} does not contain a value"
+                )
+              case Some(value) =>
+                field.schema.read(value) match {
+                  case Left(err) => error = err
+                  case Right(v) => decodedValues(i) = v
+                }
+            }
+            i += 1
+          }
+
+          if (error != null) Left(error)
+          else Right(record.build(decodedValues.toList))
+        }
 
 }
