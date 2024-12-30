@@ -91,15 +91,14 @@ class SchemaSuite extends ScalaCheckSuite {
 
     val output = schema
       .write(data)
-      .toOption
 
-    assertEquals(output, expected.some, clue(data))
+    assertEquals(output, expected.asRight, clue(data))
 
     val roundTrip = output.flatMap { output =>
-      schema.read(output).toOption
+      schema.read(output)
     }
 
-    assertEquals(roundTrip, data.some)
+    assertEquals(roundTrip, data.asRight)
   }
 
   def checkNotFail[A](schema: Schema[A], data: A) = {

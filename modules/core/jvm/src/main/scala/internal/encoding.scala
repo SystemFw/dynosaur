@@ -111,13 +111,24 @@ object encoding {
 
         val map =
           new java.util.IdentityHashMap[String, AttributeValue](fieldCount)
+
         while (i < record.fields.length && error == null) {
-          val field = record.fields(i)
-          val fieldValue = field.get(value)
-          field.schema.write(fieldValue.asInstanceOf[field.A]) match {
-            case Left(err) => error = err
-            case Right(v) => map.put(fieldNames(i), v.value)
+          record.fields(i) match {
+            case Field.Required(name, schema, get) =>
+              schema.write(get(value)) match {
+                case Left(err) => error = err
+                case Right(v) => map.put(name, v.value)
+              }
+            case Field.Optional(name, schema, get) =>
+              val fieldValue = get(value)
+              if (fieldValue != None) {
+                schema.write(fieldValue.get) match {
+                  case Left(err) => error = err
+                  case Right(v) => map.put(name, v.value)
+                }
+              }
           }
+
           i += 1
         }
 

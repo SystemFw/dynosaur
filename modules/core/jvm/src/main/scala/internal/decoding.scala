@@ -177,17 +177,30 @@ object decoding {
           var error: ReadError = null
 
           while (i < record.fields.length && error == null) {
-            val field = record.fields(i)
-            map.get(field.name) match {
-              case None =>
-                error = ReadError(
-                  s"required field ${field.name} does not contain a value"
-                )
-              case Some(value) =>
-                field.schema.read(value) match {
-                  case Left(err) => error = err
-                  case Right(v) => decodedValues(i) = v
+            record.fields(i) match {
+              case Field.Optional(name, schema, get) =>
+                map.get(name) match {
+                  case None => decodedValues(i) = None
+                  case Some(value) =>
+                    schema.read(value) match {
+                      case Left(err) => error = err
+                      case Right(v) => decodedValues(i) = Some(v)
+                    }
                 }
+
+              case Field.Required(name, schema, get) =>
+                map.get(name) match {
+                  case None =>
+                    error = ReadError(
+                      s"required field $name does not contain a value"
+                    )
+                  case Some(value) =>
+                    schema.read(value) match {
+                      case Left(err) => error = err
+                      case Right(v) => decodedValues(i) = v
+                    }
+                }
+
             }
             i += 1
           }

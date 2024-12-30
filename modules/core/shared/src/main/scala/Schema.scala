@@ -171,29 +171,8 @@ object Schema {
 
   def nullable[A](implicit s: Schema[A]): Schema[Option[A]] = s.nullable
 
-  sealed trait RecordField[R] {
-    type A
-    def name: String
-    def schema: Schema[A]
-    def get: R => A
-  }
-
-  object RecordField {
-    def apply[R, A0](
-        name0: String,
-        schema0: Schema[A0],
-        get0: R => A0
-    ): RecordField[R] =
-      new RecordField[R] {
-        type A = A0
-        def name = name0
-        def schema = schema0
-        def get = get0
-      }
-  }
-
   case class OptimizedRecord[R, A](
-      fields: List[RecordField[R]],
+      fields: List[Field[R, _]],
       build: List[Any] => A
   )
 
@@ -217,9 +196,7 @@ object Schema {
 
         def ap[X, Y](
             ff: OptimizedRecord[R, X => Y]
-        )(
-            fa: OptimizedRecord[R, X]
-        ): OptimizedRecord[R, Y] = {
+        )(fa: OptimizedRecord[R, X]): OptimizedRecord[R, Y] =
           OptimizedRecord(
             ff.fields ++ fa.fields,
             values => {
@@ -230,19 +207,18 @@ object Schema {
               f(x)
             }
           )
-        }
       }
 
     fa.foldMap(new (Field[R, *] ~> λ[α => OptimizedRecord[R, α]]) {
       def apply[X](field: Field[R, X]): OptimizedRecord[R, X] = field match {
-        case Field.Required(name, schema, get) =>
+        case f @ Field.Required(name, schema, get) =>
           OptimizedRecord(
-            List(RecordField(name, schema, get)),
+            List(f),
             values => values.head.asInstanceOf[X]
           )
-        case Field.Optional(name, schema, get) =>
+        case f @ Field.Optional(name, schema, get) =>
           OptimizedRecord(
-            List(RecordField(name, schema.nullable, get)),
+            List(f),
             values => values.head.asInstanceOf[X]
           )
       }
@@ -316,15 +292,16 @@ object Schema {
     case object StrSet extends Schema[NonEmptySet[String]]
     case class Dictionary[A](value: Schema[A]) extends Schema[Map[String, A]]
     case class Sequence[A](value: Schema[A]) extends Schema[List[A]]
+
     case class Record[R](
-        fields: List[RecordField[R]],
+        fields: List[Field[R, ?]],
         build: List[Any] => R,
         fieldNames: Array[String]
     ) extends Schema[R]
 
     object Record {
       def apply[R](
-          fields: List[RecordField[R]],
+          fields: List[Field[R, ?]],
           build: List[Any] => R
       ): Record[R] = {
         val fieldNames = fields.map(_.name).toArray
@@ -336,7 +313,10 @@ object Schema {
     case class Isos[A](value: XMap[A]) extends Schema[A]
     case class Defer[A](value: () => Schema[A]) extends Schema[A]
 
-    sealed trait Field[R, E]
+    sealed trait Field[R, E] {
+      def name: String
+    }
+
     object Field {
       case class Required[R, E](
           name: String,
