@@ -1,11 +1,10 @@
 import com.typesafe.tools.mima.core.ReversedMissingMethodProblem
 import com.typesafe.tools.mima.core.ProblemFilters
-Global / onChangedBuildSource := ReloadOnSourceChanges
 
-ThisBuild / baseVersion := "0.3.0"
+ThisBuild / tlBaseVersion := "0.3"
 ThisBuild / organization := "org.systemfw"
-ThisBuild / publishGithubUser := "SystemFw"
-ThisBuild / publishFullName := "Fabio Labella"
+ThisBuild / organizationName := "SystemFw"
+ThisBuild / licenses := Seq(License.Apache2)
 ThisBuild / homepage := Some(url("https://github.com/SystemFw/dynosaur"))
 ThisBuild / scmInfo := Some(
   ScmInfo(
@@ -13,25 +12,27 @@ ThisBuild / scmInfo := Some(
     "git@github.com:SystemFw/dynosaur.git"
   )
 )
+ThisBuild / developers := List(
+  "SystemFw" -> "Fabio Labella"
+).map { case (username, fullname) => tlGitHubDev(username, fullname) }
 ThisBuild / startYear := Some(2020)
-Global / excludeLintKeys += scmInfo
 
 val Scala213 = "2.13.10"
 val scala3 = "3.3.6"
-ThisBuild / spiewakMainBranches := Seq("main")
 
 ThisBuild / crossScalaVersions := Seq(Scala213, scala3, "2.12.14")
-ThisBuild / versionIntroduced := Map("3.0.0" -> "0.3.0")
+ThisBuild / tlVersionIntroduced := Map("3.0.0" -> "0.3.0")
 ThisBuild / scalaVersion := (ThisBuild / crossScalaVersions).value.head
+
 ThisBuild / initialCommands := """
-  |import cats._, data._, syntax.all._
-  |import dynosaur._
+                                 |import cats._, data._, syntax.all._
+                                 |import dynosaur._
 """.stripMargin
 
 lazy val root = project
   .in(file("."))
-  .enablePlugins(NoPublishPlugin, SonatypeCiReleasePlugin)
-  .aggregate(core.js, core.jvm, benchmark)
+  .disablePlugins(MimaPlugin)
+  .aggregate(core.js, core.jvm, benchmark, docs)
 
 lazy val core = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Full)
@@ -69,6 +70,8 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
       "software.amazon.awssdk" % "dynamodb" % "2.31.42"
     )
   )
+  .jsSettings(
+  )
 
 lazy val coreJS = core.js
 lazy val coreJVM = core.jvm
@@ -77,61 +80,30 @@ lazy val benchmark = project
   .in(file("modules/benchmark"))
   .dependsOn(core.jvm)
   .enablePlugins(JmhPlugin)
-  .disablePlugins(MimaPlugin)
+  .settings(
+  )
 
 lazy val jsdocs = project
+  .in(file("jsdocs"))
   .dependsOn(core.js)
   .settings(
-    githubWorkflowArtifactUpload := false,
     libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.8.0"
   )
-  .enablePlugins(ScalaJSPlugin)
+  .enablePlugins(ScalaJSPlugin, NoPublishPlugin)
 
 lazy val docs = project
   .in(file("mdoc"))
+  .dependsOn(core.jvm)
   .settings(
-    mdocJS := Some(jsdocs),
+    name := "dynosaur-docs",
     mdocIn := file("docs"),
-    mdocOut := file("target/website"),
     mdocVariables := Map(
       "version" -> version.value,
       "scalaVersions" -> crossScalaVersions.value
         .map(v => s"- **$v**")
-        .mkString("\n")
+        .mkString("\n"),
+      "GH_USER" -> "SystemFw",
+      "GH_REPO" -> "dynosaur"
     ),
-    githubWorkflowArtifactUpload := false,
-    fatalWarningsInCI := false
+    tlFatalWarnings := false
   )
-  .dependsOn(core.jvm)
-  .enablePlugins(MdocPlugin, NoPublishPlugin)
-
-ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("11"))
-
-ThisBuild / githubWorkflowBuildPostamble ++= List(
-  WorkflowStep.Sbt(
-    List("docs/mdoc"),
-    cond = Some(s"matrix.scala == '$Scala213'")
-  )
-)
-
-ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
-  id = "docs",
-  name = "Deploy docs",
-  needs = List("publish"),
-  cond = """
-  | always() &&
-  | needs.build.result == 'success' &&
-  | (needs.publish.result == 'success' || github.ref == 'refs/heads/docs-deploy')
-  """.stripMargin.trim.linesIterator.mkString.some,
-  steps = githubWorkflowGeneratedDownloadSteps.value.toList :+
-    WorkflowStep.Use(
-      UseRef.Public("peaceiris", "actions-gh-pages", "v3"),
-      name = Some(s"Deploy docs"),
-      params = Map(
-        "publish_dir" -> "./target/website",
-        "github_token" -> "${{ secrets.GITHUB_TOKEN }}"
-      )
-    ),
-  scalas = List(Scala213),
-  javas = githubWorkflowJavaVersions.value.toList
-)
