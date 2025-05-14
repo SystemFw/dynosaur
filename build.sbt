@@ -17,7 +17,7 @@ ThisBuild / startYear := Some(2020)
 Global / excludeLintKeys += scmInfo
 
 val Scala213 = "2.13.10"
-val scala3 = "3.3.1"
+val scala3 = "3.3.6"
 ThisBuild / spiewakMainBranches := Seq("main")
 
 ThisBuild / crossScalaVersions := Seq(Scala213, scala3, "2.12.14")
@@ -66,7 +66,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
   )
   .jvmSettings(
     libraryDependencies ++= Seq(
-      "software.amazon.awssdk" % "dynamodb" % "2.21.14"
+      "software.amazon.awssdk" % "dynamodb" % "2.31.42"
     )
   )
 
@@ -83,7 +83,7 @@ lazy val jsdocs = project
   .dependsOn(core.js)
   .settings(
     githubWorkflowArtifactUpload := false,
-    libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.3.0"
+    libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.8.0"
   )
   .enablePlugins(ScalaJSPlugin)
 
