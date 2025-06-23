@@ -18,11 +18,7 @@ package dynosaur
 
 import cats.syntax.all._
 
-import org.openjdk.jmh.annotations.{
-  Benchmark,
-  BenchmarkMode,
-  Mode
-}
+import org.openjdk.jmh.annotations.{Benchmark, BenchmarkMode, Mode}
 import cats.data.NonEmptyList
 
 sealed trait Dynosaur

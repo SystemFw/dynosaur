@@ -11,7 +11,6 @@ ThisBuild / developers ++= List(
 )
 ThisBuild / startYear := Some(2020)
 
-
 val Scala213 = "2.13.16"
 
 ThisBuild / crossScalaVersions := Seq(Scala213, "3.3.6", "2.12.20")
@@ -66,7 +65,6 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
       "software.amazon.awssdk" % "dynamodb" % "2.31.68"
     )
   )
-
 
 lazy val benchmark = project
   .in(file("modules/benchmark"))
