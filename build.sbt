@@ -83,48 +83,20 @@ lazy val jsdocs = project
 lazy val docs = project
   .in(file("mdoc"))
   .settings(
-    mdocJS := Some(jsdocs),
     mdocIn := file("docs"),
     mdocOut := file("target/website"),
     mdocVariables := Map(
-      "version" -> version.value,
+      "version" -> tlLatestVersion.value.getOrElse(version.value),
       "scalaVersions" -> crossScalaVersions.value
         .map(v => s"- **$v**")
         .mkString("\n")
     ),
-    githubWorkflowArtifactUpload := false,
+    laikaSite := {
+      sbt.IO.copyDirectory(mdocOut.value, (laikaSite / target).value)
+      Set.empty
+    },
+    tlJdkRelease := None,
     tlFatalWarnings := false
   )
   .dependsOn(core.jvm)
-  .enablePlugins(MdocPlugin, NoPublishPlugin)
-
-ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("11"))
-
-ThisBuild / githubWorkflowBuildPostamble ++= List(
-  WorkflowStep.Sbt(
-    List("docs/mdoc"),
-    cond = Some(s"matrix.scala == '$Scala213'")
-  )
-)
-
-ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
-  id = "docs",
-  name = "Deploy docs",
-  needs = List("publish"),
-  cond = """
-  | always() &&
-  | needs.build.result == 'success' &&
-  | (needs.publish.result == 'success' || github.ref == 'refs/heads/docs-deploy')
-  """.stripMargin.trim.linesIterator.mkString.some,
-  steps = githubWorkflowGeneratedDownloadSteps.value.toList :+
-    WorkflowStep.Use(
-      UseRef.Public("peaceiris", "actions-gh-pages", "v4"),
-      name = Some(s"Deploy docs"),
-      params = Map(
-        "publish_dir" -> "./target/website",
-        "github_token" -> "${{ secrets.GITHUB_TOKEN }}"
-      )
-    ),
-  scalas = List(Scala213),
-  javas = githubWorkflowJavaVersions.value.toList
-)
+  .enablePlugins(TypelevelSitePlugin)
