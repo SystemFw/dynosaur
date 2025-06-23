@@ -17,7 +17,6 @@
 package dynosaur
 
 import org.scalacheck.Prop
-import dynosaur.Arbitraries._
 
 class ErrorSuite extends munit.ScalaCheckSuite {
 

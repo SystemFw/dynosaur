@@ -12,11 +12,9 @@ ThisBuild / developers ++= List(
 ThisBuild / startYear := Some(2020)
 
 
-val Scala213 = "2.13.10"
-val scala3 = "3.3.1"
+val Scala213 = "2.13.16"
 
-
-ThisBuild / crossScalaVersions := Seq(Scala213, scala3, "2.12.14")
+ThisBuild / crossScalaVersions := Seq(Scala213, "3.3.6", "2.12.20")
 ThisBuild / tlVersionIntroduced := Map("3.0.0" -> "0.3.0")
 ThisBuild / scalaVersion := (ThisBuild / crossScalaVersions).value.head
 ThisBuild / initialCommands := """
@@ -39,14 +37,14 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
     name := "dynosaur-core",
     scalafmtOnCompile := true,
     libraryDependencies ++= List(
-      "org.typelevel" %%% "cats-core" % "2.10.0",
-      "org.typelevel" %%% "cats-free" % "2.10.0",
-      "org.typelevel" %%% "alleycats-core" % "2.10.0",
-      "org.typelevel" %%% "paiges-core" % "0.4.3",
-      "org.typelevel" %%% "paiges-cats" % "0.4.3",
-      "org.scodec" %%% "scodec-bits" % "1.1.38",
-      "org.scalameta" %%% "munit" % "0.7.29" % Test,
-      "org.scalameta" %%% "munit-scalacheck" % "0.7.29" % Test
+      "org.typelevel" %%% "cats-core" % "2.11.0",
+      "org.typelevel" %%% "cats-free" % "2.11.0",
+      "org.typelevel" %%% "alleycats-core" % "2.11.0",
+      "org.typelevel" %%% "paiges-core" % "0.4.4",
+      "org.typelevel" %%% "paiges-cats" % "0.4.4",
+      "org.scodec" %%% "scodec-bits" % "1.2.1",
+      "org.scalameta" %%% "munit" % "1.1.1" % Test,
+      "org.scalameta" %%% "munit-scalacheck" % "1.1.0" % Test
     ),
     mimaBinaryIssueFilters ++= List(
       ProblemFilters.exclude[ReversedMissingMethodProblem](
@@ -65,7 +63,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
   )
   .jvmSettings(
     libraryDependencies ++= Seq(
-      "software.amazon.awssdk" % "dynamodb" % "2.21.14"
+      "software.amazon.awssdk" % "dynamodb" % "2.31.68"
     )
   )
 
